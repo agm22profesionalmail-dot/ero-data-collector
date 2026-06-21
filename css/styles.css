@@ -24,25 +24,32 @@
 html, body { margin: 0; padding: 0; }
 body {
   background-color: var(--bg);
-  background-image: url(../assets/bg/bg-stickers.png);
-  background-size: cover;
-  background-position: center top;
   color: var(--text);
   font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
 }
 
-/* Ink camo — textura encima, fija en el fondo */
-.edc-bg-decor::before {
+/* Fondo con desenfoque gaussiano — separado de las decoraciones */
+.edc-bg-layer {
+  position: absolute;
+  inset: -24px;
+  background-image: url(../assets/bg/bg-stickers.png);
+  background-size: cover;
+  background-position: center;
+  filter: blur(12px);
+  transform: scale(1.04);
+}
+
+/* Ink camo — textura encima del blur, no se desenfoca */
+.edc-bg-layer::after {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
   background-image: url(../assets/bg/bg-ink-camo.png);
   background-size: cover;
   background-position: center;
   opacity: .06;
   mix-blend-mode: screen;
-  pointer-events: none;
 }
 
 /* Header */
