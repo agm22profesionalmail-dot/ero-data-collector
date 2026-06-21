@@ -69,7 +69,7 @@ export const hairUrl = (e) => `${IMG}/player/hair/${e.__RowId}.png`;
 export const eyebrowUrl = (e, pType) => `${IMG}/player/eyebrow/${e.__RowId}_${isMale(pType) ? "M" : "F"}.png`;
 export const pantsUrl = (e) => `${IMG}/player/pants/${e.__RowId}.png`;
 export const pantsVarUrl = (e, v) =>
-  v === 0 ? pantsUrl(e) : `${IMG}/player/pants/${e.__RowId}.${v}.png`;
+  v === 0 ? pantsUrl(e) : `${IMG}/player/pants/${e.__RowId}.${v - 1}.png`;
 export const gearUrl = (e) => `${IMG}/player/gear/${e.__RowId}.png`;
 export const weaponUrl = (e) => `${IMG}/player/weapon/Wst_${e.__RowId}.png`;
 export const animUrl = (a) => `${IMG}/player/animations/${a}.png`;
