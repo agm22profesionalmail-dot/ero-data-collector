@@ -3,9 +3,9 @@ import { DEFAULT_PLAYER, SPECIES } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured } from "./supabase.js";
 import { signInWithDiscord, signOut, getSession, onAuthChange, discordProfile } from "./auth.js";
-import { loadData, colorToHex } from "./data.js";
+import { loadData, colorToHex, data, getById, headName, clothName, shoesName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
-import { renderBanner, validatePng } from "./banner.js";
+import { renderBanner } from "./banner.js";
 import { loadPlayer, savePlayer, getBannerSignedUrl } from "./store.js";
 import { el, clear, toast } from "./ui.js";
 
@@ -14,14 +14,16 @@ const appEl = () => $("app");
 
 let session = null;
 let dataReady = false;
-let state = null;   // ficha en edición
+let state = null;        // ficha en edición
 let profile = null;
+let hasRecord = false;   // ¿el usuario ya tenía ficha guardada?
+let mode = "edit";        // "preview" | "edit"
 
 // ── i18n estático ─────────────────────────────────────────────────────
 function applyStaticI18n() {
   document.documentElement.lang = getLang();
   $("appSub").textContent = t("app_sub");
-  $("footer").textContent = t("footer");
+  renderFooter();
   for (const b of $("langSwitch").querySelectorAll("button"))
     b.classList.toggle("active", b.dataset.lang === getLang());
   renderAuthArea();
@@ -38,6 +40,17 @@ function renderAuthArea() {
     chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: async () => { await signOut(); } }, t("logout")));
     area.append(chip);
   }
+}
+
+function renderFooter() {
+  const f = $("footer");
+  clear(f);
+  f.append(el("div", {}, t("footer")));
+  f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
+  const d = el("details", { class: "edc-legal" });
+  d.append(el("summary", {}, t("legal_title")));
+  d.append(el("div", { class: "edc-help-body", html: legalHtml(getLang()) }));
+  f.append(d);
 }
 
 // ── Vistas ────────────────────────────────────────────────────────────
@@ -68,45 +81,83 @@ async function renderApp() {
     profile = discordProfile(session.user);
     if (state === null) {
       const row = await loadPlayer(session.user.id);
+      hasRecord = !!row;
       state = stateFromRow(row);
       if (!state.alias && profile?.discord_name) state.alias = profile.discord_name;
       ensureValid(state);
       if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
+      mode = hasRecord ? "preview" : "edit";
     }
   } catch (e) {
     clear(appEl());
     appEl().append(el("div", { class: "edc-loading" }, el("div", {}, t("loading_err")), el("div", { class: "edc-label" }, e.message)));
     return;
   }
-  paintApp();
+  renderModeView();
 }
 
-function paintApp() {
+function renderModeView() {
+  if (mode === "preview") renderPreviewScreen();
+  else renderEditor();
+}
+
+// Pantalla de bienvenida para quien ya tiene ficha: preview de 1 línea + Editar
+function renderPreviewScreen() {
+  clear(appEl());
+  const card = el("div", { class: "edc-card" });
+  card.append(el("div", { class: "edc-section-title" }, t("saved_title")));
+  if (state.banner_signed_url) card.append(el("img", { class: "edc-preview-banner", src: state.banner_signed_url, alt: "banner" }));
+  card.append(summaryRow());
+  card.append(el("div", { class: "edc-save-bar" },
+    el("button", { class: "edc-btn edc-btn-primary", onClick: () => { mode = "edit"; renderModeView(); } }, t("edit_player"))));
+  appEl().append(card);
+
+  const help = el("div");
+  appEl().append(help);
+  renderHelp(help);
+}
+
+// Resumen de 1 línea con las opciones seleccionadas
+function summaryRow() {
+  const sp = SPECIES[state.player_type] || SPECIES[0];
+  const d = data();
+  const head = getById(d.headgear, state.gear_head);
+  const cloth = getById(d.clothes, state.gear_cloth);
+  const shoes = getById(d.shoes, state.gear_shoes);
+  return el("div", { class: "edc-preview" },
+    el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
+    el("strong", {}, state.alias || t("your_char")),
+    el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
+    el("span", { class: "edc-preview-badge" }, "🧢 " + (head ? headName(head) : "—")),
+    el("span", { class: "edc-preview-badge" }, "🎽 " + (cloth ? clothName(cloth) : "—")),
+    el("span", { class: "edc-preview-badge" }, "👟 " + (shoes ? shoesName(shoes) : "—")),
+    el("span", { class: "edc-preview-badge" }, (state.banner_signed_url || state.bannerFile) ? "🖼 ✓" : "🖼 —"),
+  );
+}
+
+// Editor completo (configurador + banner + guardar/actualizar)
+function renderEditor() {
   clear(appEl());
 
-  // Preview en vivo
   const preview = el("div", { class: "edc-card edc-preview" });
   appEl().append(preview);
   updatePreview(preview);
 
-  // Configurador
   const cfg = el("div");
   appEl().append(cfg);
   renderConfigurator(cfg, state, () => updatePreview(preview));
 
-  // Banner
   const bnr = el("div");
   appEl().append(bnr);
   renderBanner(bnr, state, () => updatePreview(preview));
 
-  // Ayuda (abajo del todo)
   const help = el("div");
   appEl().append(help);
   renderHelp(help);
 
-  // Save bar
   const status = el("span", { class: "edc-save-status" });
-  const saveBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: () => doSave(saveBtn, status) }, t("save"));
+  const saveBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: () => doSave(saveBtn, status) },
+    hasRecord ? t("update_player") : t("save"));
   const bar = el("div", { class: "edc-card", style: "padding:0" }, el("div", { class: "edc-save-bar" }, saveBtn, status));
   appEl().append(bar);
 }
@@ -124,7 +175,7 @@ function updatePreview(node) {
 
 async function doSave(btn, status) {
   if (!state.alias || !state.alias.trim()) {
-    state._aliasError = true; paintApp();
+    state._aliasError = true; renderEditor();
     toast(t("alias_required"), "err");
     return;
   }
@@ -132,12 +183,15 @@ async function doSave(btn, status) {
   try {
     await savePlayer(state, session.user, profile);
     if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
-    status.className = "edc-save-status ok"; status.textContent = t("saved");
+    hasRecord = true;
     toast(t("saved"), "ok");
+    mode = "preview";
+    renderModeView();
   } catch (e) {
     status.className = "edc-save-status err"; status.textContent = t("save_err") + e.message;
     toast(t("save_err") + e.message, "err");
-  } finally { btn.disabled = false; }
+    btn.disabled = false;
+  }
 }
 
 function stateFromRow(row) {
@@ -173,7 +227,7 @@ async function init() {
   onLangChange(() => {
     applyStaticI18n();
     if (!isConfigured()) { route(); return; }
-    if (session?.user && state) paintApp();
+    if (session?.user && state) renderModeView();
     else route();
   });
 
@@ -182,7 +236,7 @@ async function init() {
     onAuthChange((s) => {
       const wasUser = !!session?.user;
       session = s;
-      if (!!s?.user !== wasUser) { state = null; }  // login/logout → reset ficha
+      if (!!s?.user !== wasUser) { state = null; hasRecord = false; mode = "edit"; }
       applyStaticI18n();
       route();
     });
@@ -226,7 +280,7 @@ function helpHtml(lang) {
 <ul>
   <li><b>Alias</b>: the name on your sheet (doesn't have to be your Discord name).</li>
   <li><b>Ink color</b>: your character's color. Use the picker or type a <code>#RRGGBB</code> code.</li>
-  <li><b>Species & gender</b>: Inkling/Octoling × girl/boy.</li>
+  <li><b>Species &amp; gender</b>: Inkling/Octoling × girl/boy.</li>
   <li><b>Skin tone</b> and <b>eye color</b>: facial look.</li>
   <li><b>Hairstyle</b> and <b>eyebrows</b>: depend on species (see limitations).</li>
   <li><b>Legs</b>: if the item has variants, a <b>Legs variation</b> row appears (Base, V1, V2…).</li>
@@ -241,6 +295,23 @@ function helpHtml(lang) {
   <li><b>Weapon and pose</b>: not chosen here; the team sets them when building the photo.</li>
   <li><b>Editing</b>: to change your sheet, log in again with the same Discord.</li>
 </ul>`;
+}
+
+function legalHtml(lang) {
+  if (lang === "es") return `
+<p><b>Aviso:</b> Este sitio es un proyecto de fans <b>sin ánimo de lucro</b>, creado para organizar contenido de la comunidad. <b>No está afiliado, asociado, autorizado ni patrocinado por Nintendo</b> ni por ninguna de sus filiales.</p>
+<p><b>Marcas y propiedad:</b> «Splatoon», «Nintendo Switch», «Inkling», «Octoling», sus logotipos, personajes e imágenes son marcas y propiedad de © Nintendo. Los recursos gráficos del juego se muestran solo con fines ilustrativos y no comerciales (uso fan). Todos los derechos pertenecen a sus respectivos dueños.</p>
+<p><b>Datos que se recogen:</b> al conectar Discord se guardan tu nombre de usuario y avatar de Discord, la configuración de personaje que eliges y el banner (PNG) que subes.</p>
+<p><b>Finalidad:</b> únicamente preparar contenido y fotos para la comunidad. No se venden ni se ceden tus datos a terceros con fines publicitarios.</p>
+<p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar por completo tus datos, contacta con el organizador por Discord.</p>
+<p><b>Almacenamiento:</b> los datos se guardan en Supabase y en el archivo personal del organizador. Al subir contenido confirmas que tienes derecho a usarlo.</p>`;
+  return `
+<p><b>Disclaimer:</b> This is a <b>non-commercial fan project</b> made to organize community content. <b>It is not affiliated with, associated with, authorized, endorsed by, or sponsored by Nintendo</b> or any of its subsidiaries.</p>
+<p><b>Trademarks &amp; ownership:</b> "Splatoon", "Nintendo Switch", "Inkling", "Octoling", their logos, characters and images are trademarks and property of © Nintendo. Game artwork is shown for illustrative, non-commercial (fan) purposes only. All rights belong to their respective owners.</p>
+<p><b>Data we collect:</b> when you connect Discord we store your Discord username and avatar, the character configuration you pick, and the banner (PNG) you upload.</p>
+<p><b>Purpose:</b> only to prepare community content and photos. We do not sell or share your data with third parties for advertising.</p>
+<p><b>Your rights:</b> you can view, change or clear your sheet anytime by logging in again with your Discord. To fully delete your data, contact the organizer on Discord.</p>
+<p><b>Storage:</b> data is stored in Supabase and in the organizer's personal archive. By uploading content you confirm you have the right to use it.</p>`;
 }
 
 function discordSvg() {
