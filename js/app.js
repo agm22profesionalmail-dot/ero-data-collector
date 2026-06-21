@@ -99,6 +99,11 @@ function paintApp() {
   appEl().append(bnr);
   renderBanner(bnr, state, () => updatePreview(preview));
 
+  // Ayuda (abajo del todo)
+  const help = el("div");
+  appEl().append(help);
+  renderHelp(help);
+
   // Save bar
   const status = el("span", { class: "edc-save-status" });
   const saveBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: () => doSave(saveBtn, status) }, t("save"));
@@ -183,6 +188,59 @@ async function init() {
     });
   }
   route();
+}
+
+function renderHelp(container) {
+  clear(container);
+  const d = el("details", { class: "edc-help" });
+  d.append(el("summary", {}, t("help_title")));
+  d.append(el("div", { class: "edc-help-body", html: helpHtml(getLang()) }));
+  container.append(d);
+}
+
+function helpHtml(lang) {
+  if (lang === "es") return `
+<p>Conecta tu Discord, configura tu personaje, sube tu banner y guarda. Puedes volver con el mismo Discord y editarlo cuando quieras.</p>
+<h4>Qué hace cada cosa</h4>
+<ul>
+  <li><b>Alias</b>: el nombre de tu ficha (no tiene por qué ser tu nombre de Discord).</li>
+  <li><b>Color de tinta</b>: el color de tu personaje. Usa el selector o escribe el código <code>#RRGGBB</code>.</li>
+  <li><b>Especie y género</b>: Inkling/Octoling × chica/chico.</li>
+  <li><b>Tono de piel</b> y <b>color de ojos</b>: aspecto facial.</li>
+  <li><b>Peinado</b> y <b>cejas</b>: dependen de la especie (mira las limitaciones).</li>
+  <li><b>Piernas</b>: si la prenda tiene variantes aparece <b>Variación de piernas</b> (Base, V1, V2…).</li>
+  <li><b>Equipamiento</b> (cabeza, ropa, zapatillas): pulsa <b>Cambiar</b> para elegir. El interruptor <b>Variante</b> activa la versión alternativa de esa prenda (si existe).</li>
+  <li><b>Banner Splattag</b>: créalo en <a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>, descárgalo como PNG y súbelo.</li>
+</ul>
+<h4>Limitaciones</h4>
+<ul>
+  <li><b>Peinados y cejas son por especie</b>: como Inkling solo ves peinados/cejas de Inkling; como Octoling solo los de Octoling. No se pueden mezclar (no puedes usar un peinado de Octoling siendo Inkling). Si cambias de especie, el peinado y las cejas se reinician a los de la nueva especie.</li>
+  <li><b>Variante</b>: el interruptor solo funciona en prendas que tienen versión alternativa; en las demás aparece desactivado.</li>
+  <li><b>Banner</b>: solo <b>PNG</b>, máximo <b>2 MB</b>. Otros formatos (JPG, SVG…) se rechazan por seguridad.</li>
+  <li><b>Arma y pose</b>: no se eligen aquí; las define el equipo al montar la foto.</li>
+  <li><b>Editar</b>: para cambiar tu ficha, vuelve a entrar con el mismo Discord.</li>
+</ul>`;
+  return `
+<p>Connect your Discord, set up your character, upload your banner and save. You can come back with the same Discord and edit it anytime.</p>
+<h4>What each option does</h4>
+<ul>
+  <li><b>Alias</b>: the name on your sheet (doesn't have to be your Discord name).</li>
+  <li><b>Ink color</b>: your character's color. Use the picker or type a <code>#RRGGBB</code> code.</li>
+  <li><b>Species & gender</b>: Inkling/Octoling × girl/boy.</li>
+  <li><b>Skin tone</b> and <b>eye color</b>: facial look.</li>
+  <li><b>Hairstyle</b> and <b>eyebrows</b>: depend on species (see limitations).</li>
+  <li><b>Legs</b>: if the item has variants, a <b>Legs variation</b> row appears (Base, V1, V2…).</li>
+  <li><b>Gear</b> (head, clothes, shoes): click <b>Change</b> to pick. The <b>Variant</b> switch enables the alternate version of that gear (if it has one).</li>
+  <li><b>Splattag banner</b>: make yours at <a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>, download it as PNG and upload it.</li>
+</ul>
+<h4>Limitations</h4>
+<ul>
+  <li><b>Hair and eyebrows are per species</b>: as an Inkling you only see Inkling hair/eyebrows; as an Octoling only Octoling ones. They can't be mixed (you can't use Octoling hair while being an Inkling). If you switch species, hair and eyebrows reset to the new species'.</li>
+  <li><b>Variant</b>: the switch only works on gear that has an alternate version; otherwise it's disabled.</li>
+  <li><b>Banner</b>: PNG only, max 2 MB. Other formats (JPG, SVG…) are rejected for security.</li>
+  <li><b>Weapon and pose</b>: not chosen here; the team sets them when building the photo.</li>
+  <li><b>Editing</b>: to change your sheet, log in again with the same Discord.</li>
+</ul>`;
 }
 
 function discordSvg() {

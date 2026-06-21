@@ -145,22 +145,7 @@ export function renderConfigurator(container, state, onChange) {
     card.append(gearRow(t("gear_head"), "gear_head", d.headgear, gearUrl, headName, true));
     card.append(gearRow(t("gear_cloth"), "gear_cloth", d.clothes, gearUrl, clothName, true));
     card.append(gearRow(t("gear_shoes"), "gear_shoes", d.shoes, gearUrl, shoesName, true));
-    card.append(gearRow(t("gear_weapon"), "weapon_main", validWeapons(), weaponUrl, weaponName, false));
-
-    // Animación
-    card.append(el("div", { class: "edc-section-title" }, t("section_anim")));
-    const animRow = el("div", { class: "edc-color-row" });
-    const sel = el("select", { class: "edc-input", style: "flex:1" });
-    for (const a of d.anims) {
-      const o = el("option", { value: a }, a);
-      if (a === state.anim_name) o.selected = true;
-      sel.append(o);
-    }
-    const animImg = el("img", { class: "edc-gear-preview", src: animUrl(state.anim_name) });
-    animImg.onerror = () => { animImg.style.visibility = "hidden"; };
-    sel.addEventListener("change", () => { state.anim_name = sel.value; animImg.style.visibility = "visible"; animImg.src = animUrl(sel.value); change(); });
-    animRow.append(sel, animImg);
-    card.append(animRow);
+    // Arma y pose/animación: las define el equipo (fuera de la web del jugador).
 
     return card;
   }
@@ -184,8 +169,8 @@ export function renderConfigurator(container, state, onChange) {
     if (hasVar) {
       const has = !!cur?.VariationNum;
       const on = has && Number(state[field + "_variation"]) === 1;
-      const toggle = el("div", { class: "edc-var-toggle" + (has ? "" : " disabled"), title: t("alt_variation") },
-        el("span", { class: "edc-var-label" }, "ALT"),
+      const toggle = el("div", { class: "edc-var-toggle" + (has ? "" : " disabled"), title: t("gear_variant_tip") },
+        el("span", { class: "edc-var-label" }, t("gear_variant")),
         el("div", { class: "edc-var-switch" + (on ? " on" : "") }, el("div", { class: "edc-var-knob" })));
       if (has) toggle.addEventListener("click", () => set(field + "_variation", on ? 0 : 1));
       row.append(toggle);
