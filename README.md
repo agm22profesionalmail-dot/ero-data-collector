@@ -17,7 +17,7 @@ Navegador (esta SPA)  ──login Discord──►  Supabase Auth
                                                      │ sync (service_role, local)
                               PC Windows ◄───────────┘
                               08_Scripts/ero_data_collector/sync.py
-                              → pipeline seguridad → 26_Splatoon/Database/ del vault
+                              → pipeline seguridad → 26_Splatoon/Database/Players_Data/ del vault
 ```
 
 Sin backend propio: el `client_secret` de Discord vive en Supabase. La SPA solo usa la **anon key** (pública).
