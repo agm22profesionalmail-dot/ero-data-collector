@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>ERO Data Collector</title>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="edc-header">
+    <div class="edc-brand">
+      <h1 id="appTitle">ERO Data Collector</h1>
+      <span id="appSub" class="edc-sub"></span>
+    </div>
+    <div class="edc-header-right">
+      <div class="edc-lang" id="langSwitch">
+        <button data-lang="en">EN</button>
+        <button data-lang="es">ES</button>
+      </div>
+      <div id="authArea" class="edc-auth"></div>
+    </div>
+  </header>
+
+  <main id="app" class="edc-main"></main>
+
+  <footer id="footer" class="edc-footer"></footer>
+  <div id="toast" class="edc-toast" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
