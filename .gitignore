@@ -1,0 +1,14 @@
+# Nunca commitear secretos ni datos locales
+config.local.js
+.env
+.env.*
+*.local
+secrets.json
+
+# Harness de desarrollo (no desplegar)
+test.html
+
+# Sistema
+.DS_Store
+Thumbs.db
+node_modules/
