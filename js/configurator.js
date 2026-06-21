@@ -3,7 +3,7 @@ import { SPECIES, isMale, SKIN_TONES, EYE_COLORS } from "./config.js";
 import {
   data, getById, hairFor, eyebrowsFor, validBottoms, validWeapons,
   weaponName, headName, clothName, shoesName,
-  skinUrl, eyeUrl, typeUrl, hairUrl, eyebrowUrl, pantsUrl, pantsVarUrl,
+  skinUrl, eyeUrl, typeUrl, hairUrl, eyebrowUrl, pantsUrl, pantsVarUrl, pantsVarLocalUrl,
   gearUrl, weaponUrl, animUrl, colorToHex, hexToColor,
 } from "./data.js";
 import { t } from "./i18n.js";
@@ -133,9 +133,19 @@ export function renderConfigurator(container, state, onChange) {
     if (bot?.VariationNum > 0) {
       card.append(el("div", { class: "edc-section-title" }, t("section_legs_var")));
       const varRow = el("div", { class: "edc-row" });
-      for (let v = 0; v <= bot.VariationNum; v++)
-        varRow.append(opt(Number(state.bottom_variation) === v, pantsVarUrl(bot, v), v === 0 ? t("base") : "V" + v,
-          () => set("bottom_variation", v)));
+      for (let v = 0; v <= bot.VariationNum; v++) {
+        const active = Number(state.bottom_variation) === v;
+        const label = v === 0 ? t("base") : "V" + v;
+        const cell = el("div", { class: "edc-opt" + (active ? " active" : ""), onClick: () => set("bottom_variation", v) });
+        const img = el("img", { alt: label, loading: "lazy" });
+        img.src = pantsVarUrl(bot, v);
+        img.onerror = () => {
+          img.onerror = () => { img.src = pantsVarUrl(bot, 0); };
+          img.src = pantsVarLocalUrl(bot, v);
+        };
+        cell.append(img, el("div", { class: "edc-opt-label" }, label));
+        varRow.append(cell);
+      }
       card.append(varRow);
     }
 
