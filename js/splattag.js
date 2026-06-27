@@ -146,23 +146,42 @@ function prettify(file) {
     .replace(/_/g, " ").replace(/\b(Lv)(\d)/g, "$1 $2").trim();
 }
 
-// ── Estado del generador (persistido en state._splattag) ───────────────
+// ── Estado del generador (persistido en state._splattag + localStorage) ─
+const CFG_KEY = (state) => "edc_splattag_" + (state._userId || "anon");
+
+function defaultGen(state) {
+  const langKey = getLang() === "es" ? "USes" : "USen";
+  return {
+    langKey,
+    banner: _assets.banners[0]?.file || null,
+    bgColours: ["#ffffff", "#ff0000", "#00ff00", "#0000ff"],
+    name: (state.alias || "Player").slice(0, 24),
+    titleFirst: "", titleLast: "", titleCustom: "",
+    sign: _langRaw[langKey]?.sign || "#",
+    id: "0001",
+    colour: "#" + (_assets.banners[0]?.colour || "ffffff"),
+    badges: [null, null, null],
+  };
+}
+
 function genState(state) {
   if (!state._splattag) {
-    const langKey = getLang() === "es" ? "USes" : "USen";
-    state._splattag = {
-      langKey,
-      banner: _assets.banners[0]?.file || null,
-      bgColours: ["#ffffff", "#ff0000", "#00ff00", "#0000ff"],
-      name: (state.alias || "Player").slice(0, 24),
-      titleFirst: "", titleLast: "", titleCustom: "",
-      sign: _langRaw[langKey]?.sign || "#",
-      id: "0001",
-      colour: "#" + (_assets.banners[0]?.colour || "ffffff"),
-      badges: [null, null, null],
-    };
+    const def = defaultGen(state);
+    let saved = null;
+    try { const raw = localStorage.getItem(CFG_KEY(state)); if (raw) saved = JSON.parse(raw); } catch (e) { /* ignore */ }
+    if (saved && saved.banner) {
+      // Config previa de este usuario: el canvas refleja su splattag real → regenerar al guardar es seguro
+      state._splattag = { ...def, ...saved, badges: Array.isArray(saved.badges) ? saved.badges.slice(0, 3) : def.badges };
+      state._splattagPersisted = true;
+    } else {
+      state._splattag = def;
+    }
   }
   return state._splattag;
+}
+
+function persistGen(state) {
+  try { localStorage.setItem(CFG_KEY(state), JSON.stringify(state._splattag)); } catch (e) { /* ignore */ }
 }
 
 function bannerMeta(file) { return _assets.banners.find((b) => b.file === file) || null; }
@@ -411,6 +430,9 @@ export function renderSplattagGenerator(container, state, onUse) {
 
     const canvas = el("canvas", { class: "edc-gen-canvas", width: TAG_W, height: TAG_H });
     const redraw = () => drawTag(canvas, g, imgs, fonts);
+    // Marca que el usuario tocó el generador y guarda su config (persistencia por usuario)
+    const touch = () => { state._splattagDirty = true; persistGen(state); };
+    const onEdit = () => { touch(); redraw(); };
 
     const reloadFonts = async () => { fonts = await fontsForLang(g.langKey); redraw(); };
     const reloadBanner = async () => {
@@ -444,6 +466,7 @@ export function renderSplattagGenerator(container, state, onUse) {
       // Si el prefijo seguía siendo el del idioma anterior, actualízalo al nuevo
       const newSign = _langRaw[g.langKey]?.sign || "#";
       if (TAG_SIGNS.includes(prev)) { g.sign = TAG_SIGNS.includes(newSign) ? newSign : prev; signSel.value = g.sign; }
+      touch();
       reloadFonts();
     });
     controls.append(row(t("gen_language"), langSel));
@@ -452,10 +475,10 @@ export function renderSplattagGenerator(container, state, onUse) {
     const bannerBtn = el("button", { class: "edc-btn", onClick: () => openAssetPicker({
       title: t("gen_pick_banner"), items: _assets.banners, langKey: g.langKey,
       onSelect: (it) => { g.banner = it.file; if (it.colour && !it.layers) { g.colour = "#" + it.colour; colorInput.value = g.colour; }
-        renderLayerPickers(); reloadBanner(); },
+        touch(); renderLayerPickers(); reloadBanner(); },
     }) }, t("gen_banner"));
     const colorInput = el("input", { type: "color", class: "edc-gen-color", value: g.colour });
-    colorInput.addEventListener("input", () => { g.colour = colorInput.value; redraw(); });
+    colorInput.addEventListener("input", () => { g.colour = colorInput.value; onEdit(); });
     controls.append(row(t("gen_banner"), bannerBtn, labeled(t("gen_text_color"), colorInput)));
 
     // Colores de capas (solo banners recoloreables)
@@ -468,7 +491,7 @@ export function renderSplattagGenerator(container, state, onUse) {
       const inline = el("div", { class: "edc-gen-inline" });
       for (let i = 0; i < m.layers; i++) {
         const ci = el("input", { type: "color", class: "edc-gen-color", value: g.bgColours[i] || "#ffffff" });
-        ci.addEventListener("input", () => { g.bgColours[i] = ci.value; redraw(); });
+        ci.addEventListener("input", () => { g.bgColours[i] = ci.value; onEdit(); });
         inline.append(ci);
       }
       layerRow.append(inline);
@@ -477,7 +500,7 @@ export function renderSplattagGenerator(container, state, onUse) {
 
     // Nombre
     const nameInput = el("input", { class: "edc-input", value: g.name, maxlength: 24, placeholder: t("gen_name") });
-    nameInput.addEventListener("input", () => { g.name = nameInput.value; redraw(); });
+    nameInput.addEventListener("input", () => { g.name = nameInput.value; onEdit(); });
     controls.append(row(t("gen_name"), nameInput));
 
     // Título (first + last + custom)
@@ -485,14 +508,14 @@ export function renderSplattagGenerator(container, state, onUse) {
     const refreshTitle = () => { titleLabel.textContent = titleString(g) || "— " + t("gen_none") + " —"; };
     const firstBtn = el("button", { class: "edc-btn edc-btn-sm", onClick: () => openTextPicker({
       title: t("gen_title_first"), list: (_langRaw[g.langKey] || _langRaw.USen).titles.first,
-      onSelect: (s) => { g.titleFirst = s; g.titleCustom = ""; customTitle.value = ""; refreshTitle(); redraw(); },
+      onSelect: (s) => { g.titleFirst = s; g.titleCustom = ""; customTitle.value = ""; refreshTitle(); onEdit(); },
     }) }, t("gen_title_first"));
     const lastBtn = el("button", { class: "edc-btn edc-btn-sm", onClick: () => openTextPicker({
       title: t("gen_title_last"), list: (_langRaw[g.langKey] || _langRaw.USen).titles.last,
-      onSelect: (s) => { g.titleLast = s; g.titleCustom = ""; customTitle.value = ""; refreshTitle(); redraw(); },
+      onSelect: (s) => { g.titleLast = s; g.titleCustom = ""; customTitle.value = ""; refreshTitle(); onEdit(); },
     }) }, t("gen_title_last"));
     const customTitle = el("input", { class: "edc-input", value: g.titleCustom, placeholder: t("gen_title_custom") });
-    customTitle.addEventListener("input", () => { g.titleCustom = customTitle.value; refreshTitle(); redraw(); });
+    customTitle.addEventListener("input", () => { g.titleCustom = customTitle.value; refreshTitle(); onEdit(); });
     controls.append(el("div", { class: "edc-gen-row" },
       el("span", { class: "edc-label" }, t("gen_title")),
       el("div", { class: "edc-gen-inline" }, firstBtn, lastBtn, titleLabel),
@@ -502,9 +525,9 @@ export function renderSplattagGenerator(container, state, onUse) {
     // Tag ID (prefijo + cuerpo)
     const signSel = el("select", { class: "edc-input edc-gen-sign" });
     for (const s of TAG_SIGNS) { const o = el("option", { value: s }, s.trim() || "#"); if (s === g.sign) o.selected = true; signSel.append(o); }
-    signSel.addEventListener("change", () => { g.sign = signSel.value; redraw(); });
+    signSel.addEventListener("change", () => { g.sign = signSel.value; onEdit(); });
     const idInput = el("input", { class: "edc-input", value: g.id, maxlength: 20, placeholder: t("gen_id") });
-    idInput.addEventListener("input", () => { g.id = idInput.value; redraw(); });
+    idInput.addEventListener("input", () => { g.id = idInput.value; onEdit(); });
     controls.append(row(t("gen_id"), signSel, idInput));
 
     // Badges (3 slots)
@@ -513,44 +536,36 @@ export function renderSplattagGenerator(container, state, onUse) {
       const slot = el("button", { class: "edc-btn edc-btn-sm edc-badge-slot", title: t("gen_badge_slot") + " " + (i + 1) });
       const refreshSlot = () => { slot.textContent = g.badges[i] ? "★" : "+"; };
       slot.addEventListener("click", () => {
-        if (g.badges[i]) { g.badges[i] = null; refreshSlot(); reloadBadge(i); return; }
+        if (g.badges[i]) { g.badges[i] = null; touch(); refreshSlot(); reloadBadge(i); return; }
         openAssetPicker({ title: t("gen_pick_badge"), items: _assets.badges, langKey: g.langKey,
-          onSelect: (it) => { g.badges[i] = it.file; refreshSlot(); reloadBadge(i); } });
+          onSelect: (it) => { g.badges[i] = it.file; touch(); refreshSlot(); reloadBadge(i); } });
       });
       refreshSlot();
       slots.append(slot);
     }
     controls.append(row(t("gen_badges"), slots));
 
-    // Acción
-    const status = el("span", { class: "edc-save-status" });
-    const useBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: async () => {
-      useBtn.disabled = true; status.className = "edc-save-status"; status.textContent = t("gen_building");
-      try {
-        await Promise.all([reloadFonts(), reloadBanner(), ...[0, 1, 2].map(reloadBadge)]);
-        redraw();
-        const file = await exportPng(canvas);
-        if (state._bannerPreviewUrl) URL.revokeObjectURL(state._bannerPreviewUrl);
-        state.bannerFile = file;
-        state._bannerPreviewUrl = URL.createObjectURL(file);
-        state._bannerError = null;
-        status.className = "edc-save-status ok"; status.textContent = t("gen_done");
-        onUse && onUse(file);
-      } catch (e) {
-        status.className = "edc-save-status err"; status.textContent = t("gen_build_err") + (e?.message || "");
-      } finally { useBtn.disabled = false; }
-    } }, t("gen_use"));
+    // Captura: genera el PNG del canvas actual. La invoca app.js al pulsar "Guardar",
+    // garantizando que todas las imágenes/fuentes están dibujadas antes de exportar.
+    state._captureSplattag = async () => {
+      await Promise.all([reloadFonts(), reloadBanner(), ...[0, 1, 2].map(reloadBadge)]);
+      redraw();
+      const file = await exportPng(canvas);
+      if (state._bannerPreviewUrl) URL.revokeObjectURL(state._bannerPreviewUrl);
+      state._bannerPreviewUrl = URL.createObjectURL(file);
+      return file;
+    };
 
     container.append(
       el("p", { class: "edc-label", style: "margin-top:0" }, t("gen_desc")),
       el("div", { class: "edc-gen-canvas-wrap" }, canvas),
       controls,
-      el("div", { class: "edc-save-bar" }, useBtn, status),
     );
 
     renderLayerPickers();
     reloadFonts();
     reloadBanner();
+    onUse && onUse(); // señala que el generador está activo (preview superior)
   }
 
   function row(label, ...nodes) {
