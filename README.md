@@ -4,7 +4,8 @@ Web pública gratuita donde los jugadores conectan su **Discord** y envían su p
 
 - **Configurador** especie-aware (Inkling/Octoling no mezclan peinados ni cejas), bilingüe **EN/ES**.
 - **Login Discord** (OAuth vía Supabase, sin servidor propio).
-- **Banner PNG** validado (magic bytes + dimensiones en cliente; antivirus en el sync local).
+- **Generador de splattag integrado** (pestaña *Crear*): paridad completa con splashtagmaker.com — banner (incl. recoloreables por capas), nombre, títulos en 13 idiomas con sus fuentes (incl. japonés/coreano/chino), prefijo de tag, hasta 3 insignias y marca de agua de artistas, en un canvas 700×200 exportado como PNG real — sin salir de la web.
+- **Banner PNG** validado (magic bytes + dimensiones en cliente; antivirus en el sync local), por generador o subida manual (pestaña *Subir*).
 - **Editable**: el jugador vuelve a entrar con Discord y modifica su ficha.
 
 ## Arquitectura
@@ -60,7 +61,8 @@ js/
   data.js               carga RSDB Flexlion + filtro especie
   i18n.js               EN/ES
   configurator.js       UI del personaje
-  banner.js             upload + validación PNG
+  banner.js             pestañas Crear/Subir + validación PNG
+  splattag.js           generador de splattag (canvas) — render portado de splashtags
   store.js              guardar/cargar ficha + Storage
   app.js               orquestador
 supabase/schema.sql     tabla players + RLS + bucket + keep_alive
@@ -77,3 +79,11 @@ test.html               harness de desarrollo (gitignored, no se despliega)
 - SVG está prohibido (XML con JS ejecutable); solo PNG.
 
 Los assets de Splatoon (imágenes/JSON) se cargan desde las URLs públicas de Flexlion; este repo no los aloja.
+
+## Licencia y créditos
+
+Este proyecto se distribuye bajo **GPL-3.0** (ver [`LICENSE`](LICENSE)). El generador de splattag (`js/splattag.js`) es un port del render del proyecto open-source **[SeymourSchlong/splashtags](https://github.com/SeymourSchlong/splashtags)** (= [splashtagmaker.com](https://splashtagmaker.com/)), también GPL-3.0. Sus banners, insignias, fuentes y datos se sirven vía **jsDelivr** desde ese repositorio; este proyecto no los aloja ni los redistribuye.
+
+Crédito completo a sus autores y colaboradores: **seymour** (@spaghettitron, web original), **LeanYoshi** (base de datos), **Raven_The_Cute** (traducciones), **DeadLineSMB**, **ElectroDev**, **Lucyfer**, **mya** (banners), **Zeeto**, **Sharkinodraws** (insignias). Lista completa en la [página de créditos original](https://splashtagmaker.com/credits/).
+
+«Splatoon», «Inkling», «Octoling» y los recursos del juego son marcas y propiedad de © Nintendo. Proyecto de fans, sin ánimo de lucro y sin afiliación con Nintendo.
