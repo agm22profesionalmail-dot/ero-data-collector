@@ -184,6 +184,13 @@ function persistGen(state) {
   try { localStorage.setItem(CFG_KEY(state), JSON.stringify(state._splattag)); } catch (e) { /* ignore */ }
 }
 
+// ¿Tiene este usuario una splattag creada con el generador (config guardada)?
+// Sirve para distinguir a quien subió un PNG a mano antes de esta versión.
+export function hasStoredSplattag(state) {
+  try { const raw = localStorage.getItem(CFG_KEY(state)); return !!(raw && JSON.parse(raw)?.banner); }
+  catch (e) { return false; }
+}
+
 function bannerMeta(file) { return _assets.banners.find((b) => b.file === file) || null; }
 function titleString(g) {
   if (g.titleCustom && g.titleCustom.trim()) return g.titleCustom.trim();
