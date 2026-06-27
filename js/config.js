@@ -29,6 +29,12 @@ export const EYE_COLORS = 21;  // 0..20
 // Banner / upload
 // URL del generador de Splattags (opcional). Si la rellenas, aparece un enlace en la web.
 export const SPLATTAG_URL = "https://splashtagmaker.com/";
+
+// Generador de splattags integrado. Assets servidos vía jsDelivr desde el repo
+// open-source (GPL-3.0) de SeymourSchlong/splashtags (= splashtagmaker.com).
+// Créditos completos en el aviso legal. jsDelivr envía cabeceras CORS, necesario
+// para exportar el canvas (crossOrigin="anonymous") sin "tainted canvas".
+export const SPLATTAG_CDN = "https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@main";
 export const BANNER_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const BANNER_MAX_DIM = 4096;              // px por lado
 export const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
