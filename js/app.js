@@ -304,14 +304,42 @@ function legalHtml(lang) {
 <p><b>Datos que se recogen:</b> al conectar Discord se guardan tu nombre de usuario y avatar de Discord, la configuración de personaje que eliges y el banner (PNG) que subes.</p>
 <p><b>Finalidad:</b> únicamente preparar contenido y fotos para la comunidad. No se venden ni se ceden tus datos a terceros con fines publicitarios.</p>
 <p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar por completo tus datos, contacta con el organizador por Discord.</p>
-<p><b>Almacenamiento:</b> los datos se guardan en Supabase y en el archivo personal del organizador. Al subir contenido confirmas que tienes derecho a usarlo.</p>`;
+<p><b>Almacenamiento:</b> los datos se guardan en Supabase y en el archivo personal del organizador. Al subir contenido confirmas que tienes derecho a usarlo.</p>
+<h4>Créditos — Generador de splattags</h4>
+<p>El creador de splattags integrado en esta web está basado en el proyecto de código abierto <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), bajo licencia GPL-3.0. Todo el mérito es de sus autores y colaboradores:</p>
+<ul>
+  <li><b>seymour</b> (@spaghettitron) — creador de la web original</li>
+  <li><b>LeanYoshi</b> — base de datos de Splatoon</li>
+  <li><b>Raven_The_Cute</b> — ayuda con las traducciones</li>
+  <li><b>DeadLineSMB</b> — banners de bandas (Splatband)</li>
+  <li><b>ElectroDev</b> — banners de armas especiales</li>
+  <li><b>Lucyfer</b> — banners Pride</li>
+  <li><b>mya</b> — banners Grandfest</li>
+  <li><b>Zeeto</b> — badges de bandas</li>
+  <li><b>Sharkinodraws</b> — badges de huevos de Salmon Run</li>
+</ul>
+<p>Lista completa y sus perfiles en la <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">página de créditos original</a>. Las fuentes, imágenes y datos de Splatoon son propiedad de © Nintendo.</p>`;
   return `
 <p><b>Disclaimer:</b> This is a <b>non-commercial fan project</b> made to organize community content. <b>It is not affiliated with, associated with, authorized, endorsed by, or sponsored by Nintendo</b> or any of its subsidiaries.</p>
 <p><b>Trademarks &amp; ownership:</b> "Splatoon", "Nintendo Switch", "Inkling", "Octoling", their logos, characters and images are trademarks and property of © Nintendo. Game artwork is shown for illustrative, non-commercial (fan) purposes only. All rights belong to their respective owners.</p>
 <p><b>Data we collect:</b> when you connect Discord we store your Discord username and avatar, the character configuration you pick, and the banner (PNG) you upload.</p>
 <p><b>Purpose:</b> only to prepare community content and photos. We do not sell or share your data with third parties for advertising.</p>
 <p><b>Your rights:</b> you can view, change or clear your sheet anytime by logging in again with your Discord. To fully delete your data, contact the organizer on Discord.</p>
-<p><b>Storage:</b> data is stored in Supabase and in the organizer's personal archive. By uploading content you confirm you have the right to use it.</p>`;
+<p><b>Storage:</b> data is stored in Supabase and in the organizer's personal archive. By uploading content you confirm you have the right to use it.</p>
+<h4>Credits — Splattag generator</h4>
+<p>The splattag creator built into this site is based on the open-source project <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), under the GPL-3.0 license. All credit goes to its authors and contributors:</p>
+<ul>
+  <li><b>seymour</b> (@spaghettitron) — original website creator</li>
+  <li><b>LeanYoshi</b> — Splatoon database</li>
+  <li><b>Raven_The_Cute</b> — translation help</li>
+  <li><b>DeadLineSMB</b> — Splatband banners</li>
+  <li><b>ElectroDev</b> — special weapon banners</li>
+  <li><b>Lucyfer</b> — Pride banners</li>
+  <li><b>mya</b> — Grandfest banners</li>
+  <li><b>Zeeto</b> — Splatband badges</li>
+  <li><b>Sharkinodraws</b> — Salmon Run egg badges</li>
+</ul>
+<p>Full list and their profiles on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are property of © Nintendo.</p>`;
 }
 
 function discordSvg() {
