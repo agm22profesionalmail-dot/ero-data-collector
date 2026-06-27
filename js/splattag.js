@@ -167,12 +167,18 @@ function defaultGen(state) {
 function genState(state) {
   if (!state._splattag) {
     const def = defaultGen(state);
-    let saved = null;
-    try { const raw = localStorage.getItem(CFG_KEY(state)); if (raw) saved = JSON.parse(raw); } catch (e) { /* ignore */ }
+    // DB tiene prioridad sobre localStorage (permite editar desde otro dispositivo)
+    let saved = state.splattag_config || null;
+    if (!saved) {
+      try { const raw = localStorage.getItem(CFG_KEY(state)); if (raw) saved = JSON.parse(raw); } catch (e) { /* ignore */ }
+    }
     if (saved && saved.banner) {
-      // Config previa de este usuario: el canvas refleja su splattag real → regenerar al guardar es seguro
       state._splattag = { ...def, ...saved, badges: Array.isArray(saved.badges) ? saved.badges.slice(0, 3) : def.badges };
       state._splattagPersisted = true;
+      // Sincronizar config de DB a localStorage para uso offline / consistencia
+      if (state.splattag_config) {
+        try { localStorage.setItem(CFG_KEY(state), JSON.stringify(state._splattag)); } catch (e) { /* ignore */ }
+      }
     } else {
       state._splattag = def;
     }
@@ -186,7 +192,9 @@ function persistGen(state) {
 
 // ¿Tiene este usuario una splattag creada con el generador (config guardada)?
 // Sirve para distinguir a quien subió un PNG a mano antes de esta versión.
+// Comprueba primero la config de DB (cross-device), luego localStorage.
 export function hasStoredSplattag(state) {
+  if (state.splattag_config?.banner) return true;
   try { const raw = localStorage.getItem(CFG_KEY(state)); return !!(raw && JSON.parse(raw)?.banner); }
   catch (e) { return false; }
 }

@@ -21,13 +21,28 @@
   --glow-teal: 0 0 20px rgba(25,211,197,.22);
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html {
+  margin: 0; padding: 0;
+  /* Reserva el espacio del scrollbar siempre: evita el layout shift cuando
+     el contenido pasa de caber a no caber en pantalla. */
+  scrollbar-gutter: stable;
+}
 body {
+  margin: 0; padding: 0;
   background-color: var(--bg);
   color: var(--text);
   font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
   min-height: 100vh;
 }
+
+/* Scrollbar integrado con el tema dark — solo navegadores Chromium/Safari */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--panel-2) var(--bg); }
 
 /* Fondo con desenfoque gaussiano — separado de las decoraciones */
 .edc-bg-layer {
@@ -99,7 +114,7 @@ body {
   border-top: 2px solid rgba(25,211,197,.3);
   border-radius: var(--radius); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
 .edc-section-title { font-size: .75rem; text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent-2); margin: 18px 0 8px; font-weight: 700; }
-.edc-section-title::before { content: "◆ "; font-size: .55em; vertical-align: middle; opacity: .7; }
+.edc-section-title::before { content: ""; }
 .edc-section-title:first-child { margin-top: 0; }
 
 /* Inputs */
@@ -147,7 +162,7 @@ body {
 
 /* Modal / gallery */
 .edc-modal-overlay { position: fixed; inset: 0; background: rgba(5,7,15,.78); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-.edc-modal { background: var(--panel); border: 1px solid var(--border); border-top: 2px solid var(--accent-2); border-radius: 12px; width: 760px; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 16px 60px rgba(0,0,0,.6), var(--glow-teal); }
+.edc-modal { background: var(--panel); border: 1px solid var(--border); border-top: 2px solid var(--accent-2); border-radius: var(--radius); width: 760px; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 16px 60px rgba(0,0,0,.6), var(--glow-teal); }
 .edc-modal-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .edc-modal-head h3 { margin: 0; font-size: 1rem; font-weight: 700; flex: 1; letter-spacing: .5px; }
 .edc-modal-close { background: none; border: 0; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0 4px; }
@@ -223,9 +238,14 @@ body {
 /* Toast */
 .edc-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
   background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-  padding: 11px 18px; border-radius: 10px; box-shadow: var(--shadow); z-index: 100; font-size: .9rem; }
+  padding: 11px 18px; border-radius: var(--radius); box-shadow: var(--shadow); z-index: 100; font-size: .9rem;
+  animation: toast-in 200ms cubic-bezier(.22,.68,0,1.2) both; }
 .edc-toast.ok { border-color: var(--ok); }
 .edc-toast.err { border-color: var(--err); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.96); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1);   }
+}
 
 /* Ayuda (¿Necesitas ayuda?) */
 .edc-help { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 18px; margin-bottom: 16px; box-shadow: var(--shadow); }

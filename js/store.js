@@ -45,6 +45,7 @@ export async function savePlayer(state, user, profile) {
     discord_avatar: profile?.discord_avatar ?? null,
     color: state.color,
     banner_path, banner_sha256,
+    splattag_config: state._splattag ?? null,
   };
   for (const f of FIELDS) row[f] = state[f];
 
