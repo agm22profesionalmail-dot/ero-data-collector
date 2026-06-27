@@ -39,6 +39,7 @@ create table if not exists public.players (
   -- Banner Splattag
   banner_path     text,                 -- ruta dentro del bucket 'banners' (= "<user_id>/banner.png")
   banner_sha256   text,                 -- hash del PNG subido (informativo)
+  splattag_config jsonb,                -- config del generador (null = subida manual; solo lo tienen quienes usaron el generador)
 
   -- Auditoría
   created_at      timestamptz not null default now(),
@@ -136,3 +137,9 @@ returns timestamptz language sql security definer set search_path = public as $$
   select now();
 $$;
 grant execute on function public.keep_alive() to anon, authenticated;
+
+-- ------------------------------------------------------------
+-- Migración: columna splattag_config (si el schema ya existía antes de añadirla)
+-- Ejecutar solo una vez en instalaciones existentes.
+-- ------------------------------------------------------------
+alter table public.players add column if not exists splattag_config jsonb;
