@@ -83,6 +83,7 @@ async function renderApp() {
       const row = await loadPlayer(session.user.id);
       hasRecord = !!row;
       state = stateFromRow(row);
+      state._userId = session.user.id; // clave de persistencia del generador de splattag
       if (!state.alias && profile?.discord_name) state.alias = profile.discord_name;
       ensureValid(state);
       if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
@@ -135,6 +136,11 @@ function summaryRow() {
   );
 }
 
+// ¿Habrá banner adjunto? (banner guardado, ya capturado, o generador activo que se capturará al guardar)
+function willHaveBanner() {
+  return !!(state.bannerFile || state.banner_signed_url || state._captureSplattag);
+}
+
 // Editor completo (configurador + banner + guardar/actualizar)
 function renderEditor() {
   clear(appEl());
@@ -169,7 +175,7 @@ function updatePreview(node) {
     el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
     el("strong", {}, state.alias || t("your_char")),
     el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
-    el("span", { class: "edc-preview-badge" }, (state.bannerFile || state.banner_signed_url) ? "🖼 banner ✓" : "🖼 —"),
+    el("span", { class: "edc-preview-badge" }, willHaveBanner() ? "🖼 banner ✓" : "🖼 —"),
   );
 }
 
@@ -181,6 +187,14 @@ async function doSave(btn, status) {
   }
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
   try {
+    // Genera y adjunta la splattag del canvas automáticamente (sin descargas ni subidas).
+    // Solo cuando hace falta: primera ficha, el usuario tocó el generador, o su config está cargada.
+    if (state._captureSplattag && (!state.banner_path || state._splattagDirty || state._splattagPersisted)) {
+      status.textContent = t("gen_building");
+      try { state.bannerFile = await state._captureSplattag(); }
+      catch (e) { console.warn("No se pudo generar la splattag:", e); }
+      status.textContent = t("saving");
+    }
     await savePlayer(state, session.user, profile);
     if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
     hasRecord = true;
@@ -264,13 +278,13 @@ function helpHtml(lang) {
   <li><b>Peinado</b> y <b>cejas</b>: dependen de la especie (mira las limitaciones).</li>
   <li><b>Piernas</b>: si la prenda tiene variantes aparece <b>Variación de piernas</b> (Base, V1, V2…).</li>
   <li><b>Equipamiento</b> (cabeza, ropa, zapatillas): pulsa <b>Cambiar</b> para elegir. El interruptor <b>Variante</b> activa la versión alternativa de esa prenda (si existe).</li>
-  <li><b>Banner Splattag</b>: créalo en <a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>, descárgalo como PNG y súbelo.</li>
+  <li><b>Banner Splattag</b>: diséñalo aquí mismo (banner, nombre, título, ID e insignias). Se adjunta solo a tu perfil al <b>Guardar</b>; no tienes que descargar ni subir nada.</li>
 </ul>
 <h4>Limitaciones</h4>
 <ul>
   <li><b>Peinados y cejas son por especie</b>: como Inkling solo ves peinados/cejas de Inkling; como Octoling solo los de Octoling. No se pueden mezclar (no puedes usar un peinado de Octoling siendo Inkling). Si cambias de especie, el peinado y las cejas se reinician a los de la nueva especie.</li>
   <li><b>Variante</b>: el interruptor solo funciona en prendas que tienen versión alternativa; en las demás aparece desactivado.</li>
-  <li><b>Banner</b>: solo <b>PNG</b>, máximo <b>2 MB</b>. Otros formatos (JPG, SVG…) se rechazan por seguridad.</li>
+  <li><b>Banner</b>: se genera dentro de la web y se guarda solo; el resultado es un PNG que prepara el equipo. No hace falta subir archivos.</li>
   <li><b>Arma y pose</b>: no se eligen aquí; las define el equipo al montar la foto.</li>
   <li><b>Editar</b>: para cambiar tu ficha, vuelve a entrar con el mismo Discord.</li>
 </ul>`;
@@ -285,13 +299,13 @@ function helpHtml(lang) {
   <li><b>Hairstyle</b> and <b>eyebrows</b>: depend on species (see limitations).</li>
   <li><b>Legs</b>: if the item has variants, a <b>Legs variation</b> row appears (Base, V1, V2…).</li>
   <li><b>Gear</b> (head, clothes, shoes): click <b>Change</b> to pick. The <b>Variant</b> switch enables the alternate version of that gear (if it has one).</li>
-  <li><b>Splattag banner</b>: make yours at <a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>, download it as PNG and upload it.</li>
+  <li><b>Splattag banner</b>: design it right here (banner, name, title, ID and badges). It's attached to your profile when you press <b>Save</b> — no download or upload needed.</li>
 </ul>
 <h4>Limitations</h4>
 <ul>
   <li><b>Hair and eyebrows are per species</b>: as an Inkling you only see Inkling hair/eyebrows; as an Octoling only Octoling ones. They can't be mixed (you can't use Octoling hair while being an Inkling). If you switch species, hair and eyebrows reset to the new species'.</li>
   <li><b>Variant</b>: the switch only works on gear that has an alternate version; otherwise it's disabled.</li>
-  <li><b>Banner</b>: PNG only, max 2 MB. Other formats (JPG, SVG…) are rejected for security.</li>
+  <li><b>Banner</b>: it's generated inside the site and saved automatically; the result is a PNG for the team. No file uploads needed.</li>
   <li><b>Weapon and pose</b>: not chosen here; the team sets them when building the photo.</li>
   <li><b>Editing</b>: to change your sheet, log in again with the same Discord.</li>
 </ul>`;
