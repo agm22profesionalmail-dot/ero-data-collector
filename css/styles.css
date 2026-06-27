@@ -166,6 +166,10 @@ body {
 .edc-banner-err { color: var(--err); font-size: .82rem; margin-top: 8px; }
 .edc-banner-link { font-size: .8rem; color: var(--accent-2); }
 .edc-banner-current { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.edc-banner-keep { font-size: .82rem; color: var(--muted); margin: 4px 0 12px; }
+.edc-btn-link { background: none; border: 0; color: var(--accent-2); cursor: pointer; font: inherit;
+  padding: 0; margin-bottom: 10px; display: inline-block; }
+.edc-btn-link:hover { text-decoration: underline; }
 
 /* Pestañas Crear / Subir */
 .edc-tabs { display: flex; gap: 6px; margin: 10px 0 14px; border-bottom: 1px solid var(--border); }
