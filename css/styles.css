@@ -334,6 +334,25 @@ body {
   padding-top: 38px;
 }
 
+/* Ko-fi links */
+.edc-footer-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 20px; flex-wrap: wrap;
+}
+.edc-kofi-link, .edc-kofi-login-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: #ff5e5b; text-decoration: none; font-size: .82rem;
+  font-weight: 600; letter-spacing: .3px;
+  transition: opacity .15s;
+}
+.edc-kofi-link:hover, .edc-kofi-login-link:hover { opacity: .75; }
+.edc-kofi-link img, .edc-kofi-login-link img { flex-shrink: 0; color: #ff5e5b; }
+.edc-kofi-login-link {
+  margin-top: 14px; font-size: .8rem;
+  opacity: .7;
+}
+.edc-kofi-login-link:hover { opacity: 1; }
+
 @media (max-width: 600px) {
   .edc-type-row { grid-template-columns: repeat(2, 1fr); }
   .edc-type-cell img { width: 56px; height: 56px; }

@@ -92,6 +92,8 @@ const STRINGS = {
     girl: "Girl",
     boy: "Boy",
     footer: "Free fan tool · data stored securely · edit anytime",
+    kofi_btn: "Commission on Ko-fi",
+    kofi_tip: "Request a Splatoon 3 photo commission",
   },
   es: {
     app_title: "ERO Data Collector",
@@ -185,6 +187,8 @@ const STRINGS = {
     girl: "Chica",
     boy: "Chico",
     footer: "Herramienta gratuita · proyecto fan · datos guardados de forma segura",
+    kofi_btn: "Comisionar en Ko-fi",
+    kofi_tip: "Solicita una foto de Splatoon 3",
   },
 };
 
