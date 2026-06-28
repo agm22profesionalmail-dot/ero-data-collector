@@ -45,7 +45,19 @@ function renderAuthArea() {
 function renderFooter() {
   const f = $("footer");
   clear(f);
-  f.append(el("div", {}, t("footer")));
+  f.append(el("div", { class: "edc-footer-row" },
+    el("span", {}, t("footer")),
+    el("a", {
+      href: "https://ko-fi.com/zerosplatoon",
+      target: "_blank",
+      rel: "noopener",
+      class: "edc-kofi-link",
+      title: t("kofi_tip"),
+    },
+      el("img", { src: "assets/kofi-cup.svg", alt: "", width: "18", height: "18", "aria-hidden": "true" }),
+      t("kofi_btn"),
+    ),
+  ));
   f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
   const d = el("details", { class: "edc-legal" });
   d.append(el("summary", {}, t("legal_title")));
@@ -62,6 +74,16 @@ function renderLogin() {
     el("button", { class: "edc-btn edc-btn-discord", onClick: doLogin },
       el("span", { html: discordSvg() }), t("login_btn")),
     el("p", { class: "edc-privacy edc-label" }, t("login_privacy")),
+    el("a", {
+      href: "https://ko-fi.com/zerosplatoon",
+      target: "_blank",
+      rel: "noopener",
+      class: "edc-kofi-login-link",
+      title: t("kofi_tip"),
+    },
+      el("img", { src: "assets/kofi-cup.svg", alt: "", width: "16", height: "16", "aria-hidden": "true" }),
+      t("kofi_btn"),
+    ),
   );
   appEl().append(card);
 }
