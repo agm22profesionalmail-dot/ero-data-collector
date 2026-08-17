@@ -78,7 +78,7 @@ test.html               harness de desarrollo (gitignored, no se despliega)
 - La `service_role` key **solo** vive en el `config.json` del PC del sync (gitignored). Nunca aquí.
 - SVG está prohibido (XML con JS ejecutable); solo PNG.
 
-Los assets de Splatoon (imágenes/JSON) se cargan desde las URLs públicas de Flexlion; este repo no los aloja.
+Los assets de Splatoon (imágenes/JSON) se cargan desde las URLs públicas de [Flexlion](https://github.com/Flexlion/flexlion.github.io); este repo no los aloja.
 
 ## Licencia y créditos
 
@@ -86,4 +86,4 @@ Este proyecto se distribuye bajo **GPL-3.0** (ver [`LICENSE`](LICENSE)). El gene
 
 Crédito completo a sus autores y colaboradores: **seymour** (@spaghettitron, web original), **LeanYoshi** (base de datos), **Raven_The_Cute** (traducciones), **DeadLineSMB**, **ElectroDev**, **Lucyfer**, **mya** (banners), **Zeeto**, **Sharkinodraws** (insignias). Lista completa en la [página de créditos original](https://splashtagmaker.com/credits/).
 
-«Splatoon», «Inkling», «Octoling» y los recursos del juego son marcas y propiedad de © Nintendo. Proyecto de fans, sin ánimo de lucro y sin afiliación con Nintendo.
+«Splatoon», «Nintendo Switch», «Inkling», «Octoling» y los logotipos asociados son marcas registradas de Nintendo. Las imágenes, personajes y demás recursos del juego son propiedad intelectual de Nintendo Co., Ltd. y/o sus filiales. Proyecto de fans sin afiliación con Nintendo. Las donaciones recibidas se destinan exclusivamente a cubrir gastos de alojamiento e infraestructura.

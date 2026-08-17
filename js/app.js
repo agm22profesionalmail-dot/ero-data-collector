@@ -314,20 +314,22 @@ function helpHtml(lang) {
 
 function legalHtml(lang) {
   if (lang === "es") return `
-<p><b>Aviso:</b> Este sitio es un proyecto de fans <b>sin ánimo de lucro</b> para organizar contenido de la comunidad. <b>No está afiliado, asociado, autorizado ni patrocinado por Nintendo</b> ni ninguna de sus filiales.</p>
-<p><b>Marcas y propiedad:</b> «Splatoon», «Nintendo Switch», «Inkling», «Octoling», sus logotipos, personajes e imágenes son marcas registradas y propiedad de © Nintendo. Los recursos gráficos del juego se muestran únicamente con fines ilustrativos y no comerciales. Todos los derechos pertenecen a sus respectivos propietarios.</p>
+<p><b>Aviso:</b> Este sitio es un proyecto de fans para organizar contenido de la comunidad. Las donaciones recibidas se destinan exclusivamente a cubrir gastos de alojamiento e infraestructura. <b>No está afiliado, asociado, autorizado ni patrocinado por Nintendo</b> ni ninguna de sus filiales.</p>
+<p><b>Marcas y propiedad:</b> «Splatoon», «Nintendo Switch», «Inkling», «Octoling» y los logotipos asociados son marcas registradas de Nintendo. Las imágenes, personajes y demás recursos del juego son propiedad intelectual de Nintendo Co., Ltd. y/o sus filiales. Los recursos gráficos se muestran únicamente con fines ilustrativos dentro de un contexto de fans. Todos los derechos pertenecen a sus respectivos propietarios.</p>
 <h4>Datos que recogemos</h4>
 <p>Al conectar tu Discord guardamos lo siguiente:</p>
 <ul>
   <li><b>Nombre de usuario y avatar de Discord</b> — para identificarte en la comunidad.</li>
   <li><b>Configuración de personaje</b> — especie, género, skin, equipamiento, color de tinta y alias que eliges en el formulario.</li>
-  <li><b>Banner (PNG)</b> — generado con el creador integrado o, en casos anteriores, subido manualmente.</li>
-  <li><b>Configuración del generador de Splattag</b> — si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración. Quienes subieron un PNG manualmente no tienen esta información almacenada.</li>
+  <li><b>Banner (PNG)</b> — generado con el creador integrado.</li>
+  <li><b>Configuración del generador de Splattag</b> — si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración.</li>
 </ul>
 <p><b>Finalidad:</b> preparar contenido y fotos para eventos de la comunidad. No se venden ni ceden datos a terceros con fines publicitarios.</p>
-<p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar todos tus datos por completo, contacta con el organizador por Discord.</p>
-<p><b>Almacenamiento:</b> los datos se guardan en Supabase (base de datos y almacenamiento de archivos) y en el archivo del organizador. Al generar o subir contenido confirmas que tienes derecho a utilizarlo.</p>
-<h4>Créditos — Generador de Splattags</h4>
+<p><b>Edad mínima:</b> debes tener al menos 14 años para usar este servicio. Si eres menor de 14 años, necesitas el consentimiento de tu padre, madre o tutor legal.</p>
+<p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
+<p><b>Conservación:</b> tus datos se mantienen mientras haya eventos de comunidad activos o hasta que solicites su eliminación.</p>
+<p><b>Almacenamiento:</b> los datos se guardan en Supabase (base de datos y almacenamiento de archivos). Este sitio guarda tu idioma preferido y el estado del generador en el almacenamiento local de tu navegador (localStorage), sin cookies de terceros ni rastreo publicitario. Al diseñar tu banner con el generador integrado, confirmas que los datos que introduces (nombre, alias, ID) no infringen derechos de terceros.</p>
+<h4>Créditos</h4>
 <p>El creador de splattags está basado en el proyecto de código abierto <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), licencia GPL-3.0. Todo el mérito es de sus autores:</p>
 <ul>
   <li><b>seymour</b> (@spaghettitron) — creador de la web original</li>
@@ -340,22 +342,25 @@ function legalHtml(lang) {
   <li><b>Zeeto</b> — badges de bandas</li>
   <li><b>Sharkinodraws</b> — badges de huevos de Salmon Run</li>
 </ul>
-<p>Lista completa en la <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">página de créditos original</a>. Fuentes, imágenes y datos de Splatoon son propiedad de © Nintendo.</p>`;
+<p>Los datos e imágenes del juego (configurador de personaje) se cargan desde <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
+<p>Lista completa en la <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">página de créditos original</a>. Fuentes, imágenes y datos de Splatoon son propiedad intelectual de Nintendo Co., Ltd.</p>`;
   return `
-<p><b>Disclaimer:</b> This is a <b>non-commercial fan project</b> made to organize community content. <b>It is not affiliated with, associated with, authorized, endorsed by, or in any way sponsored by Nintendo</b> or any of its subsidiaries.</p>
-<p><b>Trademarks &amp; ownership:</b> "Splatoon", "Nintendo Switch", "Inkling", "Octoling", their logos, characters and images are trademarks and property of © Nintendo. Game artwork is shown for illustrative, non-commercial (fan) purposes only. All rights belong to their respective owners.</p>
+<p><b>Disclaimer:</b> This is a fan project made to organize community content. Any donations received go exclusively toward hosting and infrastructure costs. <b>It is not affiliated with, associated with, authorized, endorsed by, or in any way sponsored by Nintendo</b> or any of its subsidiaries.</p>
+<p><b>Trademarks &amp; ownership:</b> "Splatoon", "Nintendo Switch", "Inkling", "Octoling" and associated logos are registered trademarks of Nintendo. Images, characters and other game assets are the intellectual property of Nintendo Co., Ltd. and/or its affiliates. Game artwork is shown for illustrative fan purposes only. All rights belong to their respective owners.</p>
 <h4>Data we collect</h4>
 <p>When you connect your Discord, we store the following:</p>
 <ul>
   <li><b>Discord username and avatar</b> — to identify you within the community.</li>
   <li><b>Character configuration</b> — species, gender, skin tone, gear, ink color and alias you set in the form.</li>
-  <li><b>Banner (PNG)</b> — generated with the built-in creator or, in legacy cases, manually uploaded.</li>
-  <li><b>Splattag generator settings</b> — if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration. Users who uploaded a PNG manually do not have this data stored.</li>
+  <li><b>Banner (PNG)</b> — generated with the built-in creator.</li>
+  <li><b>Splattag generator settings</b> — if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration.</li>
 </ul>
 <p><b>Purpose:</b> exclusively to prepare content and photos for community events. We do not sell or share your data with third parties for advertising.</p>
-<p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with your Discord. To fully delete your data, contact the organizer on Discord.</p>
-<p><b>Storage:</b> data is stored in Supabase (database and file storage) and in the organizer's personal archive. By generating or uploading content you confirm you have the right to use it.</p>
-<h4>Credits — Splattag generator</h4>
+<p><b>Minimum age:</b> you must be at least 14 years old to use this service. If you are under 14, you need parental or legal guardian consent.</p>
+<p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with your Discord. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
+<p><b>Retention:</b> your data is kept while community events are active, or until you request its deletion.</p>
+<p><b>Storage:</b> data is stored in Supabase (database and file storage). This site saves your preferred language and generator state in your browser's local storage (localStorage), with no third-party cookies or advertising trackers. By designing your banner with the built-in generator, you confirm that the data you enter (name, alias, ID) does not infringe third-party rights.</p>
+<h4>Credits</h4>
 <p>The splattag creator is based on the open-source project <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), GPL-3.0 license. All credit goes to its authors:</p>
 <ul>
   <li><b>seymour</b> (@spaghettitron) — original website creator</li>
@@ -368,7 +373,8 @@ function legalHtml(lang) {
   <li><b>Zeeto</b> — Splatband badges</li>
   <li><b>Sharkinodraws</b> — Salmon Run egg badges</li>
 </ul>
-<p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are property of © Nintendo.</p>`;
+<p>Game data and images (character configurator) are loaded from <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
+<p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
 }
 
 function discordSvg() {

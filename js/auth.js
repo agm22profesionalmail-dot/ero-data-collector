@@ -6,7 +6,7 @@ export async function signInWithDiscord() {
     provider: "discord",
     options: {
       redirectTo: window.location.origin + window.location.pathname,
-      scopes: "identify email",
+      scopes: "identify",
     },
   });
   if (error) throw error;
