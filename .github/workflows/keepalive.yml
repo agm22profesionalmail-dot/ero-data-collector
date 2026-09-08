@@ -1,0 +1,39 @@
+# Mantiene vivo el proyecto Supabase (el plan Free se pausa tras ~7 dias sin actividad de BBDD).
+# Ejecuta una consulta REAL a Postgres via PostgREST (SELECT sobre la tabla players).
+# No requiere configurar secrets: la URL y la anon key (publica) se leen de js/config.js,
+# asi que si rotas la anon key el keepalive sigue funcionando sin tocar nada.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "23 5 */2 * *"   # cada 2 dias 05:23 UTC (margen de sobra frente al umbral de 7 dias)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping Supabase (SELECT via PostgREST)
+        run: |
+          set -euo pipefail
+          CFG="js/config.js"
+          URL=$(grep -oP 'SUPABASE_URL\s*=\s*"\K[^"]+' "$CFG" || true)
+          KEY=$(grep -oP 'SUPABASE_ANON_KEY\s*=\s*"\K[^"]+' "$CFG" || true)
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "No pude extraer SUPABASE_URL / SUPABASE_ANON_KEY de $CFG"; exit 1
+          fi
+          echo "Proyecto: $URL"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 30 \
+            "$URL/rest/v1/players?select=id&limit=1" \
+            -H "apikey: $KEY" \
+            -H "Authorization: Bearer $KEY")
+          echo "Respuesta HTTP: $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "Supabase no respondio 200 (proyecto pausado o caido)"; exit 1
+          fi
+          echo "keepalive OK"
