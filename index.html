@@ -6,7 +6,10 @@
   <meta name="color-scheme" content="dark" />
   <meta name="description" content="Submit and manage your Splatoon 3 character for ERO's Team community events. Fan project — not affiliated with Nintendo. Splatoon is a trademark of Nintendo." />
   <title>ERO Data Collector</title>
+  <link rel="icon" href="assets/favicon.png" sizes="any" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -14,6 +17,7 @@
   <!-- decoración Splatoon — fija, detrás del contenido, no interactiva -->
   <div class="edc-bg-decor" aria-hidden="true">
     <div class="edc-bg-layer"></div>
+    <div class="edc-bg-pattern"></div>
     <img class="edc-decor edc-decor-splat-main"   src="assets/decor/splat-splatfest.png" alt="">
     <img class="edc-decor edc-decor-splat-purple" src="assets/decor/splat-purple.png"    alt="">
     <img class="edc-decor edc-decor-star s1"      src="assets/decor/star-shine.png"      alt="">
@@ -24,8 +28,11 @@
 
   <header class="edc-header">
     <div class="edc-brand">
-      <h1 id="appTitle">ERO Data Collector</h1>
-      <span id="appSub" class="edc-sub"></span>
+      <img class="edc-brand-logo" src="assets/brand-logo.webp" alt="ERO's Team" />
+      <div class="edc-brand-text">
+        <h1 id="appTitle"><span class="edc-brand-accent">ERO</span> Data Collector</h1>
+        <span id="appSub" class="edc-sub"></span>
+      </div>
     </div>
     <div class="edc-header-right">
       <div class="edc-lang" id="langSwitch">

@@ -35,6 +35,10 @@ export const SPLATTAG_URL = "https://splashtagmaker.com/";
 // Créditos completos en el aviso legal. jsDelivr envía cabeceras CORS, necesario
 // para exportar el canvas (crossOrigin="anonymous") sin "tainted canvas".
 export const SPLATTAG_CDN = "https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@main";
+// Fuente secundaria de imágenes de badge (niveles altos de arma y otras oficiales que
+// SeymourSchlong no incluye). Datos del juego de Leanny/splat3, servidos por jsDelivr
+// (envía CORS *, igual que el CDN principal). Solo .png, naming Badge_<Name>.png.
+export const LEANNY_BADGE_CDN = "https://cdn.jsdelivr.net/gh/Leanny/splat3@main/images/badge";
 export const BANNER_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const BANNER_MAX_DIM = 4096;              // px por lado
 export const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];

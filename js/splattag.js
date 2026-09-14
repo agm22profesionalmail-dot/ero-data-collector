@@ -5,9 +5,10 @@
 // marca de agua de artistas. Assets servidos vía jsDelivr con CORS, para poder
 // exportar el canvas (crossOrigin="anonymous") sin "tainted canvas".
 // Créditos completos en el aviso legal (app.js → legalHtml).
-import { SPLATTAG_CDN } from "./config.js";
+import { SPLATTAG_CDN, LEANNY_BADGE_CDN } from "./config.js";
 import { getLang, t } from "./i18n.js";
 import { el, clear } from "./ui.js";
+import EXTRA_BADGES from "./extra-badges.js";
 
 const TAG_W = 700, TAG_H = 200, TEXT_SCALE = 2;
 const A = (p) => `${SPLATTAG_CDN}/assets/${p}`;
@@ -109,12 +110,28 @@ function parseBadges(data) {
         continue;
       }
       const custom = s.includes("/");
-      out.push({ file: (custom ? "custom/badges/" : "badges/") + s, section, custom });
+      const file = (custom ? "custom/badges/" : "badges/") + s;
+      out.push({ file, section, custom, url: A(file) });
     }
   };
   walk(data.badges);
   walk(data.customBadges);
-  return out;
+  // Badges oficiales que SeymourSchlong no incluye (niveles altos de arma Lv02-Lv06,
+  // VariousWeaponLevel, CoopKillTripleBoss). Sus imágenes vienen de Leanny/splat3 (solo
+  // .png). El identificador `file` es único (nombres disjuntos del upstream) y la URL
+  // se resuelve por `url`, no por A(file), así que nunca golpea el CDN principal.
+  for (const e of EXTRA_BADGES) {
+    out.push({ file: "badges/" + e.f, section: e.s, custom: false, url: `${LEANNY_BADGE_CDN}/${e.f}`, noWebp: true });
+  }
+  // Reagrupar por sección (orden de primera aparición) para que los extras se fundan
+  // con su sección ya existente (armas → "weps", etc.) en vez de crear grupos sueltos.
+  const order = [];
+  const groups = new Map();
+  for (const it of out) {
+    if (!groups.has(it.section)) { groups.set(it.section, []); order.push(it.section); }
+    groups.get(it.section).push(it);
+  }
+  return order.flatMap((s) => groups.get(s));
 }
 
 function loadImage(url) {
@@ -375,8 +392,9 @@ function openAssetPicker({ title, items, langKey, onSelect }) {
         lastSection = it.section;
         body.append(el("div", { class: "edc-gallery-head" }, sectionLabel(it.section, langKey)));
       }
-      const img = el("img", { src: A(it.file) + ".webp", alt: label, loading: "lazy" });
-      img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = A(it.file) + ".png"; } };
+      const base = it.url || A(it.file);
+      const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy" });
+      img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = base + ".png"; } };
       body.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: label, onClick: () => { onSelect(it); close(); } },
         img, el("div", {}, label)));
     }
@@ -427,7 +445,7 @@ function openTextPicker({ title, list, onSelect }) {
 // onUse(file) recibe el PNG generado (File) ya asignado a state.bannerFile.
 export function renderSplattagGenerator(container, state, onUse) {
   clear(container);
-  const loading = el("div", { class: "edc-loading" }, el("div", { class: "edc-spinner" }), el("div", {}, t("gen_loading")));
+  const loading = el("div", { class: "edc-loading" }, el("div", { class: "edc-inkloader" }), el("div", {}, t("gen_loading")));
   container.append(loading);
 
   loadAssets()
@@ -462,7 +480,9 @@ export function renderSplattagGenerator(container, state, onUse) {
     };
     const reloadBadge = async (i) => {
       if (!g.badges[i]) { imgs.badges[i] = null; redraw(); return; }
-      try { imgs.badges[i] = await loadImage(A(g.badges[i]) + ".png"); } catch { imgs.badges[i] = null; }
+      const bm = bannerMetaBadge(g.badges[i]);
+      const base = bm?.url || A(g.badges[i]);
+      try { imgs.badges[i] = await loadImage(base + ".png"); } catch { imgs.badges[i] = null; }
       redraw();
     };
 

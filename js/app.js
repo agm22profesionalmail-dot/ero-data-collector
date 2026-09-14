@@ -58,14 +58,23 @@ function renderFooter() {
 // ── Vistas ────────────────────────────────────────────────────────────
 function renderLogin() {
   clear(appEl());
-  const card = el("div", { class: "edc-login" },
-    el("h2", {}, t("login_title")),
-    el("p", {}, t("login_desc")),
-    el("button", { class: "edc-btn edc-btn-discord", onClick: doLogin },
-      el("span", { html: discordSvg() }), t("login_btn")),
-    el("p", { class: "edc-privacy edc-label" }, t("login_privacy")),
+  const hero = el("section", { class: "edc-hero" },
+    el("div", { class: "edc-hero-inner" },
+      el("div", { class: "edc-hero-copy" },
+        el("span", { class: "edc-hero-eyebrow" }, "ERO'S TEAM"),
+        el("h2", { class: "edc-hero-title" }, t("login_title")),
+        el("p", { class: "edc-hero-desc" }, t("login_desc")),
+        el("button", { class: "edc-btn edc-btn-discord edc-hero-cta", onClick: doLogin },
+          el("span", { html: discordSvg() }), t("login_btn")),
+        el("p", { class: "edc-privacy edc-label" }, t("login_privacy")),
+      ),
+      el("div", { class: "edc-hero-art", "aria-hidden": "true" },
+        el("span", { class: "edc-hero-splat" }),
+        el("img", { class: "edc-hero-char", src: "assets/hero/char-octoling.webp", alt: "", loading: "eager" }),
+      ),
+    ),
   );
-  appEl().append(card);
+  appEl().append(hero);
 }
 
 async function doLogin() {
@@ -75,7 +84,7 @@ async function doLogin() {
 
 async function renderApp() {
   clear(appEl());
-  const loading = el("div", { class: "edc-loading" }, el("div", { class: "edc-spinner" }), el("div", {}, t("loading_data")));
+  const loading = el("div", { class: "edc-loading" }, el("div", { class: "edc-inkloader" }), el("div", {}, t("loading_data")));
   appEl().append(loading);
 
   try {
@@ -181,6 +190,54 @@ function updatePreview(node) {
   );
 }
 
+// Frases del envío por fase, distintas para alta nueva (new) y actualización
+// (upd); se elige una al azar de cada grupo en cada guardado, para variar.
+const SUBMIT_PHRASES = {
+  es: {
+    pack: { new: ["Empaquetando personaje…", "Empaquetando características…", "Preparando tu ficha…"],
+            upd: ["Empaquetando nuevo personaje…", "Recogiendo tus cambios…", "Empaquetando características…"] },
+    send: { new: ["Registrando personaje…", "Dando de alta tu ficha…", "Reservando tu plaza…"],
+            upd: ["Actualizando información…", "Sincronizando tus cambios…", "Actualizando tu ficha…"] },
+    reg:  { new: ["Sellando el registro…", "Guardando en el servidor…"],
+            upd: ["Aplicando la actualización…", "Guardando los cambios…"] },
+    done: { new: ["¡Personaje registrado!"], upd: ["¡Información actualizada!"] },
+  },
+  en: {
+    pack: { new: ["Packing your character…", "Bundling traits…", "Preparing your sheet…"],
+            upd: ["Packing your new character…", "Gathering your changes…", "Bundling traits…"] },
+    send: { new: ["Registering character…", "Signing up your sheet…", "Saving your spot…"],
+            upd: ["Updating your info…", "Syncing your changes…", "Updating your sheet…"] },
+    reg:  { new: ["Sealing the record…", "Saving to the server…"],
+            upd: ["Applying the update…", "Saving your changes…"] },
+    done: { new: ["Character registered!"], upd: ["Info updated!"] },
+  },
+};
+const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function submitPhrases(isUpdate) {
+  const L = SUBMIT_PHRASES[getLang()] || SUBMIT_PHRASES.en;
+  const k = isUpdate ? "upd" : "new";
+  return { pack: pickOne(L.pack[k]), send: pickOne(L.send[k]), reg: pickOne(L.reg[k]), done: pickOne(L.done[k]) };
+}
+
+// Overlay de envío: loader de tinta + barra de progreso + texto por fases.
+// Cada fase se corresponde con un paso REAL del guardado; el pequeño margen
+// entre fases es solo para que el texto sea legible (no falsea el resultado).
+function renderSubmitOverlay() {
+  const bar = el("div", { class: "edc-progress-bar" });
+  const label = el("div", { class: "edc-submit-label" }, "…");
+  const overlay = el("div", { class: "edc-submit-overlay", role: "status", "aria-live": "polite" },
+    el("div", { class: "edc-submit-card" },
+      el("div", { class: "edc-inkloader" }),
+      label,
+      el("div", { class: "edc-progress" }, bar)));
+  document.body.append(overlay);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  return {
+    async phase(text, pct, dwell = 440) { label.textContent = text; bar.style.width = pct + "%"; await wait(dwell); },
+    close() { overlay.remove(); },
+  };
+}
+
 async function doSave(btn, status) {
   if (!state.alias || !state.alias.trim()) {
     state._aliasError = true; renderEditor();
@@ -188,22 +245,29 @@ async function doSave(btn, status) {
     return;
   }
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
+  const isUpdate = hasRecord;            // ¿ya tenía ficha? decide el juego de frases
+  const P = submitPhrases(isUpdate);
+  const ov = renderSubmitOverlay();
   try {
     // Genera y adjunta la splattag del canvas automáticamente (sin descargas ni subidas).
     // Solo cuando hace falta: primera ficha, el usuario tocó el generador, o su config está cargada.
     if (state._captureSplattag && (!state.banner_path || state._splattagDirty || state._splattagPersisted)) {
-      status.textContent = t("gen_building");
+      await ov.phase(P.pack, 28);
       try { state.bannerFile = await state._captureSplattag(); }
       catch (e) { console.warn("No se pudo generar la splattag:", e); }
-      status.textContent = t("saving");
     }
+    await ov.phase(P.send, 62);
     await savePlayer(state, session.user, profile);
+    await ov.phase(P.reg, 88);
     if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
     hasRecord = true;
+    await ov.phase(P.done, 100, 620);
+    ov.close();
     toast(t("saved"), "ok");
     mode = "preview";
     renderModeView();
   } catch (e) {
+    ov.close();
     status.className = "edc-save-status err"; status.textContent = t("save_err") + e.message;
     toast(t("save_err") + e.message, "err");
     btn.disabled = false;
