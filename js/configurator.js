@@ -60,21 +60,20 @@ export function renderConfigurator(container, state, onChange) {
     card.append(alias);
     if (state._aliasError) card.append(el("div", { class: "edc-banner-err" }, t("alias_required")));
 
-    // Color
+    // Color — un único swatch clicable (el propio input de color) + hex
     card.append(el("label", { class: "edc-label" }, t("ink_color")));
     const hex = colorToHex(state.color).toUpperCase();
-    const prev = el("div", { class: "edc-color-preview", style: `background:${hex}` });
-    const native = el("input", { type: "color", class: "edc-color-native", value: hex });
+    const native = el("input", { type: "color", class: "edc-color-native", value: hex, title: t("ink_color") });
     const hexIn = el("input", { class: "edc-input edc-hex", type: "text", maxlength: "7", value: hex });
     const applyHex = (v) => {
       if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-        state.color = hexToColor(v); prev.style.background = v;
+        state.color = hexToColor(v);
         native.value = v; hexIn.classList.remove("error"); change();
       } else hexIn.classList.add("error");
     };
     native.addEventListener("input", () => { hexIn.value = native.value.toUpperCase(); applyHex(native.value); });
     hexIn.addEventListener("input", () => applyHex(hexIn.value.startsWith("#") ? hexIn.value : "#" + hexIn.value));
-    card.append(el("div", { class: "edc-color-row" }, prev, native, hexIn));
+    card.append(el("div", { class: "edc-color-row" }, native, hexIn));
 
     // Especie y género
     card.append(el("div", { class: "edc-section-title" }, t("section_type")));
