@@ -10,7 +10,10 @@ const STRINGS = {
     // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Connect your Discord or X account to send your character data. You can come back and edit it anytime.",
     login_btn_x: "Connect with X",
-    login_privacy_x: "We only read your username, display name, avatar and account ID from Discord or X. Nothing is posted on your behalf. You must be at least 14 years old to use this service.",
+    login_privacy_x: "We only read your username, display name, avatar and account ID from Discord or X (X also shares your confirmed email, used solely for sign-in). X's consent screen lists post reading and offline access because X requires them; we never read or post anything. You must be at least 14 years old to use this service.",
+    login_dup_note: "Already have a sheet with Discord? Sign in with Discord and link X from the header, so you don't end up with two sheets.",
+    editor_dup_note: "You signed in with X and have no sheet yet. If you already made one with Discord, log out, sign in with Discord and link X from the header instead of creating a new one.",
+    link_err_cancelled: "the authorization was cancelled.",
     link_x: "Link X",
     link_discord: "Link Discord",
     unlink_x: "Unlink X",
@@ -119,7 +122,10 @@ const STRINGS = {
     // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Conecta tu cuenta de Discord o de X para enviar los datos de tu personaje. Puedes volver y editarlo cuando quieras.",
     login_btn_x: "Conectar con X",
-    login_privacy_x: "Solo leemos tu nombre de usuario, nombre público, avatar e ID de cuenta de Discord o X. No publicamos nada en tu nombre. Debes tener al menos 14 años para usar este servicio.",
+    login_privacy_x: "Solo leemos tu nombre de usuario, nombre público, avatar e ID de cuenta de Discord o X (X también nos facilita tu email confirmado, usado solo para el inicio de sesión). La pantalla de X pide lectura de publicaciones y acceso sin conexión porque X lo exige; nunca leemos ni publicamos nada. Debes tener al menos 14 años para usar este servicio.",
+    login_dup_note: "¿Ya tienes ficha con Discord? Entra con Discord y vincula X desde la cabecera, así no acabas con dos fichas.",
+    editor_dup_note: "Has entrado con X y aún no tienes ficha. Si ya hiciste una con Discord, cierra sesión, entra con Discord y vincula X desde la cabecera en vez de crear otra.",
+    link_err_cancelled: "se canceló la autorización.",
     link_x: "Vincular X",
     link_discord: "Vincular Discord",
     unlink_x: "Desvincular",
