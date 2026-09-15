@@ -566,13 +566,19 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 <p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
 }
 
-// Logo de X (marca de X Corp.), inline para no depender de assets externos
+// Logo oficial de X (X Corp.): trazado original tal cual lo sirve x.com.
+// Solo se escala; el color hereda del botón (blanco sobre negro, versión permitida).
 function xSvg(size = 18) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.742 21.75l-7.563-11.179 7.056-8.321h-2.456l-5.691 6.714-4.54-6.714H2.359l7.29 10.776L2.25 21.75h2.456l6.035-7.118 4.818 7.118h6.191-.008zM7.739 3.818L18.81 20.182h-2.447L5.29 3.818h2.447z"/></svg>`;
 }
 
-function discordSvg() {
-  return '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.3.5c2 .6 3 .9 4.4 1.8a13.6 13.6 0 0 0-12-.5C8.7 4 9.7 3.6 11.2 3.5L11 3a19.8 19.8 0 0 0-4.9 1.4C2.6 9.7 2 14.9 2.3 20c1.8 1.3 3.6 2 5.3 2.6l1-1.7c-.9-.3-1.7-.7-2.4-1.2l.6-.4c4.6 2.1 9.5 2.1 14 0l.6.4c-.7.5-1.5.9-2.4 1.2l1 1.7c1.8-.6 3.5-1.3 5.3-2.6.4-6-.8-11.1-3.6-15.6zM9 16c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/></svg>';
+// Símbolo oficial de Discord (Discord-Symbol-White.svg del kit de marca de
+// discord.com/branding). Trazado sin modificar; solo se escala manteniendo la
+// proporción 126.644:96. El blanco va como atributo fill (el SVG original lo
+// define con una clase CSS que chocaría con otras clases de la página).
+function discordSvg(height = 20) {
+  const width = Math.round(height * 126.644 / 96 * 10) / 10;
+  return `<svg width="${width}" height="${height}" viewBox="0 0 126.644 96" aria-hidden="true"><path fill="#fff" d="M81.15,0c-1.2376,2.1973-2.3489,4.4704-3.3591,6.794-9.5975-1.4396-19.3718-1.4396-28.9945,0-.985-2.3236-2.1216-4.5967-3.3591-6.794-9.0166,1.5407-17.8059,4.2431-26.1405,8.0568C2.779,32.5304-1.6914,56.3725.5312,79.8863c9.6732,7.1476,20.5083,12.603,32.0505,16.0884,2.6014-3.4854,4.8998-7.1981,6.8698-11.0623-3.738-1.3891-7.3497-3.1318-10.8098-5.1523.9092-.6567,1.7932-1.3386,2.6519-1.9953,20.281,9.547,43.7696,9.547,64.0758,0,.8587.7072,1.7427,1.3891,2.6519,1.9953-3.4601,2.0457-7.0718,3.7632-10.835,5.1776,1.97,3.8642,4.2683,7.5769,6.8698,11.0623,11.5419-3.4854,22.3769-8.9156,32.0509-16.0631,2.626-27.2771-4.496-50.9172-18.817-71.8548C98.9811,4.2684,90.1918,1.5659,81.1752.0505l-.0252-.0505ZM42.2802,65.4144c-6.2383,0-11.4159-5.6575-11.4159-12.6535s4.9755-12.6788,11.3907-12.6788,11.5169,5.708,11.4159,12.6788c-.101,6.9708-5.026,12.6535-11.3907,12.6535ZM84.3576,65.4144c-6.2637,0-11.3907-5.6575-11.3907-12.6535s4.9755-12.6788,11.3907-12.6788,11.4917,5.708,11.3906,12.6788c-.101,6.9708-5.026,12.6535-11.3906,12.6535Z"/></svg>`;
 }
 
 init();
