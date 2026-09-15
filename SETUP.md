@@ -89,6 +89,60 @@ En el vault: `08_Scripts/ero_data_collector/`
 
 ---
 
+## 10. (Opcional) Login con X y vinculación de cuentas
+
+Permite entrar con X (Twitter) además de Discord y vincular ambas cuentas a un mismo usuario. La web lleva la función **apagada** por defecto (`X_LOGIN_ENABLED = false` en `js/config.js`): hasta que no completes estos pasos no aparece ningún botón de X.
+
+> ⚠️ Antes de empezar, comprueba en el portal de X (https://developer.x.com → tu proyecto → *Products*) qué nivel de acceso tiene tu app y **si el acceso a la API tiene coste**. El login OAuth 2.0 solo necesita leer el perfil público (`users.read` + `tweet.read`, que X exige juntos), pero el tier gratuito ha cambiado varias veces; confírmalo antes de activar nada en producción.
+
+### 10.1 Crear la app en X Developer Console
+
+1. https://developer.x.com/en/portal/dashboard → **Projects & Apps** → crea un proyecto (o usa uno existente) → **Add App** → nombre (ej. `ERO Data Collector`).
+2. Dentro de la app → **User authentication settings** → **Set up**.
+3. Rellena:
+   - **App permissions**: `Read` (basta con lectura).
+   - **Type of App**: **Web App, Automated App or Bot**.
+   - **Callback URI / Redirect URL** → pega **EXACTAMENTE**:
+     ```
+     https://<project-ref>.supabase.co/auth/v1/callback
+     ```
+   - **Website URL**: la URL pública de tu web (GitHub Pages), p. ej. `https://<tu-usuario>.github.io/ero-data-collector/`.
+   - **Terms of service** y **Privacy policy**: la misma URL de la web (el aviso legal y la política de privacidad están en el pie de página).
+4. **Save**. X muestra el **Client ID** y el **Client Secret** de OAuth 2.0 (pestaña **Keys and tokens** → *OAuth 2.0 Client ID and Client Secret*). Cópialos: el secret solo se muestra una vez (si lo pierdes, *Regenerate*).
+
+### 10.2 Activar el proveedor en Supabase
+
+1. Supabase → **Authentication** → **Providers** → **X / Twitter (OAuth 2.0)** (no el antiguo "Twitter (OAuth 1.0a)").
+2. **Enable** ON → pega **Client ID** y **Client Secret** → **Save**.
+3. La **Redirect URLs** de *URL Configuration* (paso 5) ya incluye tu web; no hace falta añadir nada más.
+
+### 10.3 Activar la vinculación manual de identidades
+
+1. Supabase → **Authentication** → **Providers** (o **Settings** → *Auth*, según versión del panel) → busca **"Allow manual linking"** / **Manual Linking** → ON → **Save**.
+2. Sin esto, `linkIdentity` / `unlinkIdentity` devuelven `manual_linking_disabled` y los botones **Vincular X** / **Vincular Discord** fallan.
+
+### 10.4 Ejecutar la migración de la BBDD
+
+1. **SQL Editor** → **New query** → pega [`supabase/migrations/20260915_x_identity.sql`](supabase/migrations/20260915_x_identity.sql) → **Run**.
+2. Añade a `players` las columnas `x_id`, `x_username`, `x_avatar` y un índice por handle. Es idempotente y no toca RLS. (En instalaciones nuevas `schema.sql` ya las incluye.)
+
+### 10.5 Encender la función en la web
+
+Edita [`js/config.js`](js/config.js):
+
+```js
+export const X_LOGIN_ENABLED = true;
+```
+
+Despliega. En la pantalla de login aparece **Conectar con X** junto al botón de Discord, y en la cabecera (usuario logado) **Vincular X** / `@handle` + **Desvincular**, y **Vincular Discord** para quien entró solo con X.
+
+Notas:
+- Supabase no permite dejar a un usuario sin identidades: **Desvincular** solo se muestra si hay ≥2 cuentas vinculadas.
+- Si la cuenta de X ya está vinculada a otro usuario, Supabase vuelve a la web con `error_code=identity_already_exists`; la web lo muestra como toast traducido.
+- El sync local (`sync.py`) añade `x_username` / `x_id` al frontmatter de cada ficha y una fila `X` en la tabla si hay handle.
+
+---
+
 ## Checklist final
 
 - [ ] Proyecto Supabase creado, `project-ref` anotado

@@ -43,6 +43,9 @@ export async function savePlayer(state, user, profile) {
     discord_id: profile?.discord_id ?? null,
     discord_name: profile?.discord_name ?? null,
     discord_avatar: profile?.discord_avatar ?? null,
+    x_id: profile?.x_id ?? null,
+    x_username: profile?.x_username ?? null,
+    x_avatar: profile?.x_avatar ?? null,
     color: state.color,
     banner_path, banner_sha256,
     splattag_config: state._splattag ?? null,
@@ -57,3 +60,19 @@ export async function savePlayer(state, user, profile) {
   state.bannerFile = null;
   return row;
 }
+
+// Tras vincular/desvincular una identidad (Discord o X): refresca SOLO los
+// campos de identidad de la fila existente del usuario. Update de la propia
+// fila (RLS players_update_own). Si aún no hay ficha, no hace nada: los datos
+// se guardarán con el primer savePlayer.
+const IDENTITY_FIELDS = ["discord_id", "discord_name", "discord_avatar", "x_id", "x_username", "x_avatar"];
+
+export async function syncIdentityFields(user, profile) {
+  if (!user || !profile) return false;
+  const patch = {};
+  for (const f of IDENTITY_FIELDS) patch[f] = profile[f] ?? null;
+  const { data, error } = await supabase.from("players").update(patch).eq("user_id", user.id).select("id");
+  if (error) throw error;
+  return (data || []).length > 0;
+}
+

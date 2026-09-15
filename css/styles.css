@@ -147,6 +147,19 @@ body {
 .edc-btn-primary:hover { filter: brightness(1.1); box-shadow: 0 0 28px rgba(246,80,254,.4); }
 .edc-btn-discord { background: var(--discord); border: 0; color: #fff; font-size: 1rem; padding: 12px 22px; display: inline-flex; gap: 10px; align-items: center; border-radius: 8px; }
 .edc-btn-discord:hover { background: #4853d6; }
+/* Login con X: negro de marca, mismo tamaño/ritmo que el de Discord */
+.edc-btn-x { background: #000; border: 1px solid #2a2a2a; color: #fff; font-size: 1rem; padding: 12px 22px;
+  display: inline-flex; gap: 10px; align-items: center; border-radius: 8px; }
+.edc-btn-x:hover { background: #151515; border-color: #3a3a3a; transform: translateY(-1px); }
+.edc-btn-x svg, .edc-btn-discord svg { display: block; }
+.edc-hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+/* Chip de sesión: handle de X y botón pequeño de vincular */
+.edc-x-handle { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 600;
+  color: var(--muted); padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; }
+.edc-x-mini { display: inline-flex; line-height: 0; }
+.edc-btn-x-sm { display: inline-flex; align-items: center; gap: 6px; background: #000; border-color: #2a2a2a; color: #fff; }
+.edc-btn-x-sm:hover { background: #151515; border-color: #3a3a3a; }
+@media (max-width: 600px) { .edc-user-chip { flex-wrap: wrap; justify-content: flex-end; } }
 
 /* Cards / sections */
 .edc-card { background: var(--panel); border: 1px solid var(--border);
