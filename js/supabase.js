@@ -1,5 +1,6 @@
 // Cliente Supabase (ESM desde CDN, sin build step)
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Versión fijada: evita que un cambio de comportamiento en una minor nueva rompa la web sin aviso
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

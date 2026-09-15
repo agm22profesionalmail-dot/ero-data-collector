@@ -64,11 +64,13 @@ export async function getSession() {
   return data.session;
 }
 
-// Usuario fresco desde el servidor (trae identities actualizadas tras link/unlink)
-export async function refreshUser() {
-  const { data, error } = await supabase.auth.getUser();
+// Sesión refrescada desde el servidor tras link/unlink: trae el usuario con las
+// identities actualizadas y queda PERSISTIDA en el cliente (getUser() no la
+// actualizaría). Devuelve la sesión nueva o null.
+export async function refreshSessionUser() {
+  const { data, error } = await supabase.auth.refreshSession();
   if (error) throw error;
-  return data?.user || null;
+  return data?.session || null;
 }
 
 // ── Perfil por identidades ────────────────────────────────────────────

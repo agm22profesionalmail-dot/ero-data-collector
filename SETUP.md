@@ -93,21 +93,23 @@ En el vault: `08_Scripts/ero_data_collector/`
 
 Permite entrar con X (Twitter) además de Discord y vincular ambas cuentas a un mismo usuario. La web lleva la función **apagada** por defecto (`X_LOGIN_ENABLED = false` en `js/config.js`): hasta que no completes estos pasos no aparece ningún botón de X.
 
-> ⚠️ Antes de empezar, comprueba en el portal de X (https://developer.x.com → tu proyecto → *Products*) qué nivel de acceso tiene tu app y **si el acceso a la API tiene coste**. El login OAuth 2.0 solo necesita leer el perfil público (`users.read` + `tweet.read`, que X exige juntos), pero el tier gratuito ha cambiado varias veces; confírmalo antes de activar nada en producción.
+> ⚠️ **Orden obligatorio:** primero las migraciones de BBDD (10.4), después el proveedor, y **solo al final** la flag. Con la flag apagada la web no envía las columnas `x_*`, así que un deploy sin migrar no rompe el guardado; con la flag encendida sin migrar, **guardar falla**. Recomendado: ejecutar las migraciones antes del merge de esta función.
+
+> ⚠️ Antes de empezar, comprueba en el portal de X (https://developer.x.com → tu proyecto → *Products*) qué nivel de acceso tiene tu app y **si el acceso a la API tiene coste**. El proveedor X de Supabase pide los scopes `users.email tweet.read users.read offline.access` (X exige `tweet.read` y `offline.access` aunque solo se lea el perfil); el tier gratuito ha cambiado varias veces, confírmalo antes de activar nada en producción.
 
 ### 10.1 Crear la app en X Developer Console
 
 1. https://developer.x.com/en/portal/dashboard → **Projects & Apps** → crea un proyecto (o usa uno existente) → **Add App** → nombre (ej. `ERO Data Collector`).
 2. Dentro de la app → **User authentication settings** → **Set up**.
 3. Rellena:
-   - **App permissions**: `Read` (basta con lectura).
+   - **App permissions**: `Read` (basta con lectura) y marca **Request email from users** (Supabase pide el scope `users.email`; sin esto X no devuelve el email y el login puede fallar).
    - **Type of App**: **Web App, Automated App or Bot**.
    - **Callback URI / Redirect URL** → pega **EXACTAMENTE**:
      ```
      https://<project-ref>.supabase.co/auth/v1/callback
      ```
    - **Website URL**: la URL pública de tu web (GitHub Pages), p. ej. `https://<tu-usuario>.github.io/ero-data-collector/`.
-   - **Terms of service** y **Privacy policy**: la misma URL de la web (el aviso legal y la política de privacidad están en el pie de página).
+   - **Terms of service** y **Privacy policy**: la misma URL de la web (el aviso legal y la política de privacidad están en el pie de página). X exige ambas para poder pedir el email.
 4. **Save**. X muestra el **Client ID** y el **Client Secret** de OAuth 2.0 (pestaña **Keys and tokens** → *OAuth 2.0 Client ID and Client Secret*). Cópialos: el secret solo se muestra una vez (si lo pierdes, *Regenerate*).
 
 ### 10.2 Activar el proveedor en Supabase
@@ -121,10 +123,14 @@ Permite entrar con X (Twitter) además de Discord y vincular ambas cuentas a un 
 1. Supabase → **Authentication** → **Providers** (o **Settings** → *Auth*, según versión del panel) → busca **"Allow manual linking"** / **Manual Linking** → ON → **Save**.
 2. Sin esto, `linkIdentity` / `unlinkIdentity` devuelven `manual_linking_disabled` y los botones **Vincular X** / **Vincular Discord** fallan.
 
-### 10.4 Ejecutar la migración de la BBDD
+### 10.4 Ejecutar las migraciones de la BBDD (ANTES de la flag)
 
-1. **SQL Editor** → **New query** → pega [`supabase/migrations/20260915_x_identity.sql`](supabase/migrations/20260915_x_identity.sql) → **Run**.
-2. Añade a `players` las columnas `x_id`, `x_username`, `x_avatar` y un índice por handle. Es idempotente y no toca RLS. (En instalaciones nuevas `schema.sql` ya las incluye.)
+En **SQL Editor** → **New query**, en este orden:
+
+1. [`supabase/migrations/20260915_01_x_identity.sql`](supabase/migrations/20260915_01_x_identity.sql) → **Run**. Añade a `players` las columnas `x_id`, `x_username`, `x_avatar` y un índice por handle. Idempotente, no toca RLS.
+2. [`supabase/migrations/20260915_02_identity_trigger.sql`](supabase/migrations/20260915_02_identity_trigger.sql) → **Run**. Crea la función `players_fill_identity()` (`security definer`, `search_path` vacío, owner `postgres` = el rol del SQL Editor, con acceso a `auth.identities`) y un trigger `BEFORE INSERT OR UPDATE` en `players` que rellena `discord_*` y `x_*` **desde `auth.identities` del propio `user_id`**, ignorando lo que mande el navegador. Así nadie puede escribirse en su ficha la identidad de otro. El fichero vuelve a crear las columnas `x_*` si faltan, por lo que nunca falla por orden; al final rellena las filas existentes.
+
+En instalaciones nuevas `schema.sql` ya incluye ambas cosas.
 
 ### 10.5 Encender la función en la web
 
@@ -134,12 +140,21 @@ Edita [`js/config.js`](js/config.js):
 export const X_LOGIN_ENABLED = true;
 ```
 
-Despliega. En la pantalla de login aparece **Conectar con X** junto al botón de Discord, y en la cabecera (usuario logado) **Vincular X** / `@handle` + **Desvincular**, y **Vincular Discord** para quien entró solo con X.
+Despliega. En la pantalla de login aparece **Conectar con X** junto al botón de Discord (con un aviso: quien ya tenga ficha con Discord debe entrar con Discord y vincular X desde la cabecera), y en la cabecera (usuario logado) **Vincular X** / `@handle` + **Desvincular**, y **Vincular Discord** para quien entró solo con X.
 
 Notas:
 - Supabase no permite dejar a un usuario sin identidades: **Desvincular** solo se muestra si hay ≥2 cuentas vinculadas.
 - Si la cuenta de X ya está vinculada a otro usuario, Supabase vuelve a la web con `error_code=identity_already_exists`; la web lo muestra como toast traducido.
 - El sync local (`sync.py`) añade `x_username` / `x_id` al frontmatter de cada ficha y una fila `X` en la tabla si hay handle.
+
+### 10.6 Usuarios huérfanos (entró con X teniendo ya ficha con Discord)
+
+Si alguien entra con X **sin** haber vinculado antes, Supabase crea un **usuario nuevo** (sin ficha o con una ficha duplicada) y esa cuenta de X queda atada a él: cuando luego intente **Vincular X** desde su cuenta de Discord recibirá `identity_already_exists`. Para arreglarlo (admin):
+
+1. Supabase → **Authentication** → **Users** → busca el usuario creado con X (proveedor `x`/`twitter`, sin identidad Discord). Comprueba que **no** es la cuenta buena (mira `created_at` y si tiene fila en `players`).
+2. Si ese usuario huérfano tiene una ficha en `players` que quiera conservar, apunta sus datos antes (o pídele que los rehaga: es un formulario corto).
+3. **Delete user**. Al borrarlo se borra su identidad de X (y su fila de `players` por `on delete cascade`), quedando la cuenta de X libre.
+4. El usuario entra con **Discord** y pulsa **Vincular X** en la cabecera: ahora sí se vincula a su ficha buena.
 
 ---
 
@@ -153,3 +168,4 @@ Notas:
 - [ ] `js/config.js` con URL + anon key
 - [ ] `config.json` del sync con service_role (solo local)
 - [ ] Web desplegada y login Discord funcionando
+- [ ] (Opcional X) migraciones 01 y 02 ejecutadas → proveedor X + Manual Linking → `X_LOGIN_ENABLED = true`

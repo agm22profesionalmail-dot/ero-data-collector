@@ -5,8 +5,8 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 // ── Login con X (Twitter) ─────────────────────────────────────────────
 // Ponlo a true SOLO cuando el proveedor "X / Twitter (OAuth 2.0)" esté activado
-// en Supabase y la migración supabase/migrations/20260915_x_identity.sql esté
-// ejecutada (ver SETUP.md → "Login con X"). Con false la web se comporta
+// en Supabase y las migraciones supabase/migrations/20260915_01_x_identity.sql y
+// 20260915_02_identity_trigger.sql estén ejecutadas (ver SETUP.md → "Login con X"). Con false la web se comporta
 // exactamente igual que antes: solo Discord, sin botones ni vinculación de X.
 export const X_LOGIN_ENABLED = false;
 

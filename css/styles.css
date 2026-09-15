@@ -160,6 +160,10 @@ body {
 .edc-btn-x-sm { display: inline-flex; align-items: center; gap: 6px; background: #000; border-color: #2a2a2a; color: #fff; }
 .edc-btn-x-sm:hover { background: #151515; border-color: #3a3a3a; }
 @media (max-width: 600px) { .edc-user-chip { flex-wrap: wrap; justify-content: flex-end; } }
+/* Avisos anti-duplicados (login con X y editor sin ficha) */
+.edc-login-note { margin: 14px 0 0; max-width: 46ch; font-size: .86rem; line-height: 1.5; color: var(--text);
+  padding: 9px 12px; border-left: 3px solid var(--accent-2); background: rgba(25,211,197,.08); border-radius: 0 8px 8px 0; }
+.edc-notice { border-left: 3px solid var(--accent-2); border-top: 1px solid var(--border); font-size: .92rem; line-height: 1.5; }
 
 /* Cards / sections */
 .edc-card { background: var(--panel); border: 1px solid var(--border);

@@ -3,7 +3,7 @@ import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured } from "./supabase.js";
 import {
-  signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshUser,
+  signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshSessionUser,
   signOut, getSession, onAuthChange, identityProfile, consumeAuthError,
 } from "./auth.js";
 import { loadData, colorToHex, data, getById, headName, clothName, shoesName } from "./data.js";
@@ -60,69 +60,89 @@ function renderAuthArea() {
 }
 
 // ── Vinculación de identidades (solo con X_LOGIN_ENABLED) ────────────
-// Marca en sessionStorage que se inició un linkIdentity: al volver del OAuth
-// se comprueba si la identidad ya cuelga del usuario y se refresca la ficha.
+// Antes de linkIdentity se guarda en sessionStorage {provider, ts, n} (n = nº de
+// identidades actual). Al volver del OAuth se comprueba, con caducidad de 10 min,
+// si la identidad ya cuelga del usuario y se refresca la ficha.
 const LINK_KEY = "edc_link_pending";
+const LINK_TTL_MS = 10 * 60 * 1000;
 
 async function doLink(provider) {
   try {
-    sessionStorage.setItem(LINK_KEY, provider);
+    const n = (session?.user?.identities || []).length;
+    sessionStorage.setItem(LINK_KEY, JSON.stringify({ provider, ts: Date.now(), n }));
     if (provider === "x") await linkX(); else await linkDiscord();
   } catch (e) {
     sessionStorage.removeItem(LINK_KEY);
-    toast(t("link_err") + e.message, "err");
+    toast(t("link_err") + t("link_err_generic"), "err");
+    console.warn("linkIdentity:", e);
   }
+}
+
+// Sesión refrescada del servidor (identities al día, persistida) y perfil recalculado
+async function reloadSessionProfile() {
+  const s = await refreshSessionUser();
+  if (s?.user) session = s;
+  profile = identityProfile(session.user);
 }
 
 async function doUnlinkX() {
   try {
     const done = await unlinkX();
     if (!done) { toast(t("unlink_x_err_last"), "err"); return; }
-    const user = await refreshUser();
-    if (user) session = { ...session, user };
-    profile = identityProfile(session.user);
+    await reloadSessionProfile();
     await syncIdentityFields(session.user, profile);
     toast(t("unlinked_x"), "ok");
     renderAuthArea();
   } catch (e) {
-    toast(t("link_err") + e.message, "err");
+    toast(t("link_err") + t("link_err_generic"), "err");
+    console.warn("unlinkIdentity:", e);
   }
+}
+
+function readPendingLink() {
+  const raw = sessionStorage.getItem(LINK_KEY);
+  if (!raw) return null;
+  sessionStorage.removeItem(LINK_KEY);
+  try {
+    const p = JSON.parse(raw);
+    if (!p?.provider || !p.ts || Date.now() - p.ts > LINK_TTL_MS) return null; // caducado
+    return p;
+  } catch { return null; }
 }
 
 // Al cargar la web: gestiona la vuelta de un OAuth de vinculación (éxito o error en la URL)
 async function finishPendingLink() {
-  const pending = sessionStorage.getItem(LINK_KEY);
+  const pending = readPendingLink();
   const err = consumeAuthError();
-  if (!pending) {
-    if (err) toast(describeAuthError(err), "err");
-    return;
-  }
-  sessionStorage.removeItem(LINK_KEY);
   if (err) { toast(describeAuthError(err), "err"); return; }
-  if (!session?.user) return;
+  if (!pending || !session?.user) return;
   try {
-    const user = await refreshUser();
-    if (user) session = { ...session, user };
-    profile = identityProfile(session.user);
-    const linked = pending === "x" ? profile.hasX : profile.hasDiscord;
-    if (!linked) { toast(t("link_err") + t("link_err_generic"), "err"); return; }
+    await reloadSessionProfile();
+    const linked = pending.provider === "x" ? profile.hasX : profile.hasDiscord;
+    const nNow = (session.user.identities || []).length;
+    // Sin error en la URL y sin identidad nueva: el usuario canceló o volvió
+    // sin completar el OAuth → no se avisa de nada.
+    if (!linked || nNow === pending.n) { renderAuthArea(); return; }
     await syncIdentityFields(session.user, profile);
-    const who = pending === "x" ? "@" + (profile.x_username || "?") : (profile.discord_name || "Discord");
+    const who = pending.provider === "x" ? "@" + (profile.x_username || "?") : (profile.discord_name || "Discord");
     toast(t("linked_as") + " " + who, "ok");
     renderAuthArea();
   } catch (e) {
-    toast(t("link_err") + e.message, "err");
+    toast(t("link_err") + t("link_err_generic"), "err");
+    console.warn("finishPendingLink:", e);
   }
 }
 
+// Solo códigos conocidos tienen mensaje propio; el resto, genérico (nunca se
+// muestra error_description en crudo).
 function describeAuthError(err) {
   const code = (err.code || "").toLowerCase();
-  const desc = (err.description || err.error || "").toLowerCase();
-  if (code === "identity_already_exists" || desc.includes("already linked") || desc.includes("identity is already"))
-    return t("link_err_in_use");
-  if (code === "manual_linking_disabled" || desc.includes("manual linking"))
-    return t("link_err") + t("link_err_disabled");
-  return t("link_err") + (err.description || err.code || err.error || t("link_err_generic"));
+  const kind = (err.error || "").toLowerCase();
+  if (code === "identity_already_exists") return t("link_err_in_use");
+  if (code === "manual_linking_disabled") return t("link_err") + t("link_err_disabled");
+  if (code === "access_denied" || kind === "access_denied") return t("link_err") + t("link_err_cancelled");
+  console.warn("auth error:", err);
+  return t("link_err") + t("link_err_generic");
 }
 
 function renderFooter() {
@@ -153,6 +173,7 @@ function renderLogin() {
           X_LOGIN_ENABLED && el("button", { class: "edc-btn edc-btn-x edc-hero-cta", onClick: doLoginX },
             el("span", { html: xSvg(18) }), t("login_btn_x")),
         ),
+        X_LOGIN_ENABLED && el("p", { class: "edc-login-note" }, t("login_dup_note")),
         el("p", { class: "edc-privacy edc-label" }, t(X_LOGIN_ENABLED ? "login_privacy_x" : "login_privacy")),
       ),
       el("div", { class: "edc-hero-art", "aria-hidden": "true" },
@@ -249,6 +270,11 @@ function willHaveBanner() {
 // Editor completo (configurador + banner + guardar/actualizar)
 function renderEditor() {
   clear(appEl());
+
+  // Entró con X, sin ficha previa y sin Discord vinculado: puede que ya tenga
+  // ficha con Discord (otro usuario de Supabase). Aviso para evitar duplicados.
+  if (X_LOGIN_ENABLED && !hasRecord && profile?.hasX && !profile?.hasDiscord)
+    appEl().append(el("div", { class: "edc-card edc-notice" }, t("editor_dup_note")));
 
   const preview = el("div", { class: "edc-card edc-preview" });
   appEl().append(preview);
@@ -429,8 +455,9 @@ function renderHelp(container) {
 }
 
 function helpHtml(lang) {
+  const X = X_LOGIN_ENABLED;
   if (lang === "es") return `
-<p>Conecta tu Discord, configura tu personaje, sube tu banner y guarda. Puedes volver con el mismo Discord y editarlo cuando quieras.</p>
+<p>Conecta ${X ? "tu cuenta de Discord o X" : "tu Discord"}, configura tu personaje, sube tu banner y guarda. Puedes volver con ${X ? "la misma cuenta (Discord o X)" : "el mismo Discord"} y editarlo cuando quieras.</p>
 <h4>Qué hace cada cosa</h4>
 <ul>
   <li><b>Alias</b>: el nombre de tu ficha (no tiene por qué ser tu nombre de Discord).</li>
@@ -447,10 +474,10 @@ function helpHtml(lang) {
   <li><b>Peinados y cejas son por especie</b>: como Inkling solo ves peinados/cejas de Inkling; como Octoling solo los de Octoling. No se pueden mezclar. Si cambias de especie, el peinado y las cejas se reinician a los de la nueva especie.</li>
   <li><b>Variante</b>: el interruptor solo funciona en prendas que tienen versión alternativa; en las demás aparece desactivado.</li>
   <li><b>Arma y pose</b>: no se eligen aquí; las define el equipo al montar la foto.</li>
-  <li><b>Editar</b>: para cambiar tu ficha, vuelve a entrar con el mismo Discord.</li>
+  <li><b>Editar</b>: para cambiar tu ficha, vuelve a entrar con ${X ? "la misma cuenta (Discord o X)" : "el mismo Discord"}.</li>
 </ul>`;
   return `
-<p>Connect your Discord, set up your character, upload your banner and save. You can come back with the same Discord and edit it anytime.</p>
+<p>Connect ${X ? "your Discord or X account" : "your Discord"}, set up your character, upload your banner and save. You can come back with ${X ? "the same account (Discord or X)" : "the same Discord"} and edit it anytime.</p>
 <h4>What each option does</h4>
 <ul>
   <li><b>Alias</b>: the name on your sheet (doesn't have to be your Discord name).</li>
@@ -467,11 +494,12 @@ function helpHtml(lang) {
   <li><b>Hair and eyebrows are per species</b>: as an Inkling you only see Inkling hair/eyebrows; as an Octoling only Octoling ones. They can't be mixed. If you switch species, hair and eyebrows reset to the new species'.</li>
   <li><b>Variant</b>: the switch only works on gear that has an alternate version; otherwise it's disabled.</li>
   <li><b>Weapon and pose</b>: not chosen here; the team sets them when building the photo.</li>
-  <li><b>Editing</b>: to change your sheet, log in again with the same Discord.</li>
+  <li><b>Editing</b>: to change your sheet, log in again with ${X ? "the same account (Discord or X)" : "the same Discord"}.</li>
 </ul>`;
 }
 
 function legalHtml(lang) {
+  const X = X_LOGIN_ENABLED;
   if (lang === "es") return `
 <p><b>Aviso:</b> Este sitio es un proyecto de fans para organizar contenido de la comunidad. Las donaciones recibidas se destinan exclusivamente a cubrir gastos de alojamiento e infraestructura. <b>No está afiliado, asociado, autorizado ni patrocinado por Nintendo</b> ni ninguna de sus filiales.</p>
 <p><b>Marcas y propiedad:</b> «Splatoon», «Nintendo Switch», «Inkling», «Octoling» y los logotipos asociados son marcas registradas de Nintendo. Las imágenes, personajes y demás recursos del juego son propiedad intelectual de Nintendo Co., Ltd. y/o sus filiales. Los recursos gráficos se muestran únicamente con fines ilustrativos dentro de un contexto de fans. Todos los derechos pertenecen a sus respectivos propietarios.</p>
@@ -483,10 +511,10 @@ function legalHtml(lang) {
   <li><b>Banner (PNG)</b> — generado con el creador integrado.</li>
   <li><b>Configuración del generador de Splattag</b> — si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración.</li>
 </ul>
-<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de X, guardamos únicamente tu nombre de usuario (@), tu nombre público, tu avatar y el identificador numérico de la cuenta, con el mismo fin de identificarte en la comunidad. No leemos tus publicaciones, seguidores ni mensajes, y no publicamos nada en tu nombre. Puedes desvincular X en cualquier momento desde la cabecera del sitio (siempre que tengas otra cuenta vinculada).</p>
+${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de X, guardamos en tu ficha únicamente tu nombre de usuario (@), tu nombre público, tu avatar y el identificador numérico de la cuenta, con el mismo fin de identificarte en la comunidad. X también nos facilita tu dirección de email confirmada, que gestiona exclusivamente el sistema de autenticación (Supabase Auth) para identificar tu cuenta; no se guarda en la ficha ni se usa para enviarte comunicaciones. La pantalla de autorización de X solicita lectura de publicaciones y acceso sin conexión porque X lo exige técnicamente para el inicio de sesión: no leemos tus publicaciones, seguidores ni mensajes, y no publicamos nada en tu nombre. Puedes desvincular X en cualquier momento desde la cabecera del sitio (siempre que tengas otra cuenta vinculada).</p>` : ""}
 <p><b>Finalidad:</b> preparar contenido y fotos para eventos de la comunidad. No se venden ni ceden datos a terceros con fines publicitarios.</p>
 <p><b>Edad mínima:</b> debes tener al menos 14 años para usar este servicio. Si eres menor de 14 años, necesitas el consentimiento de tu padre, madre o tutor legal.</p>
-<p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
+<p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con ${X ? "tu cuenta de Discord o X" : "tu Discord"}. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
 <p><b>Conservación:</b> tus datos se mantienen mientras haya eventos de comunidad activos o hasta que solicites su eliminación.</p>
 <p><b>Almacenamiento:</b> los datos se guardan en Supabase (base de datos y almacenamiento de archivos). Este sitio guarda tu idioma preferido y el estado del generador en el almacenamiento local de tu navegador (localStorage), sin cookies de terceros ni rastreo publicitario. Al diseñar tu banner con el generador integrado, confirmas que los datos que introduces (nombre, alias, ID) no infringen derechos de terceros.</p>
 <h4>Créditos</h4>
@@ -515,10 +543,10 @@ function legalHtml(lang) {
   <li><b>Banner (PNG)</b> — generated with the built-in creator.</li>
   <li><b>Splattag generator settings</b> — if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration.</li>
 </ul>
-<p><b>X account (optional):</b> if you sign in with X or link your X account, we only store your username (@), display name, avatar and the account's numeric ID, for the same purpose of identifying you within the community. We do not read your posts, followers or messages, and nothing is ever posted on your behalf. You can unlink X at any time from the site header (as long as another account remains linked).</p>
+${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X account, your sheet only stores your username (@), display name, avatar and the account's numeric ID, for the same purpose of identifying you within the community. X also provides us with your confirmed email address, which is handled exclusively by the authentication system (Supabase Auth) to identify your account; it is not stored in your sheet or used to contact you. X's authorization screen asks for post reading and offline access because X technically requires them for sign-in: we do not read your posts, followers or messages, and nothing is ever posted on your behalf. You can unlink X at any time from the site header (as long as another account remains linked).</p>` : ""}
 <p><b>Purpose:</b> exclusively to prepare content and photos for community events. We do not sell or share your data with third parties for advertising.</p>
 <p><b>Minimum age:</b> you must be at least 14 years old to use this service. If you are under 14, you need parental or legal guardian consent.</p>
-<p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with your Discord. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
+<p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with ${X ? "your Discord or X account" : "your Discord"}. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
 <p><b>Retention:</b> your data is kept while community events are active, or until you request its deletion.</p>
 <p><b>Storage:</b> data is stored in Supabase (database and file storage). This site saves your preferred language and generator state in your browser's local storage (localStorage), with no third-party cookies or advertising trackers. By designing your banner with the built-in generator, you confirm that the data you enter (name, alias, ID) does not infringe third-party rights.</p>
 <h4>Credits</h4>
