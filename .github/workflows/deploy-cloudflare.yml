@@ -1,0 +1,50 @@
+# Despliegue automático en Cloudflare Pages (https://eroplayerdata.pages.dev)
+# en cada push a main. Sube solo los ficheros estáticos de la web con Wrangler
+# (Direct Upload, permitido en proyectos conectados a Git), así no depende de la
+# integración Git de Cloudflare.
+#
+# Requiere el secreto del repo CLOUDFLARE_API_TOKEN (token con permiso
+# Account > Cloudflare Pages > Edit). Si no existe, el despliegue se salta.
+name: Deploy Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: 82de0c2071c6c35afa227b13364880b7
+      CF_PROJECT: eroplayerdata
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Comprobar secreto
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::warning::Falta el secreto CLOUDFLARE_API_TOKEN; no se despliega en Cloudflare Pages."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_TOKEN == 'true'
+
+      - name: Preparar ficheros de la web
+        if: env.HAS_TOKEN == 'true'
+        run: |
+          mkdir dist
+          cp -r index.html css js assets LICENSE README.md dist/
+          ls -R dist | head -50
+
+      - name: Desplegar con Wrangler
+        if: env.HAS_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ env.CF_PROJECT }} --branch=main --commit-hash=${{ github.sha }} --commit-dirty=true
