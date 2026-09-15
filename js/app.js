@@ -1,12 +1,15 @@
 // Orquestador de la SPA
-import { DEFAULT_PLAYER, SPECIES } from "./config.js";
+import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured } from "./supabase.js";
-import { signInWithDiscord, signOut, getSession, onAuthChange, discordProfile } from "./auth.js";
+import {
+  signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshUser,
+  signOut, getSession, onAuthChange, identityProfile, consumeAuthError,
+} from "./auth.js";
 import { loadData, colorToHex, data, getById, headName, clothName, shoesName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerSignedUrl } from "./store.js";
+import { loadPlayer, savePlayer, getBannerSignedUrl, syncIdentityFields } from "./store.js";
 import { el, clear, toast } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
@@ -33,13 +36,93 @@ function renderAuthArea() {
   const area = $("authArea");
   clear(area);
   if (session?.user) {
-    const p = discordProfile(session.user);
+    const p = identityProfile(session.user);
     const chip = el("div", { class: "edc-user-chip" });
-    if (p.discord_avatar) chip.append(el("img", { src: p.discord_avatar, alt: "" }));
-    chip.append(el("span", {}, p.discord_name || "Player"));
+    if (p.display_avatar) chip.append(el("img", { src: p.display_avatar, alt: "" }));
+    chip.append(el("span", {}, p.display_name));
+    if (X_LOGIN_ENABLED) {
+      if (p.hasX) {
+        chip.append(el("span", { class: "edc-x-handle", title: t("linked_as") + " @" + (p.x_username || "?") },
+          el("span", { class: "edc-x-mini", html: xSvg(12) }), "@" + (p.x_username || "?")));
+        // Supabase no permite dejar al usuario sin identidades: solo con ≥2
+        if (p.providers.length >= 2)
+          chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: doUnlinkX }, t("unlink_x")));
+      } else {
+        chip.append(el("button", { class: "edc-btn edc-btn-sm edc-btn-x-sm", onClick: () => doLink("x") },
+          el("span", { class: "edc-x-mini", html: xSvg(12) }), t("link_x")));
+      }
+      if (!p.hasDiscord)
+        chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: () => doLink("discord") }, t("link_discord")));
+    }
     chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: async () => { await signOut(); } }, t("logout")));
     area.append(chip);
   }
+}
+
+// ── Vinculación de identidades (solo con X_LOGIN_ENABLED) ────────────
+// Marca en sessionStorage que se inició un linkIdentity: al volver del OAuth
+// se comprueba si la identidad ya cuelga del usuario y se refresca la ficha.
+const LINK_KEY = "edc_link_pending";
+
+async function doLink(provider) {
+  try {
+    sessionStorage.setItem(LINK_KEY, provider);
+    if (provider === "x") await linkX(); else await linkDiscord();
+  } catch (e) {
+    sessionStorage.removeItem(LINK_KEY);
+    toast(t("link_err") + e.message, "err");
+  }
+}
+
+async function doUnlinkX() {
+  try {
+    const done = await unlinkX();
+    if (!done) { toast(t("unlink_x_err_last"), "err"); return; }
+    const user = await refreshUser();
+    if (user) session = { ...session, user };
+    profile = identityProfile(session.user);
+    await syncIdentityFields(session.user, profile);
+    toast(t("unlinked_x"), "ok");
+    renderAuthArea();
+  } catch (e) {
+    toast(t("link_err") + e.message, "err");
+  }
+}
+
+// Al cargar la web: gestiona la vuelta de un OAuth de vinculación (éxito o error en la URL)
+async function finishPendingLink() {
+  const pending = sessionStorage.getItem(LINK_KEY);
+  const err = consumeAuthError();
+  if (!pending) {
+    if (err) toast(describeAuthError(err), "err");
+    return;
+  }
+  sessionStorage.removeItem(LINK_KEY);
+  if (err) { toast(describeAuthError(err), "err"); return; }
+  if (!session?.user) return;
+  try {
+    const user = await refreshUser();
+    if (user) session = { ...session, user };
+    profile = identityProfile(session.user);
+    const linked = pending === "x" ? profile.hasX : profile.hasDiscord;
+    if (!linked) { toast(t("link_err") + t("link_err_generic"), "err"); return; }
+    await syncIdentityFields(session.user, profile);
+    const who = pending === "x" ? "@" + (profile.x_username || "?") : (profile.discord_name || "Discord");
+    toast(t("linked_as") + " " + who, "ok");
+    renderAuthArea();
+  } catch (e) {
+    toast(t("link_err") + e.message, "err");
+  }
+}
+
+function describeAuthError(err) {
+  const code = (err.code || "").toLowerCase();
+  const desc = (err.description || err.error || "").toLowerCase();
+  if (code === "identity_already_exists" || desc.includes("already linked") || desc.includes("identity is already"))
+    return t("link_err_in_use");
+  if (code === "manual_linking_disabled" || desc.includes("manual linking"))
+    return t("link_err") + t("link_err_disabled");
+  return t("link_err") + (err.description || err.code || err.error || t("link_err_generic"));
 }
 
 function renderFooter() {
@@ -63,10 +146,14 @@ function renderLogin() {
       el("div", { class: "edc-hero-copy" },
         el("span", { class: "edc-hero-eyebrow" }, "ERO'S TEAM"),
         el("h2", { class: "edc-hero-title" }, t("login_title")),
-        el("p", { class: "edc-hero-desc" }, t("login_desc")),
-        el("button", { class: "edc-btn edc-btn-discord edc-hero-cta", onClick: doLogin },
-          el("span", { html: discordSvg() }), t("login_btn")),
-        el("p", { class: "edc-privacy edc-label" }, t("login_privacy")),
+        el("p", { class: "edc-hero-desc" }, t(X_LOGIN_ENABLED ? "login_desc_x" : "login_desc")),
+        el("div", { class: "edc-hero-ctas" },
+          el("button", { class: "edc-btn edc-btn-discord edc-hero-cta", onClick: doLogin },
+            el("span", { html: discordSvg() }), t("login_btn")),
+          X_LOGIN_ENABLED && el("button", { class: "edc-btn edc-btn-x edc-hero-cta", onClick: doLoginX },
+            el("span", { html: xSvg(18) }), t("login_btn_x")),
+        ),
+        el("p", { class: "edc-privacy edc-label" }, t(X_LOGIN_ENABLED ? "login_privacy_x" : "login_privacy")),
       ),
       el("div", { class: "edc-hero-art", "aria-hidden": "true" },
         el("span", { class: "edc-hero-splat" }),
@@ -82,6 +169,11 @@ async function doLogin() {
   catch (e) { toast(t("save_err") + e.message, "err"); }
 }
 
+async function doLoginX() {
+  try { await signInWithX(); }
+  catch (e) { toast(t("save_err") + e.message, "err"); }
+}
+
 async function renderApp() {
   clear(appEl());
   const loading = el("div", { class: "edc-loading" }, el("div", { class: "edc-inkloader" }), el("div", {}, t("loading_data")));
@@ -89,13 +181,15 @@ async function renderApp() {
 
   try {
     if (!dataReady) { await loadData(); dataReady = true; }
-    profile = discordProfile(session.user);
+    profile = identityProfile(session.user);
     if (state === null) {
       const row = await loadPlayer(session.user.id);
       hasRecord = !!row;
       state = stateFromRow(row);
       state._userId = session.user.id; // clave de persistencia del generador de splattag
-      if (!state.alias && profile?.discord_name) state.alias = profile.discord_name;
+      // Alias por defecto: nombre de Discord; si no hay, nombre o @handle de X
+      const defaultAlias = profile?.discord_name || profile?.x_name || profile?.x_username || "";
+      if (!state.alias && defaultAlias) state.alias = defaultAlias;
       ensureValid(state);
       if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
       mode = hasRecord ? "preview" : "edit";
@@ -323,6 +417,7 @@ async function init() {
     });
   }
   route();
+  if (isConfigured() && X_LOGIN_ENABLED) finishPendingLink();
 }
 
 function renderHelp(container) {
@@ -388,6 +483,7 @@ function legalHtml(lang) {
   <li><b>Banner (PNG)</b> — generado con el creador integrado.</li>
   <li><b>Configuración del generador de Splattag</b> — si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración.</li>
 </ul>
+<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de X, guardamos únicamente tu nombre de usuario (@), tu nombre público, tu avatar y el identificador numérico de la cuenta, con el mismo fin de identificarte en la comunidad. No leemos tus publicaciones, seguidores ni mensajes, y no publicamos nada en tu nombre. Puedes desvincular X en cualquier momento desde la cabecera del sitio (siempre que tengas otra cuenta vinculada).</p>
 <p><b>Finalidad:</b> preparar contenido y fotos para eventos de la comunidad. No se venden ni ceden datos a terceros con fines publicitarios.</p>
 <p><b>Edad mínima:</b> debes tener al menos 14 años para usar este servicio. Si eres menor de 14 años, necesitas el consentimiento de tu padre, madre o tutor legal.</p>
 <p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con tu Discord. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
@@ -419,6 +515,7 @@ function legalHtml(lang) {
   <li><b>Banner (PNG)</b> — generated with the built-in creator.</li>
   <li><b>Splattag generator settings</b> — if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration.</li>
 </ul>
+<p><b>X account (optional):</b> if you sign in with X or link your X account, we only store your username (@), display name, avatar and the account's numeric ID, for the same purpose of identifying you within the community. We do not read your posts, followers or messages, and nothing is ever posted on your behalf. You can unlink X at any time from the site header (as long as another account remains linked).</p>
 <p><b>Purpose:</b> exclusively to prepare content and photos for community events. We do not sell or share your data with third parties for advertising.</p>
 <p><b>Minimum age:</b> you must be at least 14 years old to use this service. If you are under 14, you need parental or legal guardian consent.</p>
 <p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with your Discord. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
@@ -439,6 +536,11 @@ function legalHtml(lang) {
 </ul>
 <p>Game data and images (character configurator) are loaded from <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
 <p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
+}
+
+// Logo de X (marca de X Corp.), inline para no depender de assets externos
+function xSvg(size = 18) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
 }
 
 function discordSvg() {

@@ -3,6 +3,13 @@
 export const SUPABASE_URL = "https://xwyauyjeteztlevvtydb.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eWF1eWpldGV6dGxldnZ0eWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDc0NDEsImV4cCI6MjA5NzU4MzQ0MX0.vYsgBJdbL8pak-LYPuj5jjefZH46YxPzAuAaVAvkaHw";
 
+// ── Login con X (Twitter) ─────────────────────────────────────────────
+// Ponlo a true SOLO cuando el proveedor "X / Twitter (OAuth 2.0)" esté activado
+// en Supabase y la migración supabase/migrations/20260915_x_identity.sql esté
+// ejecutada (ver SETUP.md → "Login con X"). Con false la web se comporta
+// exactamente igual que antes: solo Discord, sin botones ni vinculación de X.
+export const X_LOGIN_ENABLED = false;
+
 // ── Fuentes de assets Splatoon (Flexlion, públicas) ───────────────────
 export const GITHUB_RAW = "https://raw.githubusercontent.com/Flexlion/flexlion.github.io/master";
 export const IMG = GITHUB_RAW + "/assets/img";

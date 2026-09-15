@@ -17,6 +17,9 @@ create table if not exists public.players (
   discord_id      text,                 -- provider_id (snowflake) estable, solo referencia
   discord_name    text,
   discord_avatar  text,
+  x_id            text,                 -- id numérico de X (estable), solo referencia
+  x_username      text,                 -- @handle de X sin la arroba
+  x_avatar        text,
 
   -- Config Splatoon (mismos nombres/tipos que PlayerConfig.json)
   player_type           int  not null default 0,
@@ -48,6 +51,8 @@ create table if not exists public.players (
 
 -- 1 fila por usuario (permite upsert por user_id)
 create unique index if not exists players_user_id_uniq on public.players (user_id);
+-- Búsqueda por @handle de X (case-insensitive)
+create index if not exists players_x_username_idx on public.players (lower(x_username));
 
 -- ------------------------------------------------------------
 -- RLS — OBLIGATORIO activarlo (NO viene por defecto en SQL puro)
@@ -143,3 +148,9 @@ grant execute on function public.keep_alive() to anon, authenticated;
 -- Ejecutar solo una vez en instalaciones existentes.
 -- ------------------------------------------------------------
 alter table public.players add column if not exists splattag_config jsonb;
+
+-- Migración: identidad X (2026-09-15). Equivale a supabase/migrations/20260915_x_identity.sql
+alter table public.players
+  add column if not exists x_id text,
+  add column if not exists x_username text,
+  add column if not exists x_avatar text;
