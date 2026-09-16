@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="robots" content="noindex" />
+  <title>404 — ERO Data Collector</title>
+  <link rel="icon" href="/assets/favicon.png" sizes="any" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;800&display=swap');
+    @font-face {
+      font-family: "Splat-Title";
+      src: url("https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@main/assets/fonts/SplatoonTitle.otf") format("opentype");
+      font-display: swap;
+    }
+    :root {
+      --bg: #0b0e1a; --bg-2: #141a2e; --text: #eaf0ff; --muted: #93a0c4;
+      --accent: #f650fe; --accent-2: #19d3c5;
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: radial-gradient(120% 120% at 50% 0%, var(--bg-2) 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+      min-height: 100dvh;
+      display: grid; place-items: center;
+      padding: 24px; text-align: center;
+      overflow: hidden;
+    }
+    .wrap { position: relative; z-index: 2; max-width: 560px; }
+    .code {
+      font-family: "Splat-Title", "Space Grotesk", sans-serif;
+      font-size: clamp(6rem, 26vw, 12rem); line-height: .9; letter-spacing: 2px;
+      background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 26px rgba(246,80,254,.35));
+      animation: pop .6s var(--ease-spring) both;
+    }
+    h1 {
+      font-family: "Splat-Title", "Space Grotesk", sans-serif;
+      font-weight: 400; text-transform: uppercase; letter-spacing: 1px;
+      font-size: clamp(1.2rem, 5vw, 1.7rem); margin: 6px 0 10px;
+    }
+    p { color: var(--muted); font-size: 1rem; line-height: 1.5; margin-bottom: 26px; }
+    p .es { display: block; margin-top: 6px; opacity: .8; font-size: .92rem; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: "Splat-Title", "Space Grotesk", sans-serif;
+      text-transform: uppercase; letter-spacing: .5px; text-decoration: none;
+      background: linear-gradient(120deg, var(--accent), #c93bff);
+      color: #0b0e1a; font-size: 1.05rem; padding: 13px 26px; border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(246,80,254,.35);
+      transition: transform .18s var(--ease-spring), box-shadow .18s ease;
+    }
+    .btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 40px rgba(246,80,254,.5); }
+    .btn:active { transform: translateY(0) scale(.98); }
+    /* salpicaduras de tinta de fondo */
+    .splat { position: fixed; z-index: 1; opacity: .5; filter: blur(.3px); pointer-events: none; }
+    .splat.a { width: 320px; top: -60px; left: -70px; transform: rotate(15deg); }
+    .splat.b { width: 260px; bottom: -50px; right: -60px; transform: rotate(-25deg); }
+    .char { position: fixed; z-index: 1; bottom: 4vh; right: 3vw; width: min(360px, 42vw); opacity: .95; pointer-events: none; animation: floaty 5s ease-in-out infinite; }
+    @keyframes pop { from { opacity: 0; transform: translateY(18px) scale(.9); } to { opacity: 1; transform: none; } }
+    @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    @media (prefers-reduced-motion: reduce) { .code, .char { animation: none; } .btn { transition: none; } }
+    @media (max-width: 640px) { .char { display: none; } }
+  </style>
+</head>
+<body>
+  <img class="splat a" src="/assets/decor/splat-splatfest.png" alt="" aria-hidden="true">
+  <img class="splat b" src="/assets/decor/splat-purple.png" alt="" aria-hidden="true">
+  <img class="char" src="/assets/decor/char-404.webp" alt="" aria-hidden="true">
+  <main class="wrap">
+    <div class="code">404</div>
+    <h1>Splatted!</h1>
+    <p>
+      This page got inked over — it doesn't exist.
+      <span class="es">Esta página se quedó cubierta de tinta: no existe.</span>
+    </p>
+    <a class="btn" href="/">↩ Back to home / Volver al inicio</a>
+  </main>
+</body>
+</html>

@@ -39,7 +39,7 @@ jobs:
         if: env.HAS_TOKEN == 'true'
         run: |
           mkdir dist
-          cp -r index.html css js assets LICENSE README.md dist/
+          cp -r index.html 404.html robots.txt sitemap.xml _headers css js assets LICENSE README.md dist/
           ls -R dist | head -50
 
       - name: Desplegar con Wrangler
