@@ -1,5 +1,5 @@
 // Configurador de personaje — paridad PlayerConfig.json + filtro por especie
-import { SPECIES, isMale, SKIN_TONES, EYE_COLORS } from "./config.js";
+import { SPECIES, isMale, SKIN_TONES, EYE_COLORS, NO_WEAPON } from "./config.js";
 import {
   data, getById, hairFor, eyebrowsFor, validBottoms, validWeapons,
   weaponName, headName, clothName, shoesName,
@@ -27,7 +27,8 @@ export function ensureValid(s) {
   if (!inList(d.headgear, s.gear_head)) s.gear_head = firstId(d.headgear);
   if (!inList(d.clothes, s.gear_cloth)) s.gear_cloth = firstId(d.clothes);
   if (!inList(d.shoes, s.gear_shoes)) s.gear_shoes = firstId(d.shoes);
-  if (!inList(validWeapons(), s.weapon_main)) s.weapon_main = firstId(validWeapons());
+  // El arma no se elige aquí: si no es un arma válida, queda "sin arma" (-1)
+  if (s.weapon_main !== NO_WEAPON && !inList(validWeapons(), s.weapon_main)) s.weapon_main = NO_WEAPON;
   for (const [f, arr] of [["gear_head", d.headgear], ["gear_cloth", d.clothes], ["gear_shoes", d.shoes]]) {
     const g = getById(arr, s[f]);
     if (!g?.VariationNum) s[f + "_variation"] = 0;

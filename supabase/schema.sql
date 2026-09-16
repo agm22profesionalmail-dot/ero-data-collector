@@ -35,7 +35,7 @@ create table if not exists public.players (
   gear_cloth_variation  int  not null default 0,
   gear_shoes            int  not null default 0,
   gear_shoes_variation  int  not null default 0,
-  weapon_main           int  not null default 0,
+  weapon_main           int  not null default -1,   -- -1 = sin arma (no se elige en la web)
   anim_name             text not null default 'AW_BrandPoseCollectionA',
   color                 jsonb not null default '{"r":1.0,"g":1.0,"b":1.0,"a":1.0}'::jsonb,
 
