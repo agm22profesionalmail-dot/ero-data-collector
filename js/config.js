@@ -50,6 +50,10 @@ export const BANNER_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const BANNER_MAX_DIM = 4096;              // px por lado
 export const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
+// Arma: no se elige en la web. -1 = "Sin arma" (lo entiende el plugin calico-configurator
+// y el sync al vault); el equipo asigna arma al montar la foto.
+export const NO_WEAPON = -1;
+
 // Default de ficha nueva
 export const DEFAULT_PLAYER = {
   alias: "",
@@ -59,7 +63,7 @@ export const DEFAULT_PLAYER = {
   gear_head: 0, gear_head_variation: 0,
   gear_cloth: 0, gear_cloth_variation: 0,
   gear_shoes: 0, gear_shoes_variation: 0,
-  weapon_main: 0,
+  weapon_main: NO_WEAPON,  // sin arma: la elige el equipo al montar la foto
   anim_name: "AW_BrandPoseCollectionA",
   color: { r: 0.965, g: 0.314, b: 0.996, a: 1.0 }, // #F650FE
 };
