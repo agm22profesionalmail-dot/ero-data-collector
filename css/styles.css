@@ -1,5 +1,5 @@
 /* ── ERO Data Collector — tema Splatoon 3 dark ─────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
 
 /* Fuentes de marca Splatoon 3 — servidas por el mismo CDN (CORS) que el
    generador de splattag. font-display:swap → el texto aparece ya con la
@@ -564,19 +564,3 @@ body {
   .edc-brand:hover .edc-brand-logo { transform: rotate(-8deg) scale(1.08); }
   .edc-gen-select:hover, .edc-gen-sign:hover { border-color: var(--accent-2); }
 }
-
-/* ── Botón flotante de Discord (mismo estilo que el widget de Ko-fi) ── */
-.edc-discord-fab {
-  position: fixed; left: 16px; bottom: 10px; z-index: 60;
-  display: inline-flex; align-items: center;
-  height: 40px; padding: 2px 12px; border-radius: 7px;
-  background: #5865f2; color: #fff; text-decoration: none;
-  font: 700 14px/36px Quicksand, Helvetica, "Century Gothic", sans-serif;
-  box-shadow: rgba(0,0,0,.2) 1px 1px 0 0;
-  transition: background .15s ease, transform .12s ease;
-}
-.edc-discord-fab:hover { background: #4853d6; }
-.edc-discord-fab:active { transform: translateY(1px); }
-.edc-discord-fab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.edc-discord-fab-icon { width: 20px; height: 20px; margin-right: 6px; flex: none; }
-.edc-discord-fab-label { font-weight: 700; }
