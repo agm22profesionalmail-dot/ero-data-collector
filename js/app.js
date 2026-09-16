@@ -164,7 +164,6 @@ function renderLogin() {
   const hero = el("section", { class: "edc-hero" },
     el("div", { class: "edc-hero-inner" },
       el("div", { class: "edc-hero-copy" },
-        el("span", { class: "edc-hero-eyebrow" }, "ERO'S TEAM"),
         el("h2", { class: "edc-hero-title" }, t("login_title")),
         el("p", { class: "edc-hero-desc" }, t(X_LOGIN_ENABLED ? "login_desc_x" : "login_desc")),
         el("div", { class: "edc-hero-ctas" },
@@ -178,7 +177,7 @@ function renderLogin() {
       ),
       el("div", { class: "edc-hero-art", "aria-hidden": "true" },
         el("span", { class: "edc-hero-splat" }),
-        el("img", { class: "edc-hero-char", src: "assets/hero/char-octoling.webp", alt: "", loading: "eager" }),
+        el("img", { class: "edc-hero-char", src: "assets/hero/hero-trio.webp", alt: "", loading: "eager" }),
       ),
     ),
   );

@@ -1,0 +1,5 @@
+# ERO Data Collector — https://eroplayerdata.pages.dev
+User-agent: *
+Allow: /
+
+Sitemap: https://eroplayerdata.pages.dev/sitemap.xml
