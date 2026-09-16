@@ -242,7 +242,10 @@ body {
 .edc-modal-close { background: none; border: 0; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0 4px; }
 .edc-modal-close:hover { color: var(--text); }
 .edc-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 14px; overflow: hidden auto; min-width: 0; }
-.edc-gallery-cell { background: var(--bg-2); border: 2px solid transparent; border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; transition: border-color .1s ease; min-width: 0; }
+.edc-gallery-cell { background: var(--bg-2); border: 2px solid transparent; border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; transition: border-color .1s ease; min-width: 0;
+  /* El navegador se salta el layout/paint de las celdas fuera de pantalla:
+     evita el lag al abrir galerías con cientos/miles de items. */
+  content-visibility: auto; contain-intrinsic-size: auto 112px; }
 .edc-gallery-cell:hover { border-color: var(--accent); box-shadow: var(--glow-accent); }
 .edc-gallery-cell img { width: 72px; height: 72px; object-fit: contain; }
 .edc-gallery-cell div { font-size: .65rem; color: var(--muted); margin-top: 4px; line-height: 1.15; overflow-wrap: anywhere; }

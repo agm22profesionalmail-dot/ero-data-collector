@@ -22,9 +22,15 @@ export function el(tag, attrs = {}, ...children) {
 export function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
 export function imgWithFallback(src, alt = "") {
-  const img = el("img", { src, alt, loading: "lazy" });
+  const img = el("img", { src, alt, loading: "lazy", decoding: "async" });
   img.onerror = () => { if (img.src !== fallbackImg) img.src = fallbackImg; };
   return img;
+}
+
+// Debounce: agrupa ráfagas de llamadas (p. ej. teclear en un buscador).
+export function debounce(fn, ms = 150) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
 let toastTimer;
@@ -49,12 +55,14 @@ export function openGallery({ title, items, onSelect }) {
     const ql = (q || "").toLowerCase();
     const filtered = items.filter((it) => !ql || it.label.toLowerCase().includes(ql));
     if (!filtered.length) { grid.append(el("div", { class: "edc-empty" }, t("no_results"))); return; }
+    const frag = document.createDocumentFragment();
     for (const it of filtered) {
-      grid.append(el("div", { class: "edc-gallery-cell", onClick: () => { onSelect(it.id); close(); } },
+      frag.append(el("div", { class: "edc-gallery-cell", onClick: () => { onSelect(it.id); close(); } },
         imgWithFallback(it.img, it.label), el("div", {}, it.label)));
     }
+    grid.append(frag);
   };
-  search.addEventListener("input", () => render(search.value));
+  search.addEventListener("input", debounce(() => render(search.value), 150));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
 

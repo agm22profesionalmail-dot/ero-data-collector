@@ -7,7 +7,7 @@
 // Créditos completos en el aviso legal (app.js → legalHtml).
 import { SPLATTAG_CDN, LEANNY_BADGE_CDN } from "./config.js";
 import { getLang, t } from "./i18n.js";
-import { el, clear } from "./ui.js";
+import { el, clear, debounce } from "./ui.js";
 import EXTRA_BADGES from "./extra-badges.js";
 
 const TAG_W = 700, TAG_H = 200, TEXT_SCALE = 2;
@@ -384,23 +384,25 @@ function openAssetPicker({ title, items, langKey, onSelect }) {
     clear(body);
     const ql = (q || "").toLowerCase();
     let lastSection = null, any = false;
+    const frag = document.createDocumentFragment();
     for (const it of items) {
       const label = prettify(it.file);
       if (ql && !label.toLowerCase().includes(ql) && !it.file.toLowerCase().includes(ql)) continue;
       any = true;
       if (it.section !== lastSection) {
         lastSection = it.section;
-        body.append(el("div", { class: "edc-gallery-head" }, sectionLabel(it.section, langKey)));
+        frag.append(el("div", { class: "edc-gallery-head" }, sectionLabel(it.section, langKey)));
       }
       const base = it.url || A(it.file);
-      const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy" });
+      const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy", decoding: "async" });
       img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = base + ".png"; } };
-      body.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: label, onClick: () => { onSelect(it); close(); } },
+      frag.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: label, onClick: () => { onSelect(it); close(); } },
         img, el("div", {}, label)));
     }
-    if (!any) body.append(el("div", { class: "edc-empty" }, t("no_results")));
+    if (!any) frag.append(el("div", { class: "edc-empty" }, t("no_results")));
+    body.append(frag);
   };
-  search.addEventListener("input", () => render(search.value));
+  search.addEventListener("input", debounce(() => render(search.value), 150));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
 
@@ -421,16 +423,18 @@ function openTextPicker({ title, list, onSelect }) {
   const render = (q) => {
     clear(body);
     const ql = (q || "").toLowerCase();
-    body.append(el("div", { class: "edc-text-row", onClick: () => { onSelect(""); close(); } }, "— " + t("gen_none") + " —"));
+    const frag = document.createDocumentFragment();
+    frag.append(el("div", { class: "edc-text-row", onClick: () => { onSelect(""); close(); } }, "— " + t("gen_none") + " —"));
     let n = 0;
     for (const s of list) {
       if (ql && !s.toLowerCase().includes(ql)) continue;
       if (++n > 300) break; // límite de render; afina con la búsqueda
-      body.append(el("div", { class: "edc-text-row", onClick: () => { onSelect(s); close(); } }, s));
+      frag.append(el("div", { class: "edc-text-row", onClick: () => { onSelect(s); close(); } }, s));
     }
-    if (!n && ql) body.append(el("div", { class: "edc-empty" }, t("no_results")));
+    if (!n && ql) frag.append(el("div", { class: "edc-empty" }, t("no_results")));
+    body.append(frag);
   };
-  search.addEventListener("input", () => render(search.value));
+  search.addEventListener("input", debounce(() => render(search.value), 150));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
 
