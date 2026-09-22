@@ -92,6 +92,32 @@ export function renderRefConsent(container, artist, state, onChange) {
   ));
 }
 
+// Guarda (o actualiza) la variante de personaje que el jugador crea
+// específicamente para un artista. No toca la ficha principal del jugador.
+// Llama al RPC artist_save_char (migración 20260922_01).
+export async function saveArtistVariant(artistId, state) {
+  const { error } = await supabase.rpc("artist_save_char", {
+    p_artist_id:   artistId,
+    p_player_type: state.player_type,
+    p_hair:        state.hair,
+    p_bottom:      state.bottom,
+    p_bottom_var:  state.bottom_variation,
+    p_skin_tone:   state.skin_tone,
+    p_eye_brows:   state.eye_brows,
+    p_eye_color:   state.eye_color,
+    p_gear_head:   state.gear_head,
+    p_gear_head_v: state.gear_head_variation,
+    p_gear_cloth:  state.gear_cloth,
+    p_gear_cloth_v: state.gear_cloth_variation,
+    p_gear_shoes:  state.gear_shoes,
+    p_gear_shoes_v: state.gear_shoes_variation,
+    p_weapon_main: state.weapon_main,
+    p_anim_name:   state.anim_name,
+    p_color:       state.color,
+  });
+  if (error) throw error;
+}
+
 // ── 2) Solicitud de acceso (?apply) ───────────────────────────────────
 
 export const isApplyRoute = () => new URLSearchParams(window.location.search).has("apply");
