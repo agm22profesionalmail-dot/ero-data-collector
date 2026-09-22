@@ -369,11 +369,14 @@ async function loadBannerInto(container, ph, player, cb = {}) {
 }
 
 // Amplía el max-width del <main> sólo cuando estamos en la ficha del jugador.
-// Fallback para navegadores sin :has() (que ya lo hace en CSS).
+// Aplicamos con style inline (mayor prioridad que CSS) para evitar que caches
+// viejos del CSS o falta de soporte de :has() rompan el ancho de la ficha.
 function setMainWide(on) {
   const m = document.querySelector("main.edc-main");
   if (!m) return;
   m.classList.toggle("edc-main--wide", !!on);
+  if (on) m.style.maxWidth = "1180px";
+  else m.style.maxWidth = "";
 }
 
 // helper i18n reutilizable fuera del closure de renderArtistPanel
