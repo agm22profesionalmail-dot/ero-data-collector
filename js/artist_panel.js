@@ -265,56 +265,68 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showGallery() }, ta("back_gallery")),
       el("div", { class: "edc-apply-actions" }, backBtn())));
     // Ficha: render izquierda; a la derecha nombre + Splashtag (con hover-descargar)
-    // + plantilla de personaje.
+    // + plantilla de personaje. Sin banner_path: no metemos el widget (evita
+    // rectángulo vacío entre nombre y opciones).
+    const mainChildren = [ el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")) ];
+    if (p.banner_path) mainChildren.push(renderBanner(p, { size: "detail", interactive: true }));
+    mainChildren.push(renderSheet(p));
     wrap.append(el("div", { class: "edc-pcard" },
       renderSlot(p),
-      el("div", { class: "edc-pcard-main" },
-        el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
-        renderBanner(p, { size: "detail" }),
-        renderSheet(p))));
+      el("div", { class: "edc-pcard-main" }, ...mainChildren)));
   }
 }
 
-// ── Banner Splashtag con hover "Descargar banner" ────────────────────
+// ── Banner Splashtag ─────────────────────────────────────────────────
 // Reutilizado por la tarjeta del listado y por la ficha del jugador.
 // - Bucket `banners` es privado: cargamos vía createSignedUrl (patrón store.js).
-// - Si no hay banner_path: placeholder con el alias como texto (fallback visual).
-// - onclick del botón: stopPropagation para que el clic no dispare `showDetail`.
+// - Sin banner_path: placeholder neutral con el alias en display (tarjeta).
+// - opts.interactive true: overlay hover con botón "Descargar banner".
+//   El listado NUNCA es interactivo, solo la ficha (regla explícita).
+// - onclick del botón: stopPropagation para que el clic no abra la ficha.
 function renderBanner(player, opts = {}) {
   const size = opts.size === "card" ? "card" : "detail";
+  const interactive = !!opts.interactive;
   const wrap = document.createElement("div");
   wrap.className = "edc-banner-wrap edc-banner-wrap-" + size;
   const ph = document.createElement("div");
   ph.className = "edc-banner-ph";
   if (!player?.banner_path) {
-    ph.textContent = (player?.alias || "").toUpperCase() || tag("no_banner");
     ph.classList.add("edc-banner-ph-empty");
+    const aliasBig = document.createElement("span");
+    aliasBig.className = "edc-banner-ph-alias";
+    aliasBig.textContent = (player?.alias || "").toUpperCase() || tag("no_banner");
+    const aliasTag = document.createElement("span");
+    aliasTag.className = "edc-banner-ph-tag";
+    aliasTag.textContent = tag("no_banner");
+    ph.append(aliasBig, aliasTag);
     wrap.appendChild(ph);
     return wrap;
   }
   wrap.appendChild(ph);
-  const overlay = document.createElement("div");
-  overlay.className = "edc-banner-overlay";
-  const dl = document.createElement("button");
-  dl.type = "button";
-  dl.className = "edc-banner-dl-btn";
-  dl.textContent = tag("download_banner");
-  dl.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    dl.disabled = true;
-    try {
-      const { data: d } = await supabase.storage.from("banners").createSignedUrl(player.banner_path, 60);
-      if (d?.signedUrl) {
-        const a = document.createElement("a");
-        a.href = d.signedUrl;
-        a.download = `${player.alias || player.discord_name || "player"}_splattag.png`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      }
-    } catch { /* silencio: si falla no rompemos la ficha */ }
-    dl.disabled = false;
-  });
-  overlay.appendChild(dl);
-  wrap.appendChild(overlay);
+  if (interactive) {
+    const overlay = document.createElement("div");
+    overlay.className = "edc-banner-overlay";
+    const dl = document.createElement("button");
+    dl.type = "button";
+    dl.className = "edc-banner-dl-btn";
+    dl.textContent = tag("download_banner");
+    dl.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      dl.disabled = true;
+      try {
+        const { data: d } = await supabase.storage.from("banners").createSignedUrl(player.banner_path, 60);
+        if (d?.signedUrl) {
+          const a = document.createElement("a");
+          a.href = d.signedUrl;
+          a.download = `${player.alias || player.discord_name || "player"}_splattag.png`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+      } catch { /* silencio: si falla no rompemos la ficha */ }
+      dl.disabled = false;
+    });
+    overlay.appendChild(dl);
+    wrap.appendChild(overlay);
+  }
   loadBannerInto(wrap, ph, player);
   return wrap;
 }
