@@ -36,6 +36,8 @@ const S = {
     no_alias: "No alias", view: "View sheet",
     render_soon: "Render coming soon",
     download_card: "Download Splashtag",
+    download_banner: "Download banner",
+    no_banner: "No Splashtag",
     f_species: "Species & gender", f_skin: "Skin tone", f_eye: "Eye color",
     f_hair: "Hairstyle", f_brows: "Eyebrows", f_legs: "Legs",
     f_head: "Head gear", f_cloth: "Clothing", f_shoes: "Shoes",
@@ -69,6 +71,8 @@ const S = {
     no_alias: "Sin alias", view: "Ver ficha",
     render_soon: "Render en preparación",
     download_card: "Descargar Splashtag",
+    download_banner: "Descargar banner",
+    no_banner: "Sin Splashtag",
     f_species: "Especie y género", f_skin: "Tono de piel", f_eye: "Color de ojos",
     f_hair: "Peinado", f_brows: "Cejas", f_legs: "Piernas",
     f_head: "Gear cabeza", f_cloth: "Gear ropa", f_shoes: "Gear zapatillas",
@@ -239,17 +243,20 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 
   function renderPlayerCard(p) {
     const open = () => showDetail(p);
-    const head = el("div", { class: "edc-panel-card-head" });
-    if (p.discord_avatar) head.append(el("img", { class: "edc-panel-avatar", src: p.discord_avatar, alt: "" }));
-    head.append(el("div", { class: "edc-panel-card-id" },
-      el("strong", {}, p.alias || ta("no_alias")),
-      p.discord_name ? el("span", { class: "edc-panel-contact" }, p.discord_name) : null,
-      p.x_username ? el("span", { class: "edc-panel-contact" }, "@" + p.x_username) : null));
-    return el("div", { class: "edc-card edc-panel-card", onClick: open },
-      head,
-      el("div", { class: "edc-panel-card-foot" },
-        el("span", { class: "edc-color-preview", style: `background:${colorToHex(p.color)}` }),
-        el("button", { class: "edc-btn edc-btn-sm", onClick: (e) => { e.stopPropagation(); open(); } }, ta("view"))));
+    const sp = SPECIES[p.player_type] || SPECIES[0];
+    const speciesLabel = `${ta(sp.species)} ${sp.male ? ta("boy") : ta("girl")}`;
+    const handle = p.x_username ? ("@" + p.x_username) : (p.discord_name || "");
+    const body = el("div", { class: "edc-panel-pcard-body" },
+      el("div", { class: "edc-panel-pcard-alias" }, p.alias || ta("no_alias")),
+      el("div", { class: "edc-panel-pcard-meta" }, speciesLabel),
+      el("div", { class: "edc-panel-pcard-contact" },
+        el("span", { class: "edc-panel-pcard-dot", style: `background:${colorToHex(p.color)}` }),
+        el("div", { class: "edc-panel-pcard-lines" },
+          handle ? el("span", { class: "edc-panel-pcard-handle" }, handle) : null,
+          p.discord_id ? el("span", { class: "edc-panel-pcard-did" }, p.discord_id) : null)));
+    return el("div", { class: "edc-card edc-panel-pcard", onClick: open },
+      renderBanner(p, { size: "card" }),
+      body);
   }
 
   function showDetail(p) {
@@ -257,35 +264,84 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
     wrap.append(el("div", { class: "edc-admin-head" },
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showGallery() }, ta("back_gallery")),
       el("div", { class: "edc-apply-actions" }, backBtn())));
-    const hasBanner = !!p.banner_path;
-    const dlBtn = el("button", { class: "edc-btn edc-btn-sm" + (hasBanner ? "" : " edc-btn-disabled") },
-      ta("download_card"));
-    if (!hasBanner) dlBtn.disabled = true;
-    dlBtn.addEventListener("click", async () => {
-      if (!p.banner_path) return;
-      dlBtn.disabled = true;
-      try {
-        const { data: d } = await supabase.storage.from("banners").createSignedUrl(p.banner_path, 60);
-        if (d?.signedUrl) {
-          const a = document.createElement("a");
-          a.href = d.signedUrl;
-          a.download = `${p.alias || p.discord_name || "player"}_splattag.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }
-      } catch { /* sin banner */ }
-      dlBtn.disabled = false;
-    });
-    // Carta de jugador estilo Splatoon (ver IMAGEN MUESTRA.psd): render a la
-    // izquierda, nombre + panel amarillo de datos a la derecha.
+    // Ficha: render izquierda; a la derecha nombre + Splashtag (con hover-descargar)
+    // + plantilla de personaje.
     wrap.append(el("div", { class: "edc-pcard" },
       renderSlot(p),
       el("div", { class: "edc-pcard-main" },
         el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
-        el("div", { class: "edc-pcard-dl" }, dlBtn),
+        renderBanner(p, { size: "detail" }),
         renderSheet(p))));
   }
+}
+
+// ── Banner Splashtag con hover "Descargar banner" ────────────────────
+// Reutilizado por la tarjeta del listado y por la ficha del jugador.
+// - Bucket `banners` es privado: cargamos vía createSignedUrl (patrón store.js).
+// - Si no hay banner_path: placeholder con el alias como texto (fallback visual).
+// - onclick del botón: stopPropagation para que el clic no dispare `showDetail`.
+function renderBanner(player, opts = {}) {
+  const size = opts.size === "card" ? "card" : "detail";
+  const wrap = document.createElement("div");
+  wrap.className = "edc-banner-wrap edc-banner-wrap-" + size;
+  const ph = document.createElement("div");
+  ph.className = "edc-banner-ph";
+  if (!player?.banner_path) {
+    ph.textContent = (player?.alias || "").toUpperCase() || tag("no_banner");
+    ph.classList.add("edc-banner-ph-empty");
+    wrap.appendChild(ph);
+    return wrap;
+  }
+  wrap.appendChild(ph);
+  const overlay = document.createElement("div");
+  overlay.className = "edc-banner-overlay";
+  const dl = document.createElement("button");
+  dl.type = "button";
+  dl.className = "edc-banner-dl-btn";
+  dl.textContent = tag("download_banner");
+  dl.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    dl.disabled = true;
+    try {
+      const { data: d } = await supabase.storage.from("banners").createSignedUrl(player.banner_path, 60);
+      if (d?.signedUrl) {
+        const a = document.createElement("a");
+        a.href = d.signedUrl;
+        a.download = `${player.alias || player.discord_name || "player"}_splattag.png`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+    } catch { /* silencio: si falla no rompemos la ficha */ }
+    dl.disabled = false;
+  });
+  overlay.appendChild(dl);
+  wrap.appendChild(overlay);
+  loadBannerInto(wrap, ph, player);
+  return wrap;
+}
+
+async function loadBannerInto(container, ph, player) {
+  try {
+    const { data: d } = await supabase.storage.from("banners")
+      .createSignedUrl(player.banner_path, 3600);
+    if (!d?.signedUrl) return;
+    const img = document.createElement("img");
+    img.className = "edc-banner-img";
+    img.alt = "";
+    img.decoding = "async";
+    img.loading = "lazy";
+    img.onload = () => { if (container.isConnected) { ph.remove(); container.prepend(img); } };
+    img.src = d.signedUrl;
+  } catch { /* placeholder queda */ }
+}
+
+// helper i18n reutilizable fuera del closure de renderArtistPanel
+function tag(k) {
+  const S2 = { en: {
+    download_banner: "Download banner", no_banner: "No Splashtag",
+  }, es: {
+    download_banner: "Descargar banner", no_banner: "Sin Splashtag",
+  }};
+  return (S2[getLang()] || S2.en)[k] || k;
 }
 
 // ── Hueco de RENDER del jugador ──────────────────────────────────────
