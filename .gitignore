@@ -12,3 +12,5 @@ test.html
 .DS_Store
 Thumbs.db
 node_modules/
+test_ficha.html
+.claude/
