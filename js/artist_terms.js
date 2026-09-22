@@ -1,7 +1,7 @@
 // Términos y condiciones del programa beta de artistas (ERO Data Collector).
 // Se muestran en el formulario de solicitud (?apply), que exige aceptarlos, y
 // en el pie de la web para cualquiera. La versión aceptada se guarda en
-// artists.terms_version (migración 20260922_04); si el texto cambia de forma
+// artists.terms_version (migración 20260922_05); si el texto cambia de forma
 // sustancial, sube ARTIST_TERMS_VERSION para que quede constancia de qué
 // versión aceptó cada artista.
 

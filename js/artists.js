@@ -183,7 +183,7 @@ let sent = false; // ya enviada en esta carga → pantalla de "enviada"
 async function submitRequest({ discord_id, name, email, portfolio, reason }) {
   const preferred_lang = getLang() === "es" ? "es" : "en";
   // terms_version: la política exige que venga; terms_accepted_at lo pone un
-  // trigger con la hora del servidor (migración 20260922_04), no el cliente.
+  // trigger con la hora del servidor (migración 20260922_05), no el cliente.
   const { error } = await supabase.from("artists").insert({
     discord_id, name, email,
     portfolio: portfolio || null, reason: reason || null,

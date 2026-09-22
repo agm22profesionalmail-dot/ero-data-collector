@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración 2026-09-22 (04) — Términos del programa beta de artistas
+-- Migración 2026-09-22 (05) — Términos del programa beta de artistas
 --
 -- La web (js/artist_terms.js) muestra los términos en el formulario de
 -- solicitud (?apply) y exige aceptarlos. Aquí se deja constancia en la BD:
