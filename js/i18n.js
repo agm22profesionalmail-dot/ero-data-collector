@@ -10,7 +10,7 @@ const STRINGS = {
     login_privacy: "We only read your Discord username and avatar. Nothing is posted. You must be 14+.",
     // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Connect your Discord or X account to send your character data. You can come back and edit it anytime.",
-    login_btn_x: "X",
+    login_btn_x: "Twitter",
     login_privacy_x: "We only read your username, avatar and account ID from Discord or X. Nothing is posted. You must be 14+.",
     login_dup_note: "Already have a sheet with Discord? Sign in with Discord and link X from the header, so you don't end up with two sheets.",
     editor_dup_note: "You signed in with X and have no sheet yet. If you already made one with Discord, log out, sign in with Discord and link X from the header instead of creating a new one.",
@@ -193,7 +193,7 @@ const STRINGS = {
     login_privacy: "Solo leemos tu usuario y avatar de Discord. No publicamos nada. Necesitas 14 años o más.",
     // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Conecta tu cuenta de Discord o de X para enviar los datos de tu personaje. Puedes volver y editarlo cuando quieras.",
-    login_btn_x: "X",
+    login_btn_x: "Twitter",
     login_privacy_x: "Solo leemos tu usuario, avatar e ID de Discord o X. No publicamos nada. Necesitas 14 años o más.",
     login_dup_note: "¿Ya tienes ficha con Discord? Entra con Discord y vincula X desde la cabecera, así no acabas con dos fichas.",
     editor_dup_note: "Has entrado con X y aún no tienes ficha. Si ya hiciste una con Discord, cierra sesión, entra con Discord y vincula X desde la cabecera en vez de crear otra.",
