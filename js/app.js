@@ -841,13 +841,13 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 }
 
 // Iconos de resumen del preview (head/cloth/shoes/banner/ok).
-// Los tres iconos de gear (head/cloth/shoes) son los PNG oficiales del UI de
-// las tiendas de Splatoon 3 (MngCardSleeve_GearShop*, extraídos del dump del
-// juego). Los de banner/ok/none quedan como SVG minimos porque no son gear.
+// Los 3 iconos de gear son de Phosphor Icons (regular, MIT), guardados como
+// SVG en assets/gear-icons/. Los SVG usan fill=currentColor -> se tinta con
+// el color CSS del contenedor. Banner/ok/none siguen como SVG inline mínimo.
 function preIcon(kind, size = 14) {
-  const gearMap = { head: "head", cloth: "clothes", shoes: "shoes" };
-  if (gearMap[kind]) {
-    return `<img src="assets/gear-icons/${gearMap[kind]}.png" alt="" width="${size}" height="${Math.round(size * 162 / 116)}" loading="lazy">`;
+  const gearFile = { head: "head", cloth: "cloth", shoes: "shoes" };
+  if (gearFile[kind]) {
+    return `<img src="assets/gear-icons/${gearFile[kind]}.svg" alt="" width="${size}" height="${size}" loading="lazy">`;
   }
   const svg = {
     banner: '<path d="M2 3.5h12v9H2v-9zm1.5 1.5v5.2l2.7-2.3 2.2 2 3.1-3.3V5H3.5z" fill="currentColor"/>',
