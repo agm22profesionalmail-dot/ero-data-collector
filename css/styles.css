@@ -465,6 +465,37 @@ body {
 }
 .edc-kofi-login-link:hover { opacity: 1; }
 
+/* Par de botones flotantes de comunidad (Discord + Ko-fi). position:fixed con
+   z-index propio (no lo tapa .edc-bg-decor). Colapsados = solo icono; en hover o
+   con foco de teclado se expanden con el texto, igual que el widget de Ko-fi. */
+.edc-floatbar {
+  position: fixed; left: 14px; bottom: 14px; z-index: 40;
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+}
+.edc-float-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 40px; min-width: 40px; padding: 0 9px; box-sizing: border-box;
+  border-radius: 20px; color: #fff; text-decoration: none;
+  font-weight: 700; font-size: .88rem; letter-spacing: .3px; white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0,0,0,.3); overflow: hidden;
+  transition: filter .15s, box-shadow .15s, transform .12s;
+}
+.edc-float-btn:hover { filter: brightness(1.08); box-shadow: 0 5px 14px rgba(0,0,0,.38); transform: translateY(-1px); }
+/* Caja de icono cuadrada e idéntica en ambos → mismo tamaño colapsado (40x40) */
+.edc-float-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; width: 22px; height: 22px;
+}
+.edc-float-ico svg { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; }
+.edc-float-label {
+  max-width: 0; opacity: 0; overflow: hidden;
+  transition: max-width .28s ease, opacity .2s ease, margin-left .28s ease;
+}
+.edc-float-btn:hover .edc-float-label,
+.edc-float-btn:focus-visible .edc-float-label { max-width: 220px; opacity: 1; margin-left: 8px; }
+.edc-float-kofi { background: #9673f5; }
+.edc-float-discord { background: #5865F2; }
+
 @media (max-width: 600px) {
   .edc-type-row { grid-template-columns: repeat(2, 1fr); }
   .edc-type-cell img { width: 56px; height: 56px; }
@@ -573,3 +604,164 @@ body {
   .edc-brand:hover .edc-brand-logo { transform: rotate(-8deg) scale(1.08); }
   .edc-gen-select:hover, .edc-gen-sign:hover { border-color: var(--accent-2); }
 }
+
+/* ══ Sistema de artistas ══════════════════════════════════════════════ */
+/* Bloque de consentimiento del enlace de artista (?ref): card destacada en
+   magenta (acento) para diferenciarla de las secciones normales (teal). */
+.edc-ref-card {
+  border-top: 2px solid var(--accent); border-left: 3px solid var(--accent);
+  background: linear-gradient(135deg, rgba(246,80,254,.12), var(--panel) 62%);
+  box-shadow: var(--shadow), var(--glow-accent);
+}
+.edc-ref-kicker { font-family: var(--font-splat); font-size: .8rem; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--accent); margin-bottom: 6px; }
+.edc-ref-text { margin: 0 0 12px; font-size: .93rem; line-height: 1.55; color: var(--text); }
+.edc-ref-text b, .edc-check b { color: #fff; }
+.edc-ref-note { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+/* Casilla de consentimiento: fila completa clicable, resaltada al marcar */
+.edc-check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  font-size: .9rem; line-height: 1.45; padding: 10px 12px; border-radius: 8px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  transition: border-color .15s var(--ease-out), box-shadow .18s var(--ease-out); }
+.edc-check:hover { border-color: #3d4e7e; }
+.edc-check:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(246,80,254,.14); }
+.edc-check input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); cursor: pointer; }
+
+/* Solicitud de acceso de artista (?apply) */
+.edc-apply { max-width: 640px; margin: 0 auto; }
+.edc-apply-intro { margin: 0 0 14px; font-size: .92rem; line-height: 1.55; color: var(--muted); }
+.edc-apply-need { color: var(--text); padding: 9px 12px; border-left: 3px solid var(--discord);
+  background: rgba(88,101,242,.1); border-radius: 0 8px 8px 0; }
+.edc-apply-as { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin: 4px 0 8px; }
+.edc-apply-as img { width: 24px; height: 24px; border-radius: 4px; border: 2px solid var(--accent-2); }
+.edc-apply-as strong { color: var(--text); }
+.edc-textarea { min-height: 96px; resize: vertical; line-height: 1.45; display: block; }
+.edc-apply-privacy { font-size: .78rem; color: var(--muted); margin: 12px 0 0; line-height: 1.5; }
+.edc-apply-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+.edc-apply-done { text-align: center; padding: 10px 0 4px; }
+.edc-apply-done-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--ok); margin-bottom: 6px; }
+.edc-apply-done .edc-apply-intro { margin-bottom: 16px; }
+
+/* Enlace discreto del footer a la solicitud de artista */
+.edc-footer-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px;
+  transition: color .15s var(--ease-out); }
+.edc-footer-link:hover { color: var(--accent-2); }
+
+/* Panel de admin (?admin) */
+.edc-admin-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.edc-admin-card { border-left: 3px solid var(--border); }
+.edc-admin-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.edc-admin-meta strong { font-size: 1.02rem; }
+.edc-admin-badge { font-size: .7rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.edc-admin-badge-pending  { background: rgba(251,191,36,.16); color: var(--warn); }
+.edc-admin-badge-approved { background: rgba(74,222,128,.16); color: var(--ok); }
+.edc-admin-badge-rejected, .edc-admin-badge-revoked { background: rgba(248,113,113,.14); color: var(--err); }
+.edc-admin-players { font-size: .78rem; color: var(--muted); }
+.edc-admin-row { display: flex; gap: 8px; font-size: .84rem; margin: 2px 0; }
+.edc-admin-k { color: var(--muted); flex: none; min-width: 96px; }
+.edc-admin-v { color: var(--text); word-break: break-all; }
+.edc-admin-keycard { text-align: left; max-width: 460px; }
+.edc-admin-secret { margin: 8px 0; }
+.edc-admin-secret code { display: block; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: .82rem; word-break: break-all; color: var(--accent-2); }
+
+/* Panel del artista (?panel) — galería del grupo + ficha de solo lectura */
+.edc-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 4px; }
+.edc-panel-card { cursor: pointer; transition: transform .15s var(--ease-out), border-color .15s var(--ease-out); }
+.edc-panel-card:hover { transform: translateY(-2px); border-color: var(--accent-2); }
+.edc-panel-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.edc-panel-avatar { width: 36px; height: 36px; border-radius: 6px; border: 2px solid var(--accent-2); flex: none; }
+.edc-panel-card-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.edc-panel-card-id strong { font-size: .98rem; }
+.edc-panel-contact { font-size: .78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edc-panel-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* ── Ficha = carta de jugador. La referencia (IMAGEN MUESTRA.psd) fijaba el
+   LAYOUT (render tipo carta a la izquierda, nombre arriba, datos debajo); sus
+   colores morado/amarillo eran solo placeholder. Paleta real = tema Splatoon 3
+   dark del sitio, con acentos de tinta (magenta/teal). ── */
+.edc-pcard {
+  display: grid; grid-template-columns: minmax(190px, 300px) 1fr;
+  gap: 24px; align-items: start; margin-top: 6px;
+  padding: 24px; border-radius: 22px;
+  background: linear-gradient(160deg, var(--panel) 0%, var(--bg-2) 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.05);
+}
+@media (max-width: 720px) { .edc-pcard { grid-template-columns: 1fr; gap: 18px; padding: 16px; border-radius: 18px; } }
+
+/* carta del render (retrato), fondo oscuro para que destaque el modelo 3D */
+.edc-pcard-render {
+  position: relative; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(120% 88% at 50% 12%, #223056 0%, var(--panel-2) 55%, #10152a 100%);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 0 44px rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.edc-pcard-render::after {  /* hairline de tinta arriba (toque de marca) */
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); opacity: .85;
+}
+.edc-pcard-render-img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom;
+  animation: edc-pcard-fade .35s var(--ease-out); }
+.edc-pcard-render-ph { display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--muted); font-size: .82rem; text-align: center; padding: 20px; }
+.edc-pcard-render-ico { font-size: 2.1rem; opacity: .55; }
+@keyframes edc-pcard-fade { from { opacity: 0 } to { opacity: 1 } }
+
+/* zona derecha: nombre + datos */
+.edc-pcard-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.edc-pcard-name {
+  font-family: var(--font-display); font-size: clamp(1.7rem, 3.6vw, 2.6rem); line-height: 1.04;
+  color: var(--text); letter-spacing: .5px; word-break: break-word;
+  text-shadow: 0 2px 18px rgba(246,80,254,.2);
+}
+
+/* sub-panel oscuro con la plantilla del personaje */
+.edc-pcard-sheet {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px; padding: 12px 18px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px;
+}
+@media (max-width: 980px) { .edc-pcard-sheet { grid-template-columns: 1fr; } }
+.edc-pcard-field { display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 9px 0; border-bottom: 1px solid var(--border); }
+.edc-pcard-field-label { flex: none; width: 84px; font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+.edc-pcard-field-value { display: flex; align-items: center; gap: 9px; min-width: 0;
+  font-size: .86rem; font-weight: 600; color: var(--text); }
+.edc-pcard-field-value > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edc-pcard-swatch { width: 40px; height: 40px; flex: none; border-radius: 9px; background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; }
+.edc-pcard-swatch img { width: 34px; height: 34px; object-fit: contain; }
+.edc-pcard-alt { flex: none; font-size: .6rem; font-weight: 800; letter-spacing: .5px; color: var(--accent-2);
+  background: rgba(25,211,197,.14); padding: 1px 6px; border-radius: 999px; }
+
+/* Tira de opciones (piel/ojos/cejas): la elegida siempre visible y marcada;
+   el resto se muestra al pulsar el toggle "+". Evita que el artista dude qué
+   swatch aislado corresponde al jugador. */
+.edc-pcard-choice-value { width: 100%; gap: 8px; }
+.edc-pcard-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.edc-pcard-strip[data-expanded="false"] > .edc-pcard-choice:not(:first-child) { display: none; }
+.edc-pcard-choice { flex: none; width: 32px; height: 32px; border-radius: 8px;
+  background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border);
+  display: flex; align-items: center; justify-content: center; }
+.edc-pcard-choice img { width: 26px; height: 26px; object-fit: contain; }
+.edc-pcard-choice.is-selected {
+  box-shadow: inset 0 0 0 2px var(--accent-2), 0 0 0 2px rgba(25,211,197,.28);
+  background: rgba(25,211,197,.08);
+}
+.edc-pcard-strip-toggle { flex: none; width: 22px; height: 22px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  cursor: pointer; font-size: .9rem; line-height: 1; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 180ms var(--ease-out), border-color 180ms var(--ease-out); }
+.edc-pcard-strip-toggle:hover, .edc-pcard-strip-toggle:focus-visible {
+  color: var(--text); border-color: var(--accent-2); outline: none;
+}
+
+/* Reglas de la clave nueva (?panel, primer login) */
+.edc-cp-rules { margin: 4px 0 12px 20px; padding: 0; color: var(--muted); font-size: .82rem; }
+.edc-cp-rules li { margin: 2px 0; }
+
+@media (prefers-reduced-motion: reduce) { .edc-pcard-render-img { animation: none; } }

@@ -11,6 +11,12 @@ import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
 import { loadPlayer, savePlayer, getBannerSignedUrl, syncIdentityFields } from "./store.js";
 import { el, clear, toast } from "./ui.js";
+import {
+  captureRefFromUrl, resolveRefArtist, needsRefConsent, renderRefConsent, clearRef,
+  isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply,
+} from "./artists.js";
+import { isAdminRoute, renderAdminPanel, leaveAdmin } from "./admin.js";
+import { isPanelRoute, renderArtistPanel, leavePanel } from "./artist_panel.js";
 
 const $ = (id) => document.getElementById(id);
 const appEl = () => $("app");
@@ -21,12 +27,14 @@ let state = null;        // ficha en edición
 let profile = null;
 let hasRecord = false;   // ¿el usuario ya tenía ficha guardada?
 let mode = "edit";        // "preview" | "edit"
+let refArtist = null;     // artista del enlace ?ref resuelto ({id, name}) o null
 
 // ── i18n estático ─────────────────────────────────────────────────────
 function applyStaticI18n() {
   document.documentElement.lang = getLang();
   $("appSub").textContent = t("app_sub");
   renderFooter();
+  renderFloatbar();
   for (const b of $("langSwitch").querySelectorAll("button"))
     b.classList.toggle("active", b.dataset.lang === getLang());
   renderAuthArea();
@@ -150,12 +158,45 @@ function renderFooter() {
   clear(f);
   f.append(el("div", { class: "edc-footer-row" },
     el("span", {}, t("footer")),
+    // Enlace discreto a la solicitud de acceso de artista (?apply)
+    !isApplyRoute() && el("button", { class: "edc-footer-link", onClick: openApply }, t("footer_artist")),
   ));
   f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
   const d = el("details", { class: "edc-legal" });
   d.append(el("summary", {}, t("legal_title")));
   d.append(el("div", { class: "edc-help-body", html: legalHtml(getLang()) }));
   f.append(d);
+}
+
+// Par de botones flotantes de comunidad (Discord + Ko-fi). Colapsados muestran
+// solo el icono y se expanden con el texto al pasar el ratón, como el widget de
+// Ko-fi. Viven en un contenedor position:fixed propio, fuera de .edc-bg-decor.
+function renderFloatbar() {
+  const bar = $("floatbar");
+  if (!bar) return;
+  clear(bar);
+  bar.append(
+    el("a", {
+      class: "edc-float-btn edc-float-discord",
+      href: "https://discord.gg/Hckay4PGNR",
+      target: "_blank", rel: "noopener noreferrer",
+      "aria-label": t("join_discord"),
+    }, el("span", { class: "edc-float-ico", html: discordSvg(18) }),
+       el("span", { class: "edc-float-label" }, t("join_discord"))),
+    el("a", {
+      class: "edc-float-btn edc-float-kofi",
+      href: "https://ko-fi.com/Q2Z422804H",
+      target: "_blank", rel: "noopener noreferrer",
+      "aria-label": t("kofi_btn"),
+    }, el("span", { class: "edc-float-ico", html: kofiSvg(18) }),
+       el("span", { class: "edc-float-label" }, t("kofi_btn"))),
+  );
+}
+
+// Logo oficial de Ko-fi (marca Ko-fi). Relleno blanco para contrastar sobre el
+// fondo del botón.
+function kofiSvg(size = 18) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M11.351 2.715c-2.7 0-4.986.025-6.83.26C2.078 3.285 0 5.154 0 8.61c0 3.506.182 6.13 1.585 8.493 1.584 2.701 4.233 4.182 7.662 4.182h.83c4.209 0 6.494-2.234 7.637-4a9.5 9.5 0 0 0 1.091-2.338C21.792 14.688 24 12.22 24 9.208v-.415c0-3.247-2.13-5.507-5.792-5.87-1.558-.156-2.65-.208-6.857-.208m0 1.947c4.208 0 5.09.052 6.571.182 2.624.311 4.13 1.584 4.13 4v.39c0 2.156-1.792 3.844-3.87 3.844h-.935l-.156.649c-.208 1.013-.597 1.818-1.039 2.546-.909 1.428-2.545 3.064-5.922 3.064h-.805c-2.571 0-4.831-.883-6.078-3.195-1.09-2-1.298-4.155-1.298-7.506 0-2.181.857-3.402 3.012-3.714 1.533-.233 3.559-.26 6.39-.26m6.547 2.287c-.416 0-.65.234-.65.546v2.935c0 .311.234.545.65.545 1.324 0 2.051-.754 2.051-2s-.727-2.026-2.052-2.026m-10.39.182c-1.818 0-3.013 1.48-3.013 3.142 0 1.533.858 2.857 1.949 3.897.727.701 1.87 1.429 2.649 1.896a1.47 1.47 0 0 0 1.507 0c.78-.467 1.922-1.195 2.623-1.896 1.117-1.039 1.974-2.364 1.974-3.897 0-1.662-1.247-3.142-3.039-3.142-1.065 0-1.792.545-2.338 1.298-.493-.753-1.246-1.298-2.312-1.298"/></svg>`;
 }
 
 // ── Vistas ────────────────────────────────────────────────────────────
@@ -212,7 +253,10 @@ async function renderApp() {
       if (!state.alias && defaultAlias) state.alias = defaultAlias;
       ensureValid(state);
       if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
-      mode = hasRecord ? "preview" : "edit";
+      // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
+      // consentimiento pendiente se entra directo al editor para que lo vea.
+      refArtist = await resolveRefArtist();
+      mode = hasRecord && !needsRefConsent(refArtist, state) ? "preview" : "edit";
     }
   } catch (e) {
     clear(appEl());
@@ -274,6 +318,14 @@ function renderEditor() {
   // ficha con Discord (otro usuario de Supabase). Aviso para evitar duplicados.
   if (X_LOGIN_ENABLED && !hasRecord && profile?.hasX && !profile?.hasDiscord)
     appEl().append(el("div", { class: "edc-card edc-notice" }, t("editor_dup_note")));
+
+  // Llegó por el enlace de un artista (?ref) y aún no está asociado:
+  // consentimiento explícito (RGPD). El check se aplica al guardar.
+  if (needsRefConsent(refArtist, state)) {
+    const ref = el("div");
+    appEl().append(ref);
+    renderRefConsent(ref, refArtist, state);
+  }
 
   const preview = el("div", { class: "edc-card edc-preview" });
   appEl().append(preview);
@@ -365,6 +417,16 @@ async function doSave(btn, status) {
   }
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
   const isUpdate = hasRecord;            // ¿ya tenía ficha? decide el juego de frases
+  // Enlace de artista: solo se asocia si el usuario marcó el consentimiento.
+  // Sin marcar no se manda nada (store.js nunca envía referred_by = null).
+  const consenting = needsRefConsent(refArtist, state) && state._refConsent === true;
+  if (consenting) {
+    state._referredBy = refArtist.id;
+    state._referredConsentAt = new Date().toISOString();
+  } else {
+    delete state._referredBy;
+    delete state._referredConsentAt;
+  }
   const P = submitPhrases(isUpdate);
   const ov = renderSubmitOverlay();
   try {
@@ -382,7 +444,14 @@ async function doSave(btn, status) {
     hasRecord = true;
     await ov.phase(P.done, 100, 620);
     ov.close();
-    toast(t("saved"), "ok");
+    if (consenting && state.referred_by === refArtist.id) {
+      // Asociación guardada: el ref ya no hace falta en esta pestaña
+      clearRef();
+      state._refConsent = false;
+      toast(t("saved") + " " + t("ref_saved").replace("{name}", refArtist.name), "ok");
+    } else {
+      toast(t("saved"), "ok");
+    }
     mode = "preview";
     renderModeView();
   } catch (e) {
@@ -400,7 +469,7 @@ function stateFromRow(row) {
   const keys = ["alias", "player_type", "hair", "bottom", "bottom_variation", "skin_tone",
     "eye_brows", "eye_color", "gear_head", "gear_head_variation", "gear_cloth", "gear_cloth_variation",
     "gear_shoes", "gear_shoes_variation", "weapon_main", "anim_name", "banner_path", "banner_sha256",
-    "splattag_config"];
+    "splattag_config", "referred_by"];
   for (const k of keys) if (row[k] !== null && row[k] !== undefined) s[k] = row[k];
   if (row.color) s.color = row.color;
   return s;
@@ -413,12 +482,46 @@ function route() {
     appEl().append(el("div", { class: "edc-loading" }, el("div", {}, t("not_configured"))));
     return;
   }
+  if (isAdminRoute()) { renderAdminView(); return; }
+  if (isPanelRoute()) { renderPanelView(); return; }
+  if (isApplyRoute()) { renderApplyView(); return; }
   if (session?.user) renderApp();
   else renderLogin();
 }
 
+// ── Solicitud de acceso de artista (?apply) ──────────────────────────
+function renderApplyView() {
+  profile = session?.user ? identityProfile(session.user) : null;
+  renderArtistApply(appEl(), {
+    session, profile,
+    actions: { login: doLogin, linkDiscord: () => doLink("discord"), back: closeApply, discordSvg },
+  });
+}
+
+function openApply() { if (goApply()) { route(); renderFooter(); } }
+function closeApply() { if (goHome()) { route(); renderFooter(); } }
+
+// ── Panel de admin (?admin) ──────────────────────────────────────────
+function renderAdminView() { renderAdminPanel(appEl(), { onBack: closeAdmin }); }
+function closeAdmin() { if (leaveAdmin()) { route(); renderFooter(); } }
+
+// ── Panel del artista (?panel) ────────────────────────────────────────
+function renderPanelView() {
+  profile = session?.user ? identityProfile(session.user) : null;
+  renderArtistPanel(appEl(), {
+    session, profile,
+    actions: { login: doLogin, linkDiscord: () => doLink("discord"), back: closePanel, discordSvg },
+  });
+}
+function closePanel() { if (leavePanel()) { route(); renderFooter(); } }
+
 // ── Init ──────────────────────────────────────────────────────────────
 async function init() {
+  // Antes de cualquier replaceState: guarda el ?ref del artista (sobrevive al
+  // OAuth en sessionStorage) y restaura ?apply si se fue al OAuth desde ahí.
+  captureRefFromUrl();
+  restoreApplyRoute();
+
   applyStaticI18n();
 
   for (const b of $("langSwitch").querySelectorAll("button"))
@@ -426,10 +529,13 @@ async function init() {
 
   onLangChange(() => {
     applyStaticI18n();
-    if (!isConfigured()) { route(); return; }
+    if (!isConfigured() || isApplyRoute() || isAdminRoute() || isPanelRoute()) { route(); return; }
     if (session?.user && state) renderModeView();
     else route();
   });
+
+  // Atrás/adelante del navegador entre ?apply y el inicio
+  window.addEventListener("popstate", () => { route(); renderFooter(); });
 
   if (isConfigured()) {
     session = await getSession();
@@ -512,6 +618,7 @@ function legalHtml(lang) {
 </ul>
 ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de X, guardamos en tu ficha únicamente tu nombre de usuario (@), tu nombre público, tu avatar y el identificador numérico de la cuenta, con el mismo fin de identificarte en la comunidad. X también nos facilita tu dirección de email confirmada, que gestiona exclusivamente el sistema de autenticación (Supabase Auth) para identificar tu cuenta; no se guarda en la ficha ni se usa para enviarte comunicaciones. La pantalla de autorización de X solicita lectura de publicaciones y acceso sin conexión porque X lo exige técnicamente para el inicio de sesión: no leemos tus publicaciones, seguidores ni mensajes, y no publicamos nada en tu nombre. Puedes desvincular X en cualquier momento desde la cabecera del sitio (siempre que tengas otra cuenta vinculada).</p>` : ""}
 <p><b>Finalidad:</b> preparar contenido y fotos para eventos de la comunidad. No se venden ni ceden datos a terceros con fines publicitarios.</p>
+<p><b>Enlaces de artistas (opcional):</b> algunos artistas de la comunidad tienen un enlace personal (URL con <code>?ref=</code>). Si te registras a través de uno de esos enlaces y marcas la casilla de consentimiento, autorizas expresamente a ese artista concreto —el que aparece con nombre en la casilla— a ver dentro de un panel privado tu configuración de personaje (especie, género, piel, ojos, peinado, cejas, gear, color de tinta y alias), tu banner y tu contacto (nombre de usuario y avatar de Discord${X ? ", y —si la vinculaste— tu @ de X" : ""}). Se trata de material de referencia visual para poder dibujarte o hacerte comisiones: el panel no permite descargar ni copiar tu configuración. El consentimiento es voluntario; si no marcas la casilla, tu personaje se guarda igual y no se comparte con nadie. Puedes retirar el consentimiento en cualquier momento contactando con el organizador por Discord y desasociaremos tu ficha de ese artista.</p>
 <p><b>Edad mínima:</b> debes tener al menos 14 años para usar este servicio. Si eres menor de 14 años, necesitas el consentimiento de tu padre, madre o tutor legal.</p>
 <p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con ${X ? "tu cuenta de Discord o X" : "tu Discord"}. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
 <p><b>Conservación:</b> tus datos se mantienen mientras haya eventos de comunidad activos o hasta que solicites su eliminación.</p>
@@ -544,6 +651,7 @@ ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de
 </ul>
 ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X account, your sheet only stores your username (@), display name, avatar and the account's numeric ID, for the same purpose of identifying you within the community. X also provides us with your confirmed email address, which is handled exclusively by the authentication system (Supabase Auth) to identify your account; it is not stored in your sheet or used to contact you. X's authorization screen asks for post reading and offline access because X technically requires them for sign-in: we do not read your posts, followers or messages, and nothing is ever posted on your behalf. You can unlink X at any time from the site header (as long as another account remains linked).</p>` : ""}
 <p><b>Purpose:</b> exclusively to prepare content and photos for community events. We do not sell or share your data with third parties for advertising.</p>
+<p><b>Artist links (optional):</b> some community artists have a personal link (URL with <code>?ref=</code>). If you sign up through one of those links and tick the consent box, you explicitly authorize that specific artist —the one named next to the box— to view inside a private panel your character configuration (species, gender, skin tone, eye color, hair, eyebrows, gear, ink color and alias), your banner and your contact (Discord username and avatar${X ? ", and —if you linked it— your X @" : ""}). This is visual reference material so they can draw or take commissions from you: the panel does not allow downloading or copying your configuration. Consent is voluntary; if you leave the box unticked, your character is saved as usual and shared with no one. You can withdraw consent at any time by contacting the organizer on Discord and your sheet will be disassociated from that artist.</p>
 <p><b>Minimum age:</b> you must be at least 14 years old to use this service. If you are under 14, you need parental or legal guardian consent.</p>
 <p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with ${X ? "your Discord or X account" : "your Discord"}. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
 <p><b>Retention:</b> your data is kept while community events are active, or until you request its deletion.</p>
