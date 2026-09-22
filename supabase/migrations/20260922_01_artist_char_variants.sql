@@ -14,7 +14,7 @@
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.player_artist_chars (
   player_id            UUID  NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
-  artist_id            UUID  NOT NULL,
+  artist_id            UUID  NOT NULL REFERENCES public.artists(id) ON DELETE CASCADE,
   -- Campos de personaje (mismos nombres/tipos que players)
   player_type          INT   NOT NULL DEFAULT 0,
   hair                 INT   NOT NULL DEFAULT 0,
@@ -144,15 +144,12 @@ REVOKE EXECUTE ON FUNCTION public.artist_save_char FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_save_char TO authenticated;
 
 -- ------------------------------------------------------------
--- 3) Actualización de artist_group para devolver variantes
+-- 3) artist_group: devuelve la variante del jugador si existe
 --
--- NOTA: Este bloque REEMPLAZA la función artist_group existente.
--- Compara con tu versión actual antes de ejecutar.
--- La comparación de panel_key usa crypt() — si tu implementación
--- almacena la clave en plano, sustituye:
---   panel_key_hash = crypt(p_key, panel_key_hash)
--- por:
---   panel_key = p_key
+-- Basada en la función EN PRODUCCIÓN (22-sep-2026): misma autenticación
+-- (identidad Discord + access_key_hash + approved) y mismo formato
+-- {must_change_password, players}. Solo cambia: LEFT JOIN a
+-- player_artist_chars, COALESCE variante→ficha y campo has_variant.
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.artist_group(p_key TEXT)
 RETURNS JSONB
@@ -165,21 +162,18 @@ DECLARE
   v_mcp         BOOLEAN;
   v_players     JSONB;
 BEGIN
-  -- Autenticar al artista (requiere Discord en la sesión)
   IF NOT EXISTS (
     SELECT 1 FROM auth.identities
      WHERE user_id = auth.uid() AND provider = 'discord'
   ) THEN
-    RAISE EXCEPTION 'no discord identity' USING ERRCODE = '28000';
+    RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';
   END IF;
 
-  -- Resolver artista por clave y Discord
-  -- ADAPTAR la comparación según cómo almacenes panel_key en tu BD:
   SELECT a.id, a.must_change_password
     INTO v_artist_id, v_mcp
     FROM public.artists a
     JOIN auth.identities i ON i.user_id = auth.uid() AND i.provider = 'discord'
-   WHERE a.panel_key_hash = crypt(p_key, a.panel_key_hash)
+   WHERE a.access_key_hash = p_key
      AND a.discord_id = i.provider_id
      AND a.status = 'approved';
 
@@ -187,7 +181,6 @@ BEGIN
     RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';
   END IF;
 
-  -- Construir array de jugadores, prefiriendo la variante si existe
   SELECT jsonb_agg(
     jsonb_build_object(
       'id',                   p.id,
@@ -199,9 +192,8 @@ BEGIN
       'x_id',                 p.x_id,
       'x_username',           p.x_username,
       'x_avatar',             p.x_avatar,
-      'color',                COALESCE(pac.color,                p.color),
       'banner_path',          p.banner_path,
-      -- Campos de personaje: variante si existe, si no el principal
+      'color',                COALESCE(pac.color,                p.color),
       'player_type',          COALESCE(pac.player_type,          p.player_type),
       'hair',                 COALESCE(pac.hair,                 p.hair),
       'bottom',               COALESCE(pac.bottom,               p.bottom),

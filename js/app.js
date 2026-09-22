@@ -550,6 +550,15 @@ async function doSave(btn, status) {
   // Modo variante de artista: guardar en player_artist_chars, no en players
   if (mode === "artist_custom" && state._artistVariantFor) {
     const artistId = state._artistVariantFor;
+    // artist_save_char asocia referred_by si el jugador aún no tiene artista:
+    // sin la casilla marcada no se envía nada (consentimiento explícito, RGPD).
+    if (needsRefConsent(refArtist, state) && state._refConsent !== true) {
+      const msg = t("ref_consent_required").replace("{name}", refArtist.name);
+      status.className = "edc-save-status err"; status.textContent = msg;
+      toast(msg, "err");
+      btn.disabled = false;
+      return;
+    }
     const artName = refArtist?.name || "";
     const P = submitPhrases(false);
     const ov = renderSubmitOverlay();
