@@ -800,17 +800,20 @@ body {
 .edc-pcard-sheet {
   position: relative;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px;
-  padding: 4px 18px 14px;
-  display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; row-gap: 0;
+  padding: 8px 18px 14px;
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; row-gap: 0;
 }
+/* Cada campo: label ARRIBA + value DEBAJO. Este layout vertical libera todo el
+   ancho de la columna para el value (nombres largos como "Fry Tots Hi-Tops" o
+   "Chill Season Tee" caben en 1-2 líneas sin recortarse en anchos medios). */
 .edc-pcard-field { position: relative;
-  display: flex; align-items: center; gap: 12px; min-width: 0;
-  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.055); }
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0;
+  padding: 8px 0 10px; border-bottom: 1px solid rgba(255,255,255,.055); }
 .edc-pcard-field:last-of-type { border-bottom: none; }
-.edc-pcard-field-label { flex: none; width: 84px; font-size: .66rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .35px; color: var(--muted); line-height: 1.2; }
+.edc-pcard-field-label { font-size: .64rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--muted); line-height: 1.2; }
 .edc-pcard-field-value { display: flex; align-items: center; gap: 10px; min-width: 0;
-  font-size: .83rem; font-weight: 600; color: var(--text); flex: 1; }
+  font-size: .84rem; font-weight: 600; color: var(--text); }
 .edc-pcard-field-value > span:not(.edc-pcard-alt) {
   min-width: 0; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis;
@@ -824,10 +827,10 @@ body {
 .edc-pcard-section-sep {
   grid-column: 1 / -1;
   font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
-  color: var(--accent-2); padding: 16px 0 6px; margin-top: 4px;
+  color: var(--accent-2); padding: 14px 0 4px; margin-top: 4px;
   border-top: 1px solid var(--border);
 }
-.edc-pcard-section-sep-first { border-top: none; padding-top: 8px; margin-top: 0; }
+.edc-pcard-section-sep-first { border-top: none; padding-top: 6px; margin-top: 0; }
 
 .edc-pcard-alt { flex: none; font-size: .6rem; font-weight: 800; letter-spacing: .5px; color: var(--accent-2);
   background: rgba(25,211,197,.14); padding: 2px 7px; border-radius: 999px; }
@@ -846,8 +849,8 @@ body {
 .edc-pcard-strip[data-expanded="false"] > .edc-pcard-choice:not(:first-child) { display: none; }
 .edc-pcard-strip[data-expanded="true"] {
   position: absolute; z-index: 30;
-  top: calc(100% - 4px); left: 90px;  /* pegado al toggle, saltando el label */
-  min-width: 300px; max-width: min(640px, calc(100vw - 40px));
+  top: calc(100% - 6px); left: 0;  /* ancla al inicio del field (bajo el value) */
+  min-width: 100%; max-width: min(640px, calc(100vw - 40px));
   padding: 10px; gap: 6px; flex-wrap: wrap; align-items: center;
   background: var(--panel-2); border: 1px solid var(--accent-2); border-radius: 12px;
   box-shadow: 0 14px 34px rgba(0,0,0,.7), 0 0 0 1px rgba(25,211,197,.15);
