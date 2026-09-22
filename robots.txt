@@ -1,4 +1,4 @@
-# ERO Data Collector — https://eroplayerdata.pages.dev
+# OC Data Collector — https://eroplayerdata.pages.dev
 User-agent: *
 Allow: /
 

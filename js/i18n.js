@@ -1,7 +1,7 @@
 // i18n EN/ES — bilingüe con selector
 const STRINGS = {
   en: {
-    app_title: "ERO Data Collector",
+    app_title: "OC Data Collector",
     app_sub: "Splatoon 3 character submission",
     skip_link: "Skip to content",
     login_title: "Submit your Splatoon character",
@@ -189,7 +189,7 @@ const STRINGS = {
     artist_choice_back: "← Back",
   },
   es: {
-    app_title: "ERO Data Collector",
+    app_title: "OC Data Collector",
     app_sub: "Envío de personaje de Splatoon 3",
     skip_link: "Saltar al contenido",
     login_title: "Envía tu personaje de Splatoon",
