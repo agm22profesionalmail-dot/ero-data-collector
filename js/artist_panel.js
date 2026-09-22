@@ -449,14 +449,37 @@ function choiceStrip(options, selectedIdx, opts = {}) {
   } else items.forEach((it) => strip.append(it));
   const toggle = el("button", { class: "edc-pcard-strip-toggle", type: "button", title: ta(opts.showTitle || "show_all") }, "+");
   toggle.setAttribute("aria-label", ta(opts.showTitle || "show_all"));
-  toggle.addEventListener("click", () => {
-    const expanded = strip.dataset.expanded === "true";
-    strip.dataset.expanded = expanded ? "false" : "true";
-    toggle.textContent = expanded ? "+" : "−";
-    toggle.title = ta(expanded ? "show_all" : "show_selected");
-    toggle.setAttribute("aria-label", ta(expanded ? "show_all" : "show_selected"));
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = strip.dataset.expanded !== "true";
+    closeAllChoiceStrips(willOpen ? strip : null);
+    strip.dataset.expanded = willOpen ? "true" : "false";
+    toggle.textContent = willOpen ? "−" : "+";
+    toggle.title = ta(willOpen ? "show_selected" : "show_all");
+    toggle.setAttribute("aria-label", ta(willOpen ? "show_selected" : "show_all"));
   });
+  ensureStripOutsideCloser();
   return el("div", { class: "edc-pcard-field-value edc-pcard-choice-value" }, strip, toggle);
+}
+
+// Cierra todos los strips abiertos (excepto `except`), reset del toggle.
+function closeAllChoiceStrips(except) {
+  document.querySelectorAll('.edc-pcard-strip[data-expanded="true"]').forEach((s) => {
+    if (s === except) return;
+    s.dataset.expanded = "false";
+    const t = s.parentElement && s.parentElement.querySelector(".edc-pcard-strip-toggle");
+    if (t) { t.textContent = "+"; }
+  });
+}
+// Listener global (registrado una sola vez): clic fuera cierra los strips.
+let _stripCloserBound = false;
+function ensureStripOutsideCloser() {
+  if (_stripCloserBound) return;
+  _stripCloserBound = true;
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".edc-pcard-strip") || e.target.closest(".edc-pcard-strip-toggle")) return;
+    closeAllChoiceStrips(null);
+  });
 }
 
 function renderSheet(p) {
@@ -480,7 +503,6 @@ function renderSheet(p) {
 
   const sheet = el("div", { class: "edc-pcard-sheet" });
   sheet.append(
-    el("div", { class: "edc-pcard-section-sep edc-pcard-section-sep-first" }, ta("g_character")),
     fieldRow(ta("f_species"), speciesValue),
     fieldRow(ta("f_skin"), choiceStrip(skinOpts, p.skin_tone)),
     fieldRow(ta("f_eye"), choiceStrip(eyeOpts, p.eye_color)),
