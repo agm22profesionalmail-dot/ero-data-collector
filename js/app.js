@@ -841,20 +841,21 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 }
 
 // Iconos de resumen del preview (head/cloth/shoes/banner/ok).
-// Los 3 iconos de gear son de Phosphor Icons (regular, MIT), guardados como
-// SVG en assets/gear-icons/. Los SVG usan fill=currentColor -> se tinta con
-// el color CSS del contenedor. Banner/ok/none siguen como SVG inline mínimo.
+// SVG inline (no <img>) para que fill="currentColor" respete el color CSS del
+// contenedor (.edc-badge-ico tiene color: var(--accent)). Los 3 de gear son
+// Phosphor Icons (regular, MIT). Banner/ok/none son SVG mínimos propios.
+const _preIconPaths = {
+  head:   { vb: "0 0 256 256", d: "M128,24h0A104.12,104.12,0,0,0,24,128v56a24,24,0,0,0,24,24,24.11,24.11,0,0,0,14.18-4.64C74.33,194.53,95.6,184,128,184s53.67,10.52,65.81,19.35A24,24,0,0,0,232,184V128A104.12,104.12,0,0,0,128,24Zm88,104v8.87a166,166,0,0,0-40.94-18.22A167,167,0,0,0,146.19,41.9,88.14,88.14,0,0,1,216,128ZM128,44.27a152.47,152.47,0,0,1,30.4,70.46,170.85,170.85,0,0,0-60.84,0A153.31,153.31,0,0,1,128,44.27ZM109.81,41.9a167,167,0,0,0-28.87,76.76A166,166,0,0,0,40,136.88V128A88.14,88.14,0,0,1,109.81,41.9ZM211.66,191.11a8,8,0,0,1-8.44-.69C189.16,180.2,164.7,168,128,168S66.84,180.2,52.78,190.42a8,8,0,0,1-8.44.69A7.77,7.77,0,0,1,40,184V156.07a152,152,0,0,1,176,0V184A7.77,7.77,0,0,1,211.66,191.11Z" },
+  cloth:  { vb: "0 0 256 256", d: "M247.59,61.22,195.83,33A8,8,0,0,0,192,32H160a8,8,0,0,0-8,8,24,24,0,0,1-48,0,8,8,0,0,0-8-8H64a8,8,0,0,0-3.84,1L8.41,61.22A15.76,15.76,0,0,0,1.82,82.48l19.27,36.81A16.37,16.37,0,0,0,35.67,128H56v80a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V128h20.34a16.37,16.37,0,0,0,14.58-8.71l19.27-36.81A15.76,15.76,0,0,0,247.59,61.22ZM35.67,112a.62.62,0,0,1-.41-.13L16.09,75.26,56,53.48V112ZM184,208H72V48h16.8a40,40,0,0,0,78.38,0H184Zm36.75-96.14a.55.55,0,0,1-.41.14H200V53.48l39.92,21.78Z" },
+  shoes:  { vb: "0 0 256 256", d: "M228.65,129.11l-60.73-20.24a24,24,0,0,1-14.32-13L130.39,41.6s0-.07,0-.1A16,16,0,0,0,110.25,33L34.53,60.49A16.05,16.05,0,0,0,24,75.53V192a16,16,0,0,0,16,16H240a16,16,0,0,0,16-16V167.06A40,40,0,0,0,228.65,129.11ZM115.72,48l7.11,16.63-21.56,7.85A8,8,0,0,0,104,88a7.91,7.91,0,0,0,2.73-.49l22.4-8.14,4.74,11.07-16.6,6A8,8,0,0,0,120,112a7.91,7.91,0,0,0,2.73-.49l17.6-6.4a40.24,40.24,0,0,0,7.68,10l-14.74,5.36A8,8,0,0,0,136,136a8.14,8.14,0,0,0,2.73-.48l28-10.18,56.87,18.95A24,24,0,0,1,238.93,160H40V75.53ZM40,192h0V176H240v16Z" },
+  banner: { vb: "0 0 16 16",   d: "M2 3.5h12v9H2v-9zm1.5 1.5v5.2l2.7-2.3 2.2 2 3.1-3.3V5H3.5z" },
+};
 function preIcon(kind, size = 14) {
-  const gearFile = { head: "head", cloth: "cloth", shoes: "shoes" };
-  if (gearFile[kind]) {
-    return `<img src="assets/gear-icons/${gearFile[kind]}.svg" alt="" width="${size}" height="${size}" loading="lazy">`;
-  }
-  const svg = {
-    banner: '<path d="M2 3.5h12v9H2v-9zm1.5 1.5v5.2l2.7-2.3 2.2 2 3.1-3.3V5H3.5z" fill="currentColor"/>',
-    ok:     '<path d="M3 8.2l2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-    none:   '<path d="M4 8h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-  };
-  return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px">${svg[kind] || ''}</svg>`;
+  const p = _preIconPaths[kind];
+  if (p) return `<svg viewBox="${p.vb}" width="${size}" height="${size}" fill="currentColor" aria-hidden="true" style="vertical-align:-2px"><path d="${p.d}"/></svg>`;
+  if (kind === "ok")   return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px"><path d="M3 8.2l2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if (kind === "none") return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px"><path d="M4 8h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  return "";
 }
 
 // Logo oficial de X (X Corp.): trazado original tal cual lo sirve x.com.
