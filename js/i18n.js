@@ -144,6 +144,8 @@ const STRINGS = {
     apply_err: "Could not send the request: ",
     apply_back: "← Back to my character",
     apply_back_home: "← Back",
+    nav_panel: "Artist panel",
+    nav_apply: "Apply as artist",
   },
   es: {
     app_title: "ERO Data Collector",
@@ -289,6 +291,8 @@ const STRINGS = {
     apply_err: "No se pudo enviar la solicitud: ",
     apply_back: "← Volver a mi personaje",
     apply_back_home: "← Volver",
+    nav_panel: "Panel de artista",
+    nav_apply: "Solicitar acceso",
   },
 };
 
