@@ -365,11 +365,31 @@ body {
 .edc-text-row { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: .88rem; color: var(--text); }
 .edc-text-row:hover { background: var(--panel-2); }
 
-/* Save bar */
-.edc-save-bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 14px;
-  background: rgba(10,13,26,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
-  padding: 12px 16px; margin: 0 -18px -18px; border-radius: 0 0 var(--radius) var(--radius); }
-.edc-save-status { font-size: .85rem; color: var(--muted); }
+/* Save bar (P2-5): pill flotante bottom-right estilo "Fluid Island".
+   Sale del flujo (position: fixed) para no requerir sticky ni margen negativo
+   contra el card padre. Contiene el CTA de guardar/editar + status. */
+.edc-save-bar {
+  position: fixed; z-index: 40; bottom: 24px; right: 24px;
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 10px 18px 10px 16px;
+  background: rgba(15,18,38,.82); backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  margin: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .edc-save-bar { animation: edc-save-bar-in .38s var(--ease-spring) both; }
+}
+@keyframes edc-save-bar-in {
+  from { opacity: 0; transform: translateY(14px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+@media (max-width: 720px) {
+  .edc-save-bar { left: 16px; right: 16px; bottom: 16px; justify-content: center; }
+}
+.edc-save-status { font-size: .82rem; color: var(--muted); }
 .edc-save-status.ok { color: var(--ok); }
 .edc-save-status.err { color: var(--err); }
 
