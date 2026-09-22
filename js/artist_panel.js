@@ -22,8 +22,8 @@ import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
 
 const S = {
   en: {
-    title: "Artist panel — reference only",
-    intro: "See the characters of the players who signed up through your artist link. This is reference only: nothing here can be exported or copied.",
+    title: "Artist panel",
+    intro: "See the characters of the players who signed up through your artist link.",
     need_discord: "Sign in with Discord to access your artist panel.",
     need_link: "Your session has no Discord account. Link Discord to continue.",
     connect_discord: "Connect with Discord", link_discord: "Link Discord",
@@ -55,8 +55,8 @@ const S = {
     cp_done: "Key updated.",
   },
   es: {
-    title: "Panel del artista — solo referencia",
-    intro: "Consulta los personajes de los jugadores que se registraron a través de tu enlace de artista. Esto es solo referencia: nada de aquí se puede exportar ni copiar.",
+    title: "Panel del artista",
+    intro: "Consulta los personajes de los jugadores que se registraron a través de tu enlace de artista.",
     need_discord: "Inicia sesión con Discord para acceder a tu panel de artista.",
     need_link: "Tu sesión no tiene cuenta de Discord. Vincula Discord para continuar.",
     connect_discord: "Conectar con Discord", link_discord: "Vincular Discord",
@@ -165,7 +165,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         showGallery();
       } catch (e) {
         btn.disabled = false;
-        showKeyForm(isUnauthorized(e) ? ta("bad_key") : ta("err") + (e?.message || ""));
+        showKeyForm(ta("bad_key"));
       }
     };
     btn.addEventListener("click", submit);
