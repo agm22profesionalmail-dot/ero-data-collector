@@ -19,6 +19,7 @@ import {
   eyebrowsFor,
 } from "./data.js";
 import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
+import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
 
 const S = {
   en: {
@@ -44,6 +45,11 @@ const S = {
     g_character: "Character", g_gear: "Gear",
     base: "Base", alt: "ALT", girl: "Girl", boy: "Boy", inkling: "Inkling", octoling: "Octoling",
     show_all: "Show all options", show_selected: "Show only the selected one",
+    terms_title: "Artist Beta Program Terms",
+    terms_intro: "Before entering your panel, please read and accept the terms of the Artist Beta Program.",
+    terms_accept: "I have read and accept the Artist Beta Program Terms.",
+    terms_required: "You must accept the terms to continue.",
+    terms_submit: "Accept and continue",
     cp_title: "Set your artist key",
     cp_intro: "This is your first time. The key you got by email is temporary. Choose a new one now.",
     cp_rule_len: "At least 10 characters",
@@ -80,6 +86,11 @@ const S = {
     g_character: "Personaje", g_gear: "Equipo",
     base: "Base", alt: "ALT", girl: "Chica", boy: "Chico", inkling: "Inkling", octoling: "Octoling",
     show_all: "Ver todas las opciones", show_selected: "Ver solo la elegida",
+    terms_title: "Términos del programa beta de artistas",
+    terms_intro: "Antes de entrar en tu panel, lee y acepta los términos del programa beta de artistas.",
+    terms_accept: "He leído y acepto los términos del programa beta de artistas.",
+    terms_required: "Tienes que aceptar los términos para continuar.",
+    terms_submit: "Aceptar y continuar",
     cp_title: "Elige tu clave de artista",
     cp_intro: "Es tu primera vez. La clave que te llegó por email es temporal. Elige una nueva ahora.",
     cp_rule_len: "Al menos 10 caracteres",
@@ -108,6 +119,7 @@ export function leavePanel() {
 let artistKey = null;  // clave en memoria (nunca a disco)
 let rows = null;       // último grupo devuelto por artist_group
 let mustChange = false; // must_change_password del último rpcGroup
+let termsOk = false;   // TyC aceptados en esta visita (o RPC aún no desplegada)
 let dataReady = false; // RSDB (data.js) cargada — hace falta para pintar la ficha
 
 async function ensureData() { if (!dataReady) { await loadData(); dataReady = true; } }
@@ -135,7 +147,50 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
   if (!hasDiscord) showConnect();
   else if (!rows && !mustChange) showKeyForm();
   else if (mustChange) showChangePassword();
-  else showGallery();
+  else gateTerms(showGallery);
+
+  // Artistas anteriores a los TyC (o si la versión cambia): antes de la galería
+  // tienen que aceptarlos. Si la RPC aún no existe en la BD, no se bloquea.
+  async function gateTerms(next) {
+    if (termsOk) return next();
+    try {
+      const { data, error } = await supabase.rpc("artist_terms_status", { p_key: artistKey });
+      if (error) throw error;
+      if (data === ARTIST_TERMS_VERSION) { termsOk = true; return next(); }
+      showTerms(next);
+    } catch (e) {
+      if (isUnauthorized(e)) return showKeyForm(ta("bad_key"));
+      termsOk = true; next();   // PGRST202: función no desplegada todavía
+    }
+  }
+
+  function showTerms(next, errMsg) {
+    clear(wrap);
+    const cb = el("input", { type: "checkbox", id: "edcPanelTerms" });
+    const row = el("label", { class: "edc-terms-accept", for: "edcPanelTerms" }, cb, el("span", {}, ta("terms_accept")));
+    const err = el("div", { class: "edc-banner-err" }); err.hidden = !errMsg; err.textContent = errMsg || "";
+    const btn = el("button", { class: "edc-btn edc-btn-primary" }, ta("terms_submit"));
+    btn.addEventListener("click", async () => {
+      if (!cb.checked) { row.classList.add("error"); err.hidden = false; err.textContent = ta("terms_required"); return; }
+      btn.disabled = true;
+      try {
+        const { error } = await supabase.rpc("artist_accept_terms", { p_key: artistKey, p_version: ARTIST_TERMS_VERSION });
+        if (error) throw error;
+        termsOk = true;
+        next();
+      } catch (e) {
+        btn.disabled = false;
+        if (isUnauthorized(e)) return showKeyForm(ta("bad_key"));
+        showTerms(next, ta("err") + (e?.message || ""));
+      }
+    });
+    wrap.append(el("div", { class: "edc-card" },
+      el("div", { class: "edc-section-title" }, ta("terms_title")),
+      el("p", { class: "edc-apply-intro" }, ta("terms_intro")),
+      el("div", { class: "edc-terms-box", tabindex: "0", html: artistTermsHtml(getLang()) }),
+      row, err,
+      el("div", { class: "edc-apply-actions" }, btn, backBtn())));
+  }
 
   function showConnect() {
     clear(wrap);
@@ -151,7 +206,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
   }
 
   function showKeyForm(errMsg) {
-    rows = null; artistKey = null; mustChange = false;
+    rows = null; artistKey = null; mustChange = false; termsOk = false;
     clear(wrap);
     const input = el("input", { class: "edc-input", type: "password", placeholder: ta("key_ph"), autocomplete: "off" });
     const err = el("div", { class: "edc-banner-err" }); err.hidden = !errMsg; err.textContent = errMsg || "";
@@ -170,7 +225,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         }
         await ensureData();
         rows = group.players; mustChange = false;
-        showGallery();
+        gateTerms(showGallery);
       } catch (e) {
         btn.disabled = false;
         showKeyForm(ta("bad_key"));
@@ -209,7 +264,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         const group = await rpcGroup(artistKey);
         rows = group.players;
         toast(ta("cp_done"), "ok");
-        showGallery();
+        gateTerms(showGallery);
       } catch (e) {
         btn.disabled = false;
         showChangePassword(isUnauthorized(e) ? ta("cp_bad_current") : (ta("err") + (e?.message || "")));
