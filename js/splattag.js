@@ -368,8 +368,22 @@ function drawTag(canvas, g, imgs, fonts) {
 function bannerMetaBadge(file) { return _assets.badges.find((b) => b.file === file) || null; }
 
 function exportPng(canvas) {
-  return new Promise((res) =>
-    canvas.toBlob((b) => res(new File([b], "banner.png", { type: "image/png" })), "image/png"));
+  // Blindado contra el bug de "Save no funciona": canvas.toBlob puede no llamar
+  // al callback (canvas tainted, memoria baja, race con redraw). Sin timeout,
+  // la promise se colgaba y dejaba el botón Save disabled para siempre.
+  return new Promise((res, rej) => {
+    const timer = setTimeout(() => rej(new Error("Canvas export timed out (10s)")), 10000);
+    try {
+      canvas.toBlob((b) => {
+        clearTimeout(timer);
+        if (!b) return rej(new Error("Canvas export returned an empty blob"));
+        res(new File([b], "banner.png", { type: "image/png" }));
+      }, "image/png");
+    } catch (e) {
+      clearTimeout(timer);
+      rej(e);
+    }
+  });
 }
 
 // ── Selectores modales ────────────────────────────────────────────────

@@ -543,6 +543,8 @@ async function doSave(btn, status) {
     toast(t("alias_required"), "err");
     return;
   }
+  // Guard anti-doble-click: si ya está guardando, ignora.
+  if (btn.disabled) return;
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
   const isUpdate = hasRecord;            // ¿ya tenía ficha? decide el juego de frases
   // Modo variante de artista: guardar en player_artist_chars, no en players
@@ -587,8 +589,14 @@ async function doSave(btn, status) {
     // Solo cuando hace falta: primera ficha, el usuario tocó el generador, o su config está cargada.
     if (state._captureSplattag && (!state.banner_path || state._splattagDirty || state._splattagPersisted)) {
       await ov.phase(P.pack, 28);
-      try { state.bannerFile = await state._captureSplattag(); }
-      catch (e) { console.warn("No se pudo generar la splattag:", e); }
+      try {
+        // Timeout defensivo (12s) por si _captureSplattag cuelga en algún browser.
+        // Sin esto, un canvas.toBlob que no dispara callback bloqueaba todo el save.
+        state.bannerFile = await Promise.race([
+          state._captureSplattag(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("splattag capture timeout")), 12000)),
+        ]);
+      } catch (e) { console.warn("No se pudo generar la splattag:", e); }
     }
     await ov.phase(P.send, 62);
     await savePlayer(state, session.user, profile);
