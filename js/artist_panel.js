@@ -400,6 +400,7 @@ function renderSheet(p) {
     fieldRow(ta("f_hair"), hair ? plainSwatchRow(hairUrl(hair)) : plainSwatchRow("")),
     fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, browIdx) : plainSwatchRow("")),
     fieldRow(ta("f_legs"), bot ? legsRow(bot, p.bottom_variation) : plainSwatchRow("")),
+    el("div", { class: "edc-pcard-section-sep" }, getLang() === "es" ? "Equipo" : "Gear"),
     fieldRow(ta("f_head"), gearRow(head, gearUrl, headName, p.gear_head_variation)),
     fieldRow(ta("f_cloth"), gearRow(cloth, gearUrl, clothName, p.gear_cloth_variation)),
     fieldRow(ta("f_shoes"), gearRow(shoes, gearUrl, shoesName, p.gear_shoes_variation)),
