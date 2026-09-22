@@ -88,11 +88,30 @@ export function resolveRefArtist() {
   return refArtistPromise;
 }
 
-// ¿Toca mostrar el consentimiento? Hay artista resuelto y el jugador NO está
-// ya asociado a ningún artista (referred_by viene de la fila de players). Una
-// asociación previa nunca se pisa desde la web.
+// ¿Toca mostrar el consentimiento? Hay artista resuelto y el jugador aún NO
+// está asociado a ESE artista. Un jugador puede estar con varios artistas a la
+// vez (tabla player_artists, migración 20260922_07): asociarse a uno nuevo no
+// quita la ficha a los anteriores.
 export function needsRefConsent(artist, state) {
-  return !!artist && !!state && !state.referred_by;
+  return !!artist && !!state && !(state._linkedArtists || []).includes(artist.id);
+}
+
+// Artistas a los que el jugador ya está asociado (RLS: solo sus filas).
+// Si falla (red, tabla aún no migrada) → [] y se pide consentimiento de nuevo,
+// que es lo seguro: artist_link es idempotente.
+export async function loadLinkedArtists() {
+  try {
+    const { data, error } = await supabase.from("player_artists").select("artist_id");
+    if (error) { console.warn("player_artists:", error); return []; }
+    return (data || []).map((r) => r.artist_id);
+  } catch (e) { console.warn("player_artists:", e); return []; }
+}
+
+// Asocia al jugador con el artista (con consentimiento). No toca a los demás.
+export async function linkArtist(artistId, state) {
+  const { error } = await supabase.rpc("artist_link", { p_artist_id: artistId });
+  if (error) throw error;
+  if (state) state._linkedArtists = [...new Set([...(state._linkedArtists || []), artistId])];
 }
 
 // "Texto con {name}" → nodos, con el nombre en negrita y sin innerHTML
@@ -121,7 +140,8 @@ export function renderRefConsent(container, artist, state, onChange) {
 
 // Guarda (o actualiza) la variante de personaje que el jugador crea
 // específicamente para un artista. No toca la ficha principal del jugador.
-// Llama al RPC artist_save_char (migración 20260922_01).
+// Llama al RPC artist_save_char (migración 20260922_01/07), que además asocia
+// al jugador con ese artista.
 export async function saveArtistVariant(artistId, state) {
   const { error } = await supabase.rpc("artist_save_char", {
     p_artist_id:   artistId,
@@ -143,6 +163,7 @@ export async function saveArtistVariant(artistId, state) {
     p_color:       state.color,
   });
   if (error) throw error;
+  state._linkedArtists = [...new Set([...(state._linkedArtists || []), artistId])];
 }
 
 // ── 2) Solicitud de acceso (?apply) ───────────────────────────────────

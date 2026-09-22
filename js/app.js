@@ -15,6 +15,7 @@ import { el, clear, toast } from "./ui.js";
 import {
   captureRefFromUrl, resolveRefArtist, needsRefConsent, renderRefConsent, clearRef,
   isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply, saveArtistVariant,
+  loadLinkedArtists, linkArtist,
 } from "./artists.js";
 import { isAdminRoute, renderAdminPanel, leaveAdmin } from "./admin.js";
 import { isPanelRoute, renderArtistPanel, leavePanel } from "./artist_panel.js";
@@ -292,6 +293,8 @@ async function renderApp() {
       // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
       // consentimiento pendiente se entra directo al editor para que lo vea.
       refArtist = await resolveRefArtist();
+      // Artistas con los que ya está (puede ser más de uno)
+      state._linkedArtists = hasRecord && refArtist ? await loadLinkedArtists() : [];
       // Usuario ya registrado con enlace de artista: muestra pantalla de elección
       if (hasRecord && refArtist) mode = "artist_choice";
       else mode = hasRecord && !needsRefConsent(refArtist, state) ? "preview" : "edit";
@@ -342,11 +345,9 @@ function renderArtistChoiceScreen() {
     shareBtn.disabled = true;
     errBox.hidden = true;
     try {
-      state._referredBy = refArtist.id;
-      state._referredConsentAt = new Date().toISOString();
       const ov = renderSubmitOverlay();
       await ov.phase(t("artist_choice_confirming"), 50, 300);
-      await savePlayer(state, session.user, profile);
+      await linkArtist(refArtist.id, state);
       await ov.phase(withName(t("artist_choice_shared"), name), 100, 700);
       ov.close();
       clearRef();
@@ -361,11 +362,15 @@ function renderArtistChoiceScreen() {
     }
   });
 
-  const optA = el("div", { class: "edc-ref-card edc-card" },
-    el("div", { class: "edc-ref-kicker" }, t("artist_choice_share")),
-    el("p", { class: "edc-ref-note" }, withName(t("artist_choice_share_note"), name)),
-    consentLabel,
-    el("div", { class: "edc-apply-actions" }, shareBtn));
+  // Ya asociado a ESTE artista: no se vuelve a pedir (sí puede crear variante)
+  const optA = needsRefConsent(refArtist, state)
+    ? el("div", { class: "edc-ref-card edc-card" },
+        el("div", { class: "edc-ref-kicker" }, t("artist_choice_share")),
+        el("p", { class: "edc-ref-note" }, withName(t("artist_choice_share_note"), name)),
+        consentLabel,
+        el("div", { class: "edc-apply-actions" }, shareBtn))
+    : el("div", { class: "edc-ref-card edc-card" },
+        el("p", { class: "edc-ref-note" }, withName(t("artist_choice_already"), name)));
 
   // Opción B — crear variante para este artista
   const customBtn = el("button", { class: "edc-btn edc-btn-sm" },
@@ -558,8 +563,8 @@ async function doSave(btn, status) {
   // Modo variante de artista: guardar en player_artist_chars, no en players
   if (mode === "artist_custom" && state._artistVariantFor) {
     const artistId = state._artistVariantFor;
-    // artist_save_char asocia referred_by si el jugador aún no tiene artista:
-    // sin la casilla marcada no se envía nada (consentimiento explícito, RGPD).
+    // artist_save_char asocia al jugador con este artista: sin la casilla
+    // marcada no se envía nada (consentimiento explícito, RGPD).
     if (needsRefConsent(refArtist, state) && state._refConsent !== true) {
       const msg = t("ref_consent_required").replace("{name}", refArtist.name);
       status.className = "edc-save-status err"; status.textContent = msg;
@@ -589,16 +594,9 @@ async function doSave(btn, status) {
     return;
   }
 
-  // Enlace de artista: solo se asocia si el usuario marcó el consentimiento.
-  // Sin marcar no se manda nada (store.js nunca envía referred_by = null).
+  // Enlace de artista: solo se asocia si el usuario marcó el consentimiento
+  // (tras guardar la ficha, por RPC; no quita a otros artistas).
   const consenting = needsRefConsent(refArtist, state) && state._refConsent === true;
-  if (consenting) {
-    state._referredBy = refArtist.id;
-    state._referredConsentAt = new Date().toISOString();
-  } else {
-    delete state._referredBy;
-    delete state._referredConsentAt;
-  }
   const P = submitPhrases(isUpdate);
   const ov = renderSubmitOverlay();
   try {
@@ -617,12 +615,13 @@ async function doSave(btn, status) {
     }
     await ov.phase(P.send, 62);
     await savePlayer(state, session.user, profile);
+    if (consenting) await linkArtist(refArtist.id, state);
     await ov.phase(P.reg, 88);
     if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
     hasRecord = true;
     await ov.phase(P.done, 100, 620);
     ov.close();
-    if (consenting && state.referred_by === refArtist.id) {
+    if (consenting) {
       // Asociación guardada: el ref ya no hace falta en esta pestaña
       clearRef();
       state._refConsent = false;
@@ -647,7 +646,7 @@ function stateFromRow(row) {
   const keys = ["alias", "player_type", "hair", "bottom", "bottom_variation", "skin_tone",
     "eye_brows", "eye_color", "gear_head", "gear_head_variation", "gear_cloth", "gear_cloth_variation",
     "gear_shoes", "gear_shoes_variation", "weapon_main", "anim_name", "banner_path", "banner_sha256",
-    "splattag_config", "referred_by"];
+    "splattag_config"];
   for (const k of keys) if (row[k] !== null && row[k] !== undefined) s[k] = row[k];
   if (row.color) s.color = row.color;
   return s;
