@@ -165,10 +165,35 @@ function renderFooter() {
     !isApplyRoute() && el("button", { class: "edc-footer-link", onClick: openApply }, t("footer_artist")),
   ));
   f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
+
+  // Aviso legal y privacidad (colapsable)
   const d = el("details", { class: "edc-legal" });
   d.append(el("summary", {}, t("legal_title")));
   d.append(el("div", { class: "edc-help-body", html: legalHtml(getLang()) }));
   f.append(d);
+
+  // Preguntas frecuentes (colapsable, mismo estilo que el aviso legal)
+  const faqItems = [
+    ["lp_faq_1_q",  "lp_faq_1_a"],
+    ["lp_faq_2_q",  "lp_faq_2_a"],
+    ["lp_faq_3_q",  "lp_faq_3_a"],
+    ["lp_faq_4_q",  "lp_faq_4_a"],
+    ["lp_faq_5_q",  "lp_faq_5_a"],
+    ["lp_faq_6_q",  "lp_faq_6_a"],
+    ["lp_faq_7_q",  "lp_faq_7_a"],
+    ["lp_faq_8_q",  "lp_faq_8_a"],
+    ["lp_faq_9_q",  "lp_faq_9_a"],
+    ["lp_faq_10_q", "lp_faq_10_a"],
+  ];
+  const faqDetails = el("details", { class: "edc-legal" });
+  faqDetails.append(el("summary", {}, t("lp_faq_title")));
+  const faqBody = el("div", { class: "edc-help-body" });
+  for (const [qk, ak] of faqItems) {
+    faqBody.append(el("h4", {}, t(qk)));
+    faqBody.append(el("p", {}, t(ak)));
+  }
+  faqDetails.append(faqBody);
+  f.append(faqDetails);
 }
 
 // Par de botones flotantes de comunidad (Discord + Ko-fi). Colapsados muestran
@@ -815,19 +840,21 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 <p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
 }
 
-// Iconos de resumen del preview (head/cloth/shoes/banner/ok). SVG inline
-// mínimos (geometric marks) — reemplazan los emojis 🧢 🎽 👟 🖼 ✓ para
-// coherencia visual y accesibilidad. Color hereda del contenedor.
-function preIcon(kind, size = 12) {
-  const p = {
-    head:   '<path d="M2 8.4c0-3 2.4-5.4 6-5.4s6 2.4 6 5.4V10H2V8.4zm-.5 2.6h13v1.2H1.5V11z" fill="currentColor"/>',
-    cloth:  '<path d="M4 3l2.5-1L8 3.6 9.5 2 12 3v2.6l-2 1V13H6V6.6l-2-1V3z" fill="currentColor"/>',
-    shoes:  '<path d="M2 10c0-1.6 1.2-2.7 2.8-2.7H8l4 1.5V11c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1v-1z" fill="currentColor"/>',
+// Iconos de resumen del preview (head/cloth/shoes/banner/ok).
+// Los tres iconos de gear (head/cloth/shoes) son los PNG oficiales del UI de
+// las tiendas de Splatoon 3 (MngCardSleeve_GearShop*, extraídos del dump del
+// juego). Los de banner/ok/none quedan como SVG minimos porque no son gear.
+function preIcon(kind, size = 14) {
+  const gearMap = { head: "head", cloth: "clothes", shoes: "shoes" };
+  if (gearMap[kind]) {
+    return `<img src="assets/gear-icons/${gearMap[kind]}.png" alt="" width="${size}" height="${Math.round(size * 162 / 116)}" loading="lazy">`;
+  }
+  const svg = {
     banner: '<path d="M2 3.5h12v9H2v-9zm1.5 1.5v5.2l2.7-2.3 2.2 2 3.1-3.3V5H3.5z" fill="currentColor"/>',
     ok:     '<path d="M3 8.2l2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
     none:   '<path d="M4 8h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   };
-  return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px">${p[kind] || ''}</svg>`;
+  return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px">${svg[kind] || ''}</svg>`;
 }
 
 // Logo oficial de X (X Corp.): trazado original tal cual lo sirve x.com.
