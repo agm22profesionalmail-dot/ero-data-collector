@@ -1,4 +1,4 @@
-# ERO Data Collector
+# OC Data Collector
 
 Web pública gratuita donde los jugadores conectan su **Discord** y envían su personaje de **Splatoon 3** (estilo Calico) + su **banner Splattag**. Los datos se sincronizan al vault Obsidian de ERO, con escaneo antivirus de los archivos subidos.
 

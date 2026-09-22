@@ -1,4 +1,4 @@
-# SETUP — ERO Data Collector
+# SETUP — OC Data Collector
 
 Guía de alta (todo gratis, ~30 min). Hazlo **una vez**. Al final tendrás 3 valores que pegar en `js/config.js` y en el sync.
 
