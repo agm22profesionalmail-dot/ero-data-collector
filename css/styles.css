@@ -255,12 +255,42 @@ body {
 .edc-opt-label { font-size: .62rem; color: var(--muted); text-align: center; line-height: 1.1; margin-top: 2px; }
 
 /* Species/type row */
-.edc-type-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.edc-type-cell { border: 2px solid transparent; background: var(--bg-2); border-radius: 8px; padding: 10px 6px; text-align: center; cursor: pointer; transition: border-color .1s ease, box-shadow .1s ease; }
-.edc-type-cell:hover { border-color: rgba(246,80,254,.35); }
-.edc-type-cell.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(246,80,254,.28); }
-.edc-type-cell img { width: 70px; height: 70px; object-fit: contain; }
-.edc-type-name { font-size: .72rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
+/* Selector especie 2x2 (P2-3): grid de 4 tarjetas más grandes, imagen prominente,
+   color de fondo diferenciado por especie (Inkling→magenta, Octoling→teal). */
+.edc-type-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.edc-type-cell {
+  position: relative; overflow: hidden;
+  border: 2px solid transparent; background: var(--bg-2);
+  border-radius: var(--radius-md); padding: 16px 12px 14px;
+  text-align: center; cursor: pointer;
+  transition: transform .18s var(--ease-out), border-color .15s, background .2s;
+  min-height: 168px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px;
+}
+/* Splat de tinta al fondo (identidad de marca). Distinto tinte por especie
+   según el índice del cell (nth-child): 1-2 Inkling→magenta, 3-4 Octoling→teal. */
+.edc-type-cell::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 42%, rgba(246,80,254,.22), transparent 62%);
+  opacity: .55; transition: opacity .2s;
+}
+.edc-type-cell:nth-child(n+3)::before {
+  background: radial-gradient(circle at 50% 42%, rgba(25,211,197,.22), transparent 62%);
+}
+.edc-type-cell:hover { border-color: rgba(246,80,254,.35); transform: translateY(-2px); }
+.edc-type-cell:hover::before { opacity: .85; }
+.edc-type-cell.active {
+  border-color: var(--accent); box-shadow: 0 0 0 2px rgba(246,80,254,.28);
+}
+.edc-type-cell.active::before { opacity: 1; }
+.edc-type-cell:nth-child(n+3).active { border-color: var(--accent-2); box-shadow: 0 0 0 2px rgba(25,211,197,.28); }
+.edc-type-cell img {
+  position: relative; z-index: 1;
+  width: auto; height: 110px; object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.55));
+}
+.edc-type-name { position: relative; z-index: 1;
+  font-size: .82rem; font-weight: 700; color: var(--text); letter-spacing: .3px; }
 
 /* Color */
 .edc-color-row { display: flex; align-items: center; gap: 12px; }
@@ -601,8 +631,9 @@ body {
 .edc-float-discord { background: #5865F2; }
 
 @media (max-width: 600px) {
-  .edc-type-row { grid-template-columns: repeat(2, 1fr); }
-  .edc-type-cell img { width: 56px; height: 56px; }
+  .edc-type-cell { min-height: 138px; padding: 12px 8px 10px; }
+  .edc-type-cell img { height: 82px; }
+  .edc-type-name { font-size: .76rem; }
   .edc-decor-splat-main  { width: 320px; }
   .edc-decor-splat-purple { width: 200px; }
   .edc-decor-graffiti    { width: 240px; }
