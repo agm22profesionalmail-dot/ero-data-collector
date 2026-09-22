@@ -3,8 +3,8 @@
 //  1) Enlace de artista (?ref=<slug>): un artista aprobado reparte
 //     https://<web>/?ref=<slug>. Quien se registra por ahí puede aceptar
 //     (consentimiento explícito, RGPD) que el artista vea su personaje y su
-//     contacto. El slug se guarda en sessionStorage porque el OAuth vuelve a
-//     origin+pathname SIN la query y el ?ref se perdería.
+//     contacto. El slug se guarda en sessionStorage + localStorage (24 h)
+//     porque el OAuth vuelve a origin+pathname SIN la query y el ?ref se perdería.
 //
 //  2) Solicitud de acceso (?apply): un artista pide acceso con su cuenta de
 //     Discord; queda en `artists` con status=pending hasta que se aprueba a
@@ -25,6 +25,17 @@ const ss = {
   del(k) { try { sessionStorage.removeItem(k); } catch { /* nada */ } },
 };
 
+// El ref va a localStorage con caducidad (no a sessionStorage): en móvil el
+// OAuth de Discord puede volver en OTRA pestaña (app de Discord → navegador) y
+// sessionStorage se pierde con ella. Caduca a las 24 h para no asociar a nadie
+// días después de haber pulsado un enlace.
+const REF_TTL_MS = 24 * 60 * 60 * 1000;
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* sin storage */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* nada */ } },
+};
+
 // Solo slugs "de URL": letras, números, guion y guion bajo (hasta 64)
 const SLUG_RE = /^[a-z0-9_-]{1,64}$/i;
 
@@ -34,17 +45,32 @@ const SLUG_RE = /^[a-z0-9_-]{1,64}$/i;
 // ?ref=<slug> válido, se guarda para que sobreviva al redirect del OAuth.
 export function captureRefFromUrl() {
   const slug = new URLSearchParams(window.location.search).get("ref");
-  if (slug && SLUG_RE.test(slug)) ss.set(REF_KEY, slug.toLowerCase());
+  if (slug && SLUG_RE.test(slug)) {
+    const v = slug.toLowerCase();
+    ss.set(REF_KEY, v);
+    ls.set(REF_KEY, JSON.stringify({ slug: v, at: Date.now() }));
+  }
 }
 
 export function getRefSlug() {
-  const slug = ss.get(REF_KEY);
+  let slug = ss.get(REF_KEY);
+  if (!slug) {
+    try {
+      const saved = JSON.parse(ls.get(REF_KEY) || "null");
+      if (saved && Date.now() - saved.at < REF_TTL_MS) slug = saved.slug;
+      else if (saved) ls.del(REF_KEY);
+    } catch { ls.del(REF_KEY); }
+  }
   return slug && SLUG_RE.test(slug) ? slug : null;
 }
 
-export function clearRef() { ss.del(REF_KEY); }
+export function clearRef() { ss.del(REF_KEY); ls.del(REF_KEY); }
 
-// Resuelve el slug contra la vista pública (solo artistas aprobados).
+// Resuelve el slug contra `artists` (solo artistas aprobados: lo garantiza la
+// política RLS artists_public_select; anon solo tiene grant de id/name/slug).
+// NO se usa la vista artists_public: es security_invoker y filtra por
+// `status`, columna sin grant para anon/authenticated → "permission denied" y
+// el ?ref se descartaba en silencio.
 // Una sola consulta por carga: se cachea la promesa. Devuelve {id, name, slug}
 // o null (sin ref, slug desconocido o error de red → como si no hubiera ref).
 let refArtistPromise = null;
@@ -52,12 +78,12 @@ export function resolveRefArtist() {
   if (refArtistPromise) return refArtistPromise;
   const slug = getRefSlug();
   if (!slug) return (refArtistPromise = Promise.resolve(null));
-  refArtistPromise = supabase.from("artists_public").select("id,name,slug").eq("slug", slug).maybeSingle()
+  refArtistPromise = supabase.from("artists").select("id,name,slug").eq("slug", slug).maybeSingle()
     .then(({ data, error }) => {
-      if (error) { console.warn("artists_public:", error); return null; }
+      if (error) { console.warn("artists ref:", error); return null; }
       return data?.id ? { id: data.id, name: data.name || slug, slug: data.slug } : null;
     })
-    .catch((e) => { console.warn("artists_public:", e); return null; });
+    .catch((e) => { console.warn("artists ref:", e); return null; });
   return refArtistPromise;
 }
 
