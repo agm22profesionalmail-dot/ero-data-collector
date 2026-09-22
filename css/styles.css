@@ -719,6 +719,9 @@ body {
   text-shadow: 0 2px 18px rgba(246,80,254,.2);
 }
 
+/* botón de descarga de la splashtag */
+.edc-pcard-dl { display: flex; }
+
 /* sub-panel oscuro con la plantilla del personaje */
 .edc-pcard-sheet {
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px; padding: 12px 18px;
