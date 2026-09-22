@@ -37,6 +37,8 @@ function applyStaticI18n() {
   renderFloatbar();
   for (const b of $("langSwitch").querySelectorAll("button"))
     b.classList.toggle("active", b.dataset.lang === getLang());
+  const btnPanel = $("btnPanel"); if (btnPanel) btnPanel.textContent = t("nav_panel");
+  const btnApply = $("btnApply"); if (btnApply) btnApply.textContent = t("nav_apply");
   renderAuthArea();
 }
 
@@ -476,7 +478,14 @@ function stateFromRow(row) {
 }
 
 // ── Router ────────────────────────────────────────────────────────────
+function updateNavLinks() {
+  const navLinks = $("navLinks");
+  if (!navLinks) return;
+  navLinks.hidden = isAdminRoute() || isPanelRoute() || isApplyRoute();
+}
+
 function route() {
+  updateNavLinks();
   if (!isConfigured()) {
     clear(appEl());
     appEl().append(el("div", { class: "edc-loading" }, el("div", {}, t("not_configured"))));
@@ -536,6 +545,13 @@ async function init() {
 
   // Atrás/adelante del navegador entre ?apply y el inicio
   window.addEventListener("popstate", () => { route(); renderFooter(); });
+
+  // Botones de nav header
+  $("btnPanel")?.addEventListener("click", () => {
+    history.pushState(null, "", location.pathname + "?panel");
+    route();
+  });
+  $("btnApply")?.addEventListener("click", () => { goApply(); route(); renderFooter(); });
 
   if (isConfigured()) {
     session = await getSession();

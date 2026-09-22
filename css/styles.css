@@ -115,6 +115,7 @@ body {
 .edc-brand h1 .edc-brand-accent { color: var(--accent); }
 .edc-sub { font-size: .78rem; color: var(--muted); display: block; margin-top: 2px; }
 .edc-header-right { display: flex; align-items: center; gap: 14px; }
+.edc-nav-links { display: flex; gap: 8px; }
 .edc-lang { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .edc-lang button { background: transparent; color: var(--muted); border: 0; padding: 5px 12px; cursor: pointer; font-weight: 700; font-size: .75rem; letter-spacing: .5px; }
 .edc-lang button.active { background: var(--accent); color: #0d0715; }
