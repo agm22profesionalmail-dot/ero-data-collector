@@ -787,8 +787,9 @@ body {
 /* zona derecha: nombre + datos */
 .edc-pcard-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .edc-pcard-name {
-  font-family: var(--font-display); font-size: clamp(1.7rem, 3.6vw, 2.6rem); line-height: 1.04;
-  color: var(--text); letter-spacing: .5px; word-break: break-word;
+  font-family: var(--font-display); font-size: clamp(1.4rem, 2.6vw, 2.3rem); line-height: 1.04;
+  color: var(--text); letter-spacing: .3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   text-shadow: 0 2px 18px rgba(246,80,254,.2);
 }
 
@@ -861,10 +862,12 @@ body {
    (21 eye_colors -> 2 filas, 9 skin_tones -> 1 fila) */
 .edc-pcard-strip[data-expanded="true"] .edc-pcard-choice { width: 30px; height: 30px; border-radius: 8px; }
 .edc-pcard-strip[data-expanded="true"] .edc-pcard-choice img { width: 24px; height: 24px; }
-.edc-pcard-choice { flex: none; width: 34px; height: 34px; border-radius: 9px;
+/* Choice inline (colapsado): mismo tamaño que edc-pcard-swatch (42x42) para
+   consistencia visual entre filas con y sin choiceStrip. */
+.edc-pcard-choice { flex: none; width: 42px; height: 42px; border-radius: 10px;
   background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border);
   display: flex; align-items: center; justify-content: center; }
-.edc-pcard-choice img { width: 28px; height: 28px; object-fit: contain; }
+.edc-pcard-choice img { width: 36px; height: 36px; object-fit: contain; }
 .edc-pcard-choice.is-selected {
   box-shadow: inset 0 0 0 2px var(--accent-2), 0 0 0 2px rgba(25,211,197,.28);
   background: rgba(25,211,197,.08);
