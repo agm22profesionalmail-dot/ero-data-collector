@@ -356,7 +356,8 @@ async function loadBannerInto(container, ph, player, cb = {}) {
     img.className = "edc-banner-img";
     img.alt = "";
     img.decoding = "async";
-    img.loading = "lazy";
+    // Sin loading="lazy": la imagen aún no está en el DOM y Chrome no descarga
+    // imágenes lazy desconectadas → onload nunca llegaba y no salía ningún banner.
     img.onload = () => {
       if (!container.isConnected) return;
       if (ph.isConnected) ph.remove();
