@@ -1,4 +1,5 @@
 // Orquestador de la SPA
+import { artistTermsHtml } from "./artist_terms.js";
 import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured } from "./supabase.js";
@@ -171,6 +172,13 @@ function renderFooter() {
   d.append(el("summary", {}, t("legal_title")));
   d.append(el("div", { class: "edc-help-body", html: legalHtml(getLang()) }));
   f.append(d);
+
+  // Términos del programa beta de artistas: públicos para cualquiera, no solo
+  // en el formulario de solicitud.
+  const at = el("details", { class: "edc-legal", id: "artist-terms" });
+  at.append(el("summary", {}, t("artist_terms_title")));
+  at.append(el("div", { class: "edc-help-body", html: artistTermsHtml(getLang()) }));
+  f.append(at);
 
   // Preguntas frecuentes (colapsable, mismo estilo que el aviso legal)
   const faqItems = [
