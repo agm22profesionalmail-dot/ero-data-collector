@@ -523,6 +523,11 @@ body {
 
 /* El main y header van encima de la decoración */
 .edc-header, .edc-main, .edc-footer { position: relative; z-index: 1; }
+/* El main un nivel por encima de footer/social: la save-bar (position: fixed) vive
+   DENTRO de .edc-main y hereda su contexto de apilamiento. Con el mismo z-index,
+   footer y .edc-social (posteriores en el DOM) se pintaban encima de la pill cuando
+   la página es corta y quedaban bajo ella: "Edit my character" no recibía clics. */
+.edc-main { z-index: 2; }
 
 /* ── Botones sociales (Ko-fi + Discord) ─────────────────────────── */
 .edc-social { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
