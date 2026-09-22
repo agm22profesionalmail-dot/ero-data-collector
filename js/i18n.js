@@ -117,6 +117,7 @@ const STRINGS = {
     ref_kicker: "Artist link",
     ref_intro: "You're signing up through {name}. They'll be able to see your character and your Discord/X contact to make commissions for you.",
     ref_consent: "I agree to share my character and contact with {name}",
+    ref_consent_required: "Tick the box to share your character with {name}.",
     ref_optional: "Optional. If you leave it unticked, your character is saved as usual and nothing is shared.",
     ref_saved: "Shared with {name}.",
     // Solicitud de acceso de artista (?apply)
@@ -300,6 +301,7 @@ const STRINGS = {
     ref_kicker: "Enlace de artista",
     ref_intro: "Te registras a través de {name}. Podrá ver tu personaje y tu contacto de Discord/X para hacerte comisiones.",
     ref_consent: "Acepto compartir mi personaje y contacto con {name}",
+    ref_consent_required: "Marca la casilla para compartir tu personaje con {name}.",
     ref_optional: "Opcional. Si no lo marcas, tu personaje se guarda igual y no se comparte nada.",
     ref_saved: "Compartido con {name}.",
     // Solicitud de acceso de artista (?apply)
