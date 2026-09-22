@@ -35,6 +35,7 @@ const S = {
     empty: "No players in your group yet.",
     no_alias: "No alias", view: "View sheet",
     render_soon: "Render coming soon",
+    download_card: "Download Splashtag",
     f_species: "Species & gender", f_skin: "Skin tone", f_eye: "Eye color",
     f_hair: "Hairstyle", f_brows: "Eyebrows", f_legs: "Legs",
     f_head: "Head gear", f_cloth: "Clothing", f_shoes: "Shoes",
@@ -67,6 +68,7 @@ const S = {
     empty: "Aún no hay jugadores en tu grupo.",
     no_alias: "Sin alias", view: "Ver ficha",
     render_soon: "Render en preparación",
+    download_card: "Descargar Splashtag",
     f_species: "Especie y género", f_skin: "Tono de piel", f_eye: "Color de ojos",
     f_hair: "Peinado", f_brows: "Cejas", f_legs: "Piernas",
     f_head: "Gear cabeza", f_cloth: "Gear ropa", f_shoes: "Gear zapatillas",
@@ -255,12 +257,33 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
     wrap.append(el("div", { class: "edc-admin-head" },
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showGallery() }, ta("back_gallery")),
       el("div", { class: "edc-apply-actions" }, backBtn())));
+    const hasBanner = !!p.banner_path;
+    const dlBtn = el("button", { class: "edc-btn edc-btn-sm" + (hasBanner ? "" : " edc-btn-disabled") },
+      ta("download_card"));
+    if (!hasBanner) dlBtn.disabled = true;
+    dlBtn.addEventListener("click", async () => {
+      if (!p.banner_path) return;
+      dlBtn.disabled = true;
+      try {
+        const { data: d } = await supabase.storage.from("banners").createSignedUrl(p.banner_path, 60);
+        if (d?.signedUrl) {
+          const a = document.createElement("a");
+          a.href = d.signedUrl;
+          a.download = `${p.alias || p.discord_name || "player"}_splattag.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch { /* sin banner */ }
+      dlBtn.disabled = false;
+    });
     // Carta de jugador estilo Splatoon (ver IMAGEN MUESTRA.psd): render a la
     // izquierda, nombre + panel amarillo de datos a la derecha.
     wrap.append(el("div", { class: "edc-pcard" },
       renderSlot(p),
       el("div", { class: "edc-pcard-main" },
         el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
+        el("div", { class: "edc-pcard-dl" }, dlBtn),
         renderSheet(p))));
   }
 }
@@ -270,16 +293,16 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 // getBannerSignedUrl en store.js). Mientras no exista el archivo se queda el
 // placeholder "Render en preparación"; la carga es asíncrona y defensiva
 // (bucket o archivo ausentes → placeholder, sin romper la ficha).
-function renderSlot(player) {
+function renderSlot(player, onLoaded) {
   const slot = el("div", { class: "edc-pcard-render" });
   const ph = el("div", { class: "edc-pcard-render-ph" },
     el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" }, "🖼"),
     el("span", {}, ta("render_soon")));
   slot.append(ph);
-  loadRenderInto(slot, ph, player);
+  loadRenderInto(slot, ph, player, onLoaded);
   return slot;
 }
-async function loadRenderInto(slot, ph, player) {
+async function loadRenderInto(slot, ph, player, onLoaded) {
   if (!player?.user_id) return;
   let url = null;
   try {
@@ -289,7 +312,7 @@ async function loadRenderInto(slot, ph, player) {
   } catch { url = null; }
   if (!url) return;
   const img = el("img", { class: "edc-pcard-render-img", alt: "", decoding: "async" });
-  img.onload = () => { if (slot.isConnected) { ph.remove(); slot.append(img); } };
+  img.onload = () => { if (slot.isConnected) { ph.remove(); slot.append(img); onLoaded?.(); } };
   img.onerror = () => {};  // aún sin render → se queda el placeholder
   img.src = url;
 }
