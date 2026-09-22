@@ -43,6 +43,16 @@ const rest = (path: string, init: RequestInit = {}) =>
     },
   });
 
+// UTF-8 → base64 en líneas de 76 caracteres (RFC 2045)
+function b64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return (btoa(bin).match(/.{1,76}/g) ?? []).join("\r\n");
+}
+
 async function mark(id: string, patch: Record<string, unknown>) {
   await rest(`artist_email_outbox?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
@@ -150,7 +160,19 @@ function subjectFor(lang: "en" | "es", reset: boolean) {
   return copy(lang, reset, "").subject;
 }
 
-function renderHtml({ name, refLink, panelLink, key, lang, reset }: Args) {
+// El HTML se compacta antes de enviarlo: denomailer codifica en
+// quoted-printable y los espacios al final de línea salían como "=20"
+// visibles en Gmail (móvil). Sin saltos de línea ni sangría no hay nada que
+// codificar mal.
+function compact(html: string) {
+  return html.replace(/>\s+</g, "><").replace(/\s*\n\s*/g, " ").trim();
+}
+
+function renderHtml(args: Args) {
+  return compact(renderHtmlRaw(args));
+}
+
+function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
   const t = copy(lang, reset, name);
   const block = (title: string, inner: string, note: string) => `
 <tr><td class="px" style="padding:0 40px 20px 40px;">
@@ -311,8 +333,14 @@ Deno.serve(async (req) => {
       from: `OC Data Collector <${GMAIL_USER}>`,
       to: row.email,
       subject,
-      content: renderText({ name, refLink, panelLink, key: row.key, lang: language, reset }),
-      html: renderHtml({ name, refLink, panelLink, key: row.key, lang: language, reset }),
+      // base64 en vez del quoted-printable de denomailer (su codificador
+      // dejaba "=20" visibles en Gmail)
+      mimeContent: [
+        { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64",
+          content: b64(renderText({ name, refLink, panelLink, key: row.key, lang: language, reset })) },
+        { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64",
+          content: b64(renderHtml({ name, refLink, panelLink, key: row.key, lang: language, reset })) },
+      ],
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
