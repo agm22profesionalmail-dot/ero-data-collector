@@ -13,7 +13,7 @@ import { loadPlayer, savePlayer, getBannerSignedUrl, syncIdentityFields } from "
 import { el, clear, toast } from "./ui.js";
 import {
   captureRefFromUrl, resolveRefArtist, needsRefConsent, renderRefConsent, clearRef,
-  isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply,
+  isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply, saveArtistVariant,
 } from "./artists.js";
 import { isAdminRoute, renderAdminPanel, leaveAdmin } from "./admin.js";
 import { isPanelRoute, renderArtistPanel, leavePanel } from "./artist_panel.js";
@@ -258,7 +258,9 @@ async function renderApp() {
       // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
       // consentimiento pendiente se entra directo al editor para que lo vea.
       refArtist = await resolveRefArtist();
-      mode = hasRecord && !needsRefConsent(refArtist, state) ? "preview" : "edit";
+      // Usuario ya registrado con enlace de artista: muestra pantalla de elección
+      if (hasRecord && refArtist) mode = "artist_choice";
+      else mode = hasRecord && !needsRefConsent(refArtist, state) ? "preview" : "edit";
     }
   } catch (e) {
     clear(appEl());
@@ -270,7 +272,85 @@ async function renderApp() {
 
 function renderModeView() {
   if (mode === "preview") renderPreviewScreen();
+  else if (mode === "artist_choice") renderArtistChoiceScreen();
+  else if (mode === "artist_custom") renderEditor();   // editor pre-cargado para variante
   else renderEditor();
+}
+
+// ── Pantalla de elección: usuario registrado + enlace de artista ─────
+function withName(key, name) {
+  return t(key).replace(/\{name\}/g, name);
+}
+
+function renderArtistChoiceScreen() {
+  clear(appEl());
+  const name = refArtist.name;
+
+  const card = el("div", { class: "edc-card" });
+  card.append(el("div", { class: "edc-section-title" }, withName(t("artist_choice_title"), name)));
+  card.append(el("p", { class: "edc-apply-intro" }, withName(t("artist_choice_intro"), name)));
+
+  const errBox = el("div", { class: "edc-banner-err", hidden: "" });
+
+  // Opción A — compartir personaje guardado
+  const consentInput = el("input", { type: "checkbox" });
+  const consentLabel = el("label", { class: "edc-check" }, consentInput,
+    el("span", {}, withName(t("ref_consent"), name)));
+  const shareBtn = el("button", { class: "edc-btn edc-btn-primary" },
+    t("artist_choice_share"));
+  shareBtn.addEventListener("click", async () => {
+    if (!consentInput.checked) {
+      errBox.textContent = withName(t("ref_intro").replace("You're signing up through {name}.", "").trim(), name) ||
+        "Mark the consent checkbox first.";
+      errBox.hidden = false;
+      return;
+    }
+    shareBtn.disabled = true;
+    errBox.hidden = true;
+    try {
+      state._referredBy = refArtist.id;
+      state._referredConsentAt = new Date().toISOString();
+      const ov = renderSubmitOverlay();
+      await ov.phase(t("artist_choice_confirming"), 50, 300);
+      await savePlayer(state, session.user, profile);
+      await ov.phase(withName(t("artist_choice_shared"), name), 100, 700);
+      ov.close();
+      clearRef();
+      state._refConsent = false;
+      toast(withName(t("artist_choice_shared"), name), "ok");
+      mode = "preview";
+      renderModeView();
+    } catch (e) {
+      shareBtn.disabled = false;
+      errBox.textContent = t("save_err") + e.message;
+      errBox.hidden = false;
+    }
+  });
+
+  const optA = el("div", { class: "edc-ref-card edc-card" },
+    el("div", { class: "edc-ref-kicker" }, t("artist_choice_share")),
+    el("p", { class: "edc-ref-note" }, withName(t("artist_choice_share_note"), name)),
+    consentLabel,
+    el("div", { class: "edc-apply-actions" }, shareBtn));
+
+  // Opción B — crear variante para este artista
+  const customBtn = el("button", { class: "edc-btn edc-btn-sm" },
+    withName(t("artist_choice_custom"), name));
+  customBtn.addEventListener("click", () => {
+    state._artistVariantFor = refArtist.id;
+    mode = "artist_custom";
+    renderModeView();
+  });
+  const optB = el("div", { class: "edc-ref-card edc-card" },
+    el("div", { class: "edc-ref-kicker" }, withName(t("artist_choice_custom"), name)),
+    el("p", { class: "edc-ref-note" }, withName(t("artist_choice_custom_note"), name)),
+    el("div", { class: "edc-apply-actions" }, customBtn));
+
+  const skipBtn = el("button", { class: "edc-btn-link" }, t("artist_choice_skip"));
+  skipBtn.addEventListener("click", () => { clearRef(); mode = "preview"; renderModeView(); });
+
+  card.append(optA, optB, errBox, skipBtn);
+  appEl().append(card);
 }
 
 // Pantalla de bienvenida para quien ya tiene ficha: preview de 1 línea + Editar
@@ -321,6 +401,16 @@ function renderEditor() {
   if (X_LOGIN_ENABLED && !hasRecord && profile?.hasX && !profile?.hasDiscord)
     appEl().append(el("div", { class: "edc-card edc-notice" }, t("editor_dup_note")));
 
+  // Modo variante de artista: banner de contexto + botón volver
+  if (mode === "artist_custom" && refArtist) {
+    const banner = el("div", { class: "edc-card edc-ref-card" },
+      el("div", { class: "edc-ref-kicker" }, withName(t("artist_choice_custom"), refArtist.name)),
+      el("p", { class: "edc-ref-note" }, withName(t("artist_choice_custom_note"), refArtist.name)),
+      el("button", { class: "edc-btn-link", onClick: () => { mode = "artist_choice"; renderModeView(); } },
+        t("artist_choice_back")));
+    appEl().append(banner);
+  }
+
   // Llegó por el enlace de un artista (?ref) y aún no está asociado:
   // consentimiento explícito (RGPD). El check se aplica al guardar.
   if (needsRefConsent(refArtist, state)) {
@@ -346,8 +436,11 @@ function renderEditor() {
   renderHelp(help);
 
   const status = el("span", { class: "edc-save-status" });
+  const saveBtnLabel = mode === "artist_custom" && refArtist
+    ? withName(t("artist_choice_custom_save"), refArtist.name)
+    : hasRecord ? t("update_player") : t("save");
   const saveBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: () => doSave(saveBtn, status) },
-    hasRecord ? t("update_player") : t("save"));
+    saveBtnLabel);
   const bar = el("div", { class: "edc-card", style: "padding:0" }, el("div", { class: "edc-save-bar" }, saveBtn, status));
   appEl().append(bar);
 }
@@ -419,6 +512,31 @@ async function doSave(btn, status) {
   }
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
   const isUpdate = hasRecord;            // ¿ya tenía ficha? decide el juego de frases
+  // Modo variante de artista: guardar en player_artist_chars, no en players
+  if (mode === "artist_custom" && state._artistVariantFor) {
+    const artistId = state._artistVariantFor;
+    const artName = refArtist?.name || "";
+    const P = submitPhrases(false);
+    const ov = renderSubmitOverlay();
+    try {
+      await ov.phase(P.send, 60);
+      await saveArtistVariant(artistId, state);
+      await ov.phase(withName(t("artist_choice_custom_saved"), artName), 100, 700);
+      ov.close();
+      delete state._artistVariantFor;
+      clearRef();
+      toast(withName(t("artist_choice_custom_saved"), artName), "ok");
+      mode = "preview";
+      renderModeView();
+    } catch (e) {
+      ov.close();
+      status.className = "edc-save-status err"; status.textContent = t("save_err") + e.message;
+      toast(t("save_err") + e.message, "err");
+      btn.disabled = false;
+    }
+    return;
+  }
+
   // Enlace de artista: solo se asocia si el usuario marcó el consentimiento.
   // Sin marcar no se manda nada (store.js nunca envía referred_by = null).
   const consenting = needsRefConsent(refArtist, state) && state._refConsent === true;
