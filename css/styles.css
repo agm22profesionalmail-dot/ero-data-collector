@@ -372,9 +372,10 @@ body {
 .edc-preview { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .edc-preview .edc-color-preview { width: 30px; height: 30px; }
 .edc-preview-badge { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 10px; font-size: .78rem; color: var(--muted); letter-spacing: normal;
-  display: inline-flex; align-items: center; gap: 4px; }
-.edc-badge-ico { display: inline-flex; align-items: center; color: var(--accent-2); }
-.edc-badge-ico svg { display: block; }
+  display: inline-flex; align-items: center; gap: 6px; }
+.edc-badge-ico { display: inline-flex; align-items: center; color: var(--accent-2); flex: none; }
+.edc-badge-ico svg,
+.edc-badge-ico img { display: block; }
 
 /* Toast */
 .edc-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
