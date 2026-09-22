@@ -39,6 +39,7 @@ function applyStaticI18n() {
     b.classList.toggle("active", b.dataset.lang === getLang());
   const btnPanel = $("btnPanel"); if (btnPanel) btnPanel.textContent = t("nav_panel");
   const btnApply = $("btnApply"); if (btnApply) btnApply.textContent = t("nav_apply");
+  const skip = $("skipLink"); if (skip) skip.textContent = t("skip_link");
   renderAuthArea();
 }
 
@@ -216,7 +217,7 @@ function renderLogin() {
             el("span", { html: xSvg(18) }), t("login_btn_x")),
         ),
         X_LOGIN_ENABLED && el("p", { class: "edc-login-note" }, t("login_dup_note")),
-        el("p", { class: "edc-privacy edc-label" }, t(X_LOGIN_ENABLED ? "login_privacy_x" : "login_privacy")),
+        el("p", { class: "edc-privacy" }, t(X_LOGIN_ENABLED ? "login_privacy_x" : "login_privacy")),
       ),
       el("div", { class: "edc-hero-art", "aria-hidden": "true" },
         el("span", { class: "edc-hero-splat" }),

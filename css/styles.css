@@ -54,8 +54,18 @@ body {
   color: var(--text);
   font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
   line-height: 1.5;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
+
+/* Skip-to-content (a11y): oculto por defecto, visible al enfocar con teclado.
+   Primer hijo del <body>, salta a #app (el <main>). */
+.edc-skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--accent); color: #0d0715;
+  padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: .9rem;
+  text-decoration: none; z-index: 9999;
+}
+.edc-skip:focus { left: 12px; top: 12px; outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
 /* Scrollbar integrado con el tema dark — solo navegadores Chromium/Safari */
 ::-webkit-scrollbar { width: 8px; }
@@ -119,6 +129,18 @@ body {
 .edc-lang { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .edc-lang button { background: transparent; color: var(--muted); border: 0; padding: 5px 12px; cursor: pointer; font-weight: 700; font-size: .75rem; letter-spacing: .5px; }
 .edc-lang button.active { background: var(--accent); color: #0d0715; }
+
+/* Header en móvil: ocultar el subtítulo, compactar padding, botones más chicos.
+   Evita el wrap a 3 líneas que rompía el header en <768px. */
+@media (max-width: 767px) {
+  .edc-header { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  .edc-brand h1 { font-size: 1.2rem; }
+  .edc-sub { display: none; }
+  .edc-header-right { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .edc-nav-links { gap: 6px; }
+  .edc-nav-links .edc-btn-sm { padding: 5px 9px; font-size: .74rem; }
+  .edc-lang button { padding: 4px 9px; font-size: .7rem; }
+}
 
 /* Auth chip */
 .edc-user-chip { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600; }
@@ -186,12 +208,29 @@ body {
 
 /* Inputs */
 .edc-label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); margin: 8px 0 4px; letter-spacing: .4px; text-transform: uppercase; }
+
+/* Bloque de privacidad: sentence-case, sin uppercase heredado de .edc-label. */
+.edc-privacy { font-size: .8rem; color: var(--muted); text-transform: none;
+  letter-spacing: normal; margin: 14px 0 0; line-height: 1.5; }
+
 .edc-input { width: 100%; background: var(--bg-2); border: 1px solid var(--border); color: var(--text);
   border-radius: 7px; padding: 9px 11px; font-size: .95rem; font-family: inherit;
   transition: border-color .15s var(--ease-out), box-shadow .18s var(--ease-out), background .15s var(--ease-out); }
 .edc-input:hover { border-color: #3d4e7e; }
-.edc-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(246,80,254,.14); }
+.edc-input:focus { outline: 2px solid var(--accent); outline-offset: 2px;
+  border-color: var(--accent); box-shadow: 0 0 0 4px rgba(246,80,254,.35); }
 .edc-input.error { border-color: var(--err); }
+
+/* Focus rings visibles WCAG AA sobre fondo oscuro: outline solido + halo tintado. */
+.edc-btn:focus-visible,
+.edc-opt:focus-visible,
+.edc-type-cell:focus-visible,
+.edc-lang button:focus-visible,
+.edc-pcard-strip-toggle:focus-visible,
+.edc-banner-dl-btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(246,80,254,.35);
+}
 
 /* Option grids (skin, eye, hair, eyebrows, legs) */
 .edc-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -516,7 +555,7 @@ body {
 .edc-hero { position: relative; padding: 8px 0 28px; }
 .edc-hero-inner {
   display: grid; grid-template-columns: 1.05fr .95fr; align-items: center;
-  gap: 24px; min-height: min(70vh, 600px);
+  gap: 24px; min-height: min(70dvh, 600px);
 }
 .edc-hero-copy { position: relative; z-index: 2; }
 .edc-hero-eyebrow {
