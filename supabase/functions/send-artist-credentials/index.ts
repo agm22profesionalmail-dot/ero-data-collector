@@ -231,7 +231,7 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
     <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
     <!-- Portada -->
     <tr><td style="padding:0;">
-      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/og-image.jpg" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
+      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/email-hero.jpg" width="600" height="250" alt="OC Data Collector: Artist Beta" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
     </td></tr>
     <!-- Titular -->
     <tr><td class="px" style="padding:32px 40px 8px 40px;">
