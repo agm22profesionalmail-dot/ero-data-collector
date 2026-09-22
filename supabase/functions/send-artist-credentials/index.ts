@@ -47,7 +47,96 @@ async function mark(id: string, patch: Record<string, unknown>) {
   await rest(`artist_email_outbox?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
-const html = String.raw;
+// ── Plantilla del email ─────────────────────────────────────────────────
+// Correo transaccional "corporativo": tarjeta blanca de 600px sobre gris
+// claro, cabecera de marca, imagen de portada, un único botón y bloques de
+// datos. HTML de email: tablas + estilos inline, sin CSS externo ni JS, las
+// imágenes con URL absoluta (servidas por la web).
+
+const ASSETS = "https://eroplayerdata.pages.dev/assets";
+const C = {
+  page: "#eef0f4",
+  card: "#ffffff",
+  ink: "#16182b",
+  body: "#474b63",
+  muted: "#7a7f96",
+  line: "#e4e6ee",
+  soft: "#f5f3ff",       // fondo lila muy suave de los bloques
+  softLine: "#e2dafd",
+  brand: "#8b5cff",      // morado de la web (franja y detalles)
+  cta: "#5b2ee0",        // morado oscuro: contraste AA con texto blanco
+};
+const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
+
+type Copy = {
+  htmlLang: string; preheader: string; subject: string;
+  kicker: string; title: string; hello: string; intro: string; cta: string;
+  keyTitle: string; keyNote: string; linkTitle: string; linkNote: string;
+  stepsTitle: string; steps: string[];
+  help: string; auto: string; legal: string;
+};
+
+function copy(lang: "en" | "es", reset: boolean, name: string): Copy {
+  if (lang === "es") {
+    return {
+      htmlLang: "es",
+      subject: reset ? "Se ha restablecido tu clave del panel de artistas" : "Tu acceso al panel de artistas de OC Data Collector",
+      preheader: reset
+        ? "Tu clave temporal del panel de artistas ya está activa."
+        : "Tu solicitud ha sido aprobada. Aquí tienes tu enlace de artista y tu clave temporal.",
+      kicker: "Programa beta de artistas",
+      title: reset ? "Hemos restablecido tu clave" : "¡Ya formas parte de la beta!",
+      hello: `Hola, ${name}:`,
+      intro: reset
+        ? "Hemos restablecido tu acceso al panel de artistas. Entra con la clave temporal de abajo y elige una nueva."
+        : "Tu solicitud para el panel de artistas de OC Data Collector ha sido aprobada. Desde tu panel verás las fichas de los jugadores que se registren con tu enlace.",
+      cta: "Abrir mi panel",
+      keyTitle: "Tu clave temporal",
+      keyNote: "Solo sirve para el primer acceso: el panel te pedirá que elijas tu propia clave.",
+      linkTitle: "Tu enlace de artista",
+      linkNote: "Compártelo con quien te encargue una comisión. Quien se registre con él aparecerá en tu panel.",
+      stepsTitle: "Cómo empezar",
+      steps: [
+        "Abre tu panel e inicia sesión con Discord.",
+        "Escribe la clave temporal.",
+        "Elige tu propia clave.",
+        "Comparte tu enlace de artista.",
+      ],
+      help: "¿Problemas para entrar? Escríbenos por Discord y volveremos a activar tu clave temporal.",
+      auto: "Mensaje automático. Si no has solicitado acceso, puedes ignorar este correo.",
+      legal: "Proyecto fan sin afiliación con Nintendo. Splatoon es una marca registrada de Nintendo.",
+    };
+  }
+  return {
+    htmlLang: "en",
+    subject: reset ? "Your artist panel key has been reset" : "Your OC Data Collector artist access",
+    preheader: reset
+      ? "Your temporary artist panel key is active."
+      : "Your request was approved. Here are your artist link and temporary key.",
+    kicker: "Artist beta program",
+    title: reset ? "Your key has been reset" : "You're in the beta!",
+    hello: `Hi ${name},`,
+    intro: reset
+      ? "We've reset your artist panel access. Sign in with the temporary key below and choose a new one."
+      : "Your request for the OC Data Collector artist panel has been approved. Your panel shows the character sheets of players who sign up through your link.",
+    cta: "Open my panel",
+    keyTitle: "Your temporary key",
+    keyNote: "It only works for your first sign-in: the panel will ask you to choose your own key.",
+    linkTitle: "Your artist link",
+    linkNote: "Share it with anyone commissioning you. Players who sign up through it will show up in your panel.",
+    stepsTitle: "Getting started",
+    steps: [
+      "Open your panel and sign in with Discord.",
+      "Enter the temporary key.",
+      "Choose your own key.",
+      "Share your artist link.",
+    ],
+    help: "Trouble signing in? Message us on Discord and we'll re-enable your temporary key.",
+    auto: "Automated message. If you didn't request access, you can ignore this email.",
+    legal: "Fan project, not affiliated with Nintendo. Splatoon is a trademark of Nintendo.",
+  };
+}
 
 function e(s: string) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -55,110 +144,133 @@ function e(s: string) {
   }[c] as string));
 }
 
-function renderHtml({ name, refLink, panelLink, key, lang, reset }: {
-  name: string; refLink: string; panelLink: string; key: string;
-  lang: "en" | "es"; reset: boolean;
-}) {
-  if (lang === "es") {
-    return html`<!doctype html>
-<html lang="es"><body style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:24px auto;color:#111;line-height:1.55;">
-  <h2 style="margin:0 0 12px 0;">Hola ${e(name)},</h2>
-  <p>${reset
-    ? "Hemos restablecido tu acceso al panel de artistas de OC Data Collector. La clave temporal es la de siempre:"
-    : "Tu solicitud para el panel de artistas de OC Data Collector ha sido aprobada. Aquí tienes tus datos:"}</p>
+type Args = { name: string; refLink: string; panelLink: string; key: string; lang: "en" | "es"; reset: boolean };
 
-  <h3 style="margin:22px 0 6px 0;">Tu enlace de artista</h3>
-  <p>Compártelo con quienes vayan a hacerte comisiones para que se registren a través de él:</p>
-  <p><a href="${e(refLink)}" style="color:#f650fe;">${e(refLink)}</a></p>
-
-  <h3 style="margin:22px 0 6px 0;">Tu clave temporal</h3>
-  <p>Entra en <a href="${e(panelLink)}" style="color:#19d3c5;">${e(panelLink)}</a>, inicia sesión con Discord y usa esta clave:</p>
-  <pre style="background:#f4f4f4;padding:12px 16px;border-radius:8px;font-size:15px;user-select:all;overflow-wrap:anywhere;">${e(key)}</pre>
-
-  <p style="background:#fff8e1;border-left:4px solid #f0b400;padding:10px 14px;border-radius:6px;">
-    <strong>Importante:</strong> esta clave es temporal. Al entrar por primera vez el panel te obligará a elegir tu propia clave.
-    Si la olvidas, contacta con el organizador por Discord y volveremos a habilitar esta clave temporal.
-  </p>
-
-  <hr style="margin-top:24px;border:none;border-top:1px solid #e5e5e5;">
-  <p style="color:#666;font-size:13px;">Mensaje automático. Si no reconoces esta solicitud, ignora este correo.</p>
-</body></html>`;
-  }
-  return html`<!doctype html>
-<html lang="en"><body style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:24px auto;color:#111;line-height:1.55;">
-  <h2 style="margin:0 0 12px 0;">Hi ${e(name)},</h2>
-  <p>${reset
-    ? "We have reset your artist panel access on OC Data Collector. The temporary key is the usual one:"
-    : "Your artist panel request for OC Data Collector has been approved. Here's what you got:"}</p>
-
-  <h3 style="margin:22px 0 6px 0;">Your artist link</h3>
-  <p>Share it with anyone commissioning you so they can sign up through it:</p>
-  <p><a href="${e(refLink)}" style="color:#f650fe;">${e(refLink)}</a></p>
-
-  <h3 style="margin:22px 0 6px 0;">Your temporary key</h3>
-  <p>Go to <a href="${e(panelLink)}" style="color:#19d3c5;">${e(panelLink)}</a>, sign in with Discord and use this key:</p>
-  <pre style="background:#f4f4f4;padding:12px 16px;border-radius:8px;font-size:15px;user-select:all;overflow-wrap:anywhere;">${e(key)}</pre>
-
-  <p style="background:#fff8e1;border-left:4px solid #f0b400;padding:10px 14px;border-radius:6px;">
-    <strong>Important:</strong> this key is temporary. On your first login the panel will make you choose your own key.
-    If you forget it, contact the organizer on Discord and we'll re-enable this temporary key for you.
-  </p>
-
-  <hr style="margin-top:24px;border:none;border-top:1px solid #e5e5e5;">
-  <p style="color:#666;font-size:13px;">Automated message. If this wasn't you, ignore this email.</p>
-</body></html>`;
+function subjectFor(lang: "en" | "es", reset: boolean) {
+  return copy(lang, reset, "").subject;
 }
 
-function renderText({ name, refLink, panelLink, key, lang, reset }: {
-  name: string; refLink: string; panelLink: string; key: string;
-  lang: "en" | "es"; reset: boolean;
-}) {
-  if (lang === "es") {
-    return [
-      `Hola ${name},`,
-      "",
-      reset
-        ? "Hemos restablecido tu acceso al panel de artistas de OC Data Collector."
-        : "Tu solicitud para el panel de artistas de OC Data Collector ha sido aprobada.",
-      "",
-      "Tu enlace de artista:",
-      refLink,
-      "",
-      "Panel del artista:",
-      panelLink,
-      "",
-      "Clave TEMPORAL:",
-      key,
-      "",
-      "IMPORTANTE: esta clave es temporal. Al entrar por primera vez el panel te",
-      "obligará a elegir tu propia clave. Si la olvidas, contacta con el",
-      "organizador por Discord y volveremos a habilitar esta clave temporal.",
-      "",
-      "— Mensaje automático.",
-    ].join("\n");
+function renderHtml({ name, refLink, panelLink, key, lang, reset }: Args) {
+  const t = copy(lang, reset, name);
+  const block = (title: string, inner: string, note: string) => `
+<tr><td class="px" style="padding:0 40px 20px 40px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.soft};border:1px solid ${C.softLine};border-radius:12px;">
+    <tr><td style="padding:18px 20px;">
+      <div style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${C.cta};margin:0 0 8px 0;">${e(title)}</div>
+      ${inner}
+      <div style="font-family:${FONT};font-size:13px;line-height:20px;color:${C.muted};margin:10px 0 0 0;">${e(note)}</div>
+    </td></tr>
+  </table>
+</td></tr>`;
+
+  // Restablecer: el enlace de artista no va en el correo, fuera su paso
+  const stepList = reset ? t.steps.slice(0, 3) : t.steps;
+  const steps = stepList.map((s, i) => `
+    <tr>
+      <td width="36" valign="top" style="padding:0 0 12px 0;">
+        <div style="width:26px;height:26px;border-radius:13px;background:${C.cta};color:#ffffff;font-family:${FONT};font-size:13px;font-weight:700;line-height:26px;text-align:center;">${i + 1}</div>
+      </td>
+      <td valign="top" style="padding:3px 0 12px 0;font-family:${FONT};font-size:15px;line-height:22px;color:${C.body};">${e(s)}</td>
+    </tr>`).join("");
+
+  return `<!doctype html>
+<html lang="${t.htmlLang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${e(t.subject)}</title>
+<style>
+  @media only screen and (max-width:480px) {
+    .px { padding-left:22px !important; padding-right:22px !important; }
+    .kicker { display:none !important; }
   }
-  return [
-    `Hi ${name},`,
-    "",
-    reset
-      ? "We have reset your artist panel access on OC Data Collector."
-      : "Your artist panel request for OC Data Collector has been approved.",
-    "",
-    "Your artist link:",
-    refLink,
-    "",
-    "Artist panel:",
-    panelLink,
-    "",
-    "TEMPORARY key:",
-    key,
-    "",
-    "IMPORTANT: this key is temporary. On your first login the panel will make",
-    "you choose your own key. If you forget it, contact the organizer on",
-    "Discord and we'll re-enable this temporary key for you.",
-    "",
-    "— Automated message.",
-  ].join("\n");
+</style>
+</head>
+<body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${e(t.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page};">
+<tr><td align="center" style="padding:32px 12px;">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <!-- Cabecera de marca -->
+    <tr><td style="padding:0 4px 16px 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle" width="44"><img src="${ASSETS}/apple-touch-icon.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:8px;"></td>
+        <td valign="middle" style="font-family:${FONT};font-size:17px;font-weight:800;color:${C.ink};letter-spacing:.2px;"><span style="color:${C.cta};">OC</span> Data Collector</td>
+        <td class="kicker" valign="middle" align="right" style="font-family:${FONT};font-size:12px;color:${C.muted};">${e(t.kicker)}</td>
+      </tr></table>
+    </td></tr>
+  </table>
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:${C.card};border-radius:16px;overflow:hidden;border:1px solid ${C.line};">
+    <!-- Franja de marca -->
+    <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
+    <!-- Portada -->
+    <tr><td style="padding:0;">
+      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/og-image.jpg" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
+    </td></tr>
+    <!-- Titular -->
+    <tr><td class="px" style="padding:32px 40px 8px 40px;">
+      <h1 style="margin:0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;color:${C.ink};">${e(t.title)}</h1>
+    </td></tr>
+    <tr><td class="px" style="padding:12px 40px 0 40px;font-family:${FONT};font-size:15px;line-height:24px;color:${C.body};">
+      <p style="margin:0 0 12px 0;">${e(t.hello)}</p>
+      <p style="margin:0;">${e(t.intro)}</p>
+    </td></tr>
+    <!-- Botón -->
+    <tr><td class="px" style="padding:24px 40px 28px 40px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="border-radius:999px;background:${C.cta};">
+          <a href="${e(panelLink)}" style="display:inline-block;padding:14px 30px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${e(t.cta)}</a>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    ${block(t.keyTitle,
+      `<div style="font-family:${MONO};font-size:20px;line-height:28px;font-weight:700;color:${C.ink};letter-spacing:1px;word-break:break-all;">${e(key)}</div>`,
+      t.keyNote)}
+    ${reset ? "" : block(t.linkTitle,
+      `<a href="${e(refLink)}" style="font-family:${FONT};font-size:15px;line-height:22px;font-weight:600;color:${C.cta};text-decoration:underline;word-break:break-all;">${e(refLink)}</a>`,
+      t.linkNote)}
+
+    <!-- Pasos -->
+    <tr><td class="px" style="padding:12px 40px 8px 40px;">
+      <div style="font-family:${FONT};font-size:17px;font-weight:800;color:${C.ink};margin:0 0 14px 0;">${e(t.stepsTitle)}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${steps}</table>
+    </td></tr>
+
+    <tr><td class="px" style="padding:8px 40px 32px 40px;">
+      <div style="border-top:1px solid ${C.line};padding-top:18px;font-family:${FONT};font-size:14px;line-height:22px;color:${C.body};">${e(t.help)}</div>
+    </td></tr>
+  </table>
+
+  <!-- Pie -->
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <tr><td align="center" style="padding:20px 24px 0 24px;font-family:${FONT};font-size:12px;line-height:19px;color:${C.muted};">
+      <p style="margin:0 0 6px 0;">${e(t.auto)}</p>
+      <p style="margin:0 0 6px 0;">OC Data Collector by ERO's Team &middot; <a href="https://eroplayerdata.pages.dev" style="color:${C.muted};text-decoration:underline;">eroplayerdata.pages.dev</a></p>
+      <p style="margin:0;">${e(t.legal)}</p>
+    </td></tr>
+  </table>
+
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function renderText({ name, refLink, panelLink, key, lang, reset }: Args) {
+  const t = copy(lang, reset, name);
+  const lines = [
+    t.title, "", t.hello, "", t.intro, "",
+    `${t.cta}: ${panelLink}`, "",
+    `${t.keyTitle}: ${key}`, t.keyNote, "",
+  ];
+  if (!reset) lines.push(`${t.linkTitle}: ${refLink}`, t.linkNote, "");
+  lines.push(t.stepsTitle, ...(reset ? t.steps.slice(0, 3) : t.steps).map((s, i) => `${i + 1}. ${s}`), "", t.help, "", t.auto, t.legal);
+  return lines.join("\n");
 }
 
 Deno.serve(async (req) => {
@@ -186,9 +298,7 @@ Deno.serve(async (req) => {
   const name = row.name || "artist";
   const refLink = `${SITE_URL}/?ref=${encodeURIComponent(row.slug)}`;
   const panelLink = `${SITE_URL}/?panel`;
-  const subject = language === "es"
-    ? (reset ? "Se ha restablecido tu clave del panel de artistas" : "Tu acceso al panel de artistas de OC Data Collector")
-    : (reset ? "Your artist panel key has been reset" : "Your OC Data Collector artist access");
+  const subject = subjectFor(language, reset);
 
   const client = new SMTPClient({
     connection: {
