@@ -147,7 +147,7 @@ GRANT EXECUTE ON FUNCTION public.artist_save_char TO authenticated;
 -- 3) artist_group: devuelve la variante del jugador si existe
 --
 -- Basada en la función EN PRODUCCIÓN (22-sep-2026): misma autenticación
--- (identidad Discord + access_key_hash + approved) y mismo formato
+-- (identidad Discord + access_key_hash bcrypt, ver 20260922_04 + approved) y mismo formato
 -- {must_change_password, players}. Solo cambia: LEFT JOIN a
 -- player_artist_chars, COALESCE variante→ficha y campo has_variant.
 -- ------------------------------------------------------------
@@ -155,7 +155,7 @@ CREATE OR REPLACE FUNCTION public.artist_group(p_key TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_artist_id   UUID;
@@ -173,7 +173,8 @@ BEGIN
     INTO v_artist_id, v_mcp
     FROM public.artists a
     JOIN auth.identities i ON i.user_id = auth.uid() AND i.provider = 'discord'
-   WHERE a.access_key_hash = p_key
+   WHERE a.access_key_hash IS NOT NULL
+     AND a.access_key_hash = crypt(p_key, a.access_key_hash)
      AND a.discord_id = i.provider_id
      AND a.status = 'approved';
 
