@@ -793,6 +793,23 @@ body {
 .edc-apply-as strong { color: var(--text); }
 .edc-textarea { min-height: 96px; resize: vertical; line-height: 1.45; display: block; }
 .edc-apply-privacy { font-size: .78rem; color: var(--muted); margin: 12px 0 0; line-height: 1.5; }
+
+/* Términos del programa beta de artistas (formulario ?apply y pie de la web) */
+.edc-terms-box {
+  max-height: 240px; overflow-y: auto; padding: 12px 14px;
+  background: var(--bg-2, rgba(0,0,0,.2)); border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: .84rem; line-height: 1.55;
+}
+.edc-terms-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.edc-terms-meta { font-size: .76rem; color: var(--muted); margin: 0 0 8px; }
+.edc-terms-list { margin: 8px 0 0; padding-left: 20px; }
+.edc-terms-list li { margin-bottom: 8px; }
+.edc-terms-accept {
+  display: flex; align-items: flex-start; gap: 10px; margin-top: 12px;
+  font-size: .88rem; cursor: pointer; line-height: 1.4;
+}
+.edc-terms-accept input { margin-top: 2px; width: 18px; height: 18px; flex: none; accent-color: var(--accent); cursor: pointer; }
+.edc-terms-accept.error span { color: var(--err); }
 .edc-apply-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
 .edc-apply-done { text-align: center; padding: 10px 0 4px; }
 .edc-apply-done-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--ok); margin-bottom: 6px; }

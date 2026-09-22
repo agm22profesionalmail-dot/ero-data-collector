@@ -14,6 +14,7 @@
 import { supabase } from "./supabase.js";
 import { t, getLang } from "./i18n.js";
 import { el, clear, toast } from "./ui.js";
+import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
 
 const REF_KEY = "edc_ref";              // slug del artista (sessionStorage)
 const APPLY_KEY = "edc_apply_pending";  // "1" si se fue al OAuth desde ?apply
@@ -171,7 +172,7 @@ const markApplyPending = () => ss.set(APPLY_KEY, "1");
 
 // Borrador del formulario: sobrevive a los repintados de la vista (cambio de
 // idioma, refresco de token → route()) para no perder lo tecleado.
-let draft = { name: "", email: "", portfolio: "", reason: "" };
+let draft = { name: "", email: "", portfolio: "", reason: "", terms: false };
 let sent = false; // ya enviada en esta carga → pantalla de "enviada"
 
 // Inserta la solicitud. RLS (migración 20260916_03 + 20260920_06) solo deja
@@ -181,10 +182,13 @@ let sent = false; // ya enviada en esta carga → pantalla de "enviada"
 // aprobación salga en el idioma que el artista tenía en la web.
 async function submitRequest({ discord_id, name, email, portfolio, reason }) {
   const preferred_lang = getLang() === "es" ? "es" : "en";
+  // terms_version: la política exige que venga; terms_accepted_at lo pone un
+  // trigger con la hora del servidor (migración 20260922_04), no el cliente.
   const { error } = await supabase.from("artists").insert({
     discord_id, name, email,
     portfolio: portfolio || null, reason: reason || null,
     preferred_lang, status: "pending",
+    terms_version: ARTIST_TERMS_VERSION,
   });
   if (error) throw error;
 }
@@ -276,6 +280,16 @@ export function renderArtistApply(container, { session, profile, actions }) {
   reason.addEventListener("input", () => { draft.reason = reason.value; });
   card.append(reason);
 
+  // Términos del programa: se leen aquí mismo, antes de enviar, y hay que
+  // aceptarlos de forma explícita (casilla sin marcar por defecto).
+  card.append(el("label", { class: "edc-label" }, t("artist_terms_title")));
+  card.append(el("div", { class: "edc-terms-box", tabindex: "0", html: artistTermsHtml(getLang()) }));
+  const terms = el("input", { type: "checkbox", id: "edcTermsAccept" });
+  terms.checked = !!draft.terms;
+  const termsRow = el("label", { class: "edc-terms-accept", for: "edcTermsAccept" }, terms, el("span", {}, t("apply_terms_accept")));
+  terms.addEventListener("change", () => { draft.terms = terms.checked; termsRow.classList.remove("error"); showErr(""); });
+  card.append(termsRow);
+
   card.append(errBox);
   card.append(el("p", { class: "edc-apply-privacy" }, t("apply_privacy")));
 
@@ -289,11 +303,12 @@ export function renderArtistApply(container, { session, profile, actions }) {
     if (!n) { name.classList.add("error"); showErr(t("apply_name_required")); name.focus(); return; }
     if (!validEmail(em)) { email.classList.add("error"); showErr(t("apply_email_invalid")); email.focus(); return; }
     if (!validPortfolio(p)) { portfolio.classList.add("error"); showErr(t("apply_portfolio_invalid")); portfolio.focus(); return; }
+    if (!terms.checked) { termsRow.classList.add("error"); showErr(t("apply_terms_required")); terms.focus(); return; }
     submit.disabled = true; status.className = "edc-save-status"; status.textContent = t("apply_sending");
     try {
       await submitRequest({ discord_id: profile.discord_id, name: n, email: em, portfolio: p, reason: r });
       sent = true;
-      draft = { name: "", email: "", portfolio: "", reason: "" };
+      draft = { name: "", email: "", portfolio: "", reason: "", terms: false };
       toast(t("apply_done_title"), "ok");
       renderArtistApply(container, { session, profile, actions });
     } catch (e) {
