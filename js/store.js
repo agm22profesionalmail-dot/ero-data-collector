@@ -56,6 +56,13 @@ export async function savePlayer(state, user, profile) {
     row.x_username = profile?.x_username ?? null;
     row.x_avatar = profile?.x_avatar ?? null;
   }
+  // Asociación a un artista (enlace ?ref) con consentimiento explícito
+  // (migración 20260916_02). Solo se manda cuando el usuario acaba de aceptar:
+  // nunca null, para no borrar una asociación previa en un guardado normal.
+  if (state._referredBy) {
+    row.referred_by = state._referredBy;
+    row.referred_consent_at = state._referredConsentAt || new Date().toISOString();
+  }
 
   const { error } = await supabase.from("players").upsert(row, { onConflict: "user_id" });
   if (error) throw error;
@@ -63,6 +70,9 @@ export async function savePlayer(state, user, profile) {
   state.banner_path = banner_path;
   state.banner_sha256 = banner_sha256;
   state.bannerFile = null;
+  if (state._referredBy) state.referred_by = state._referredBy;
+  delete state._referredBy;
+  delete state._referredConsentAt;
   return row;
 }
 
