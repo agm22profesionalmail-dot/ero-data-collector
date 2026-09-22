@@ -396,9 +396,9 @@ function tag(k) {
 // (bucket o archivo ausentes → placeholder, sin romper la ficha).
 function renderSlot(player, onLoaded) {
   const slot = el("div", { class: "edc-pcard-render" });
-  const ph = el("div", { class: "edc-pcard-render-ph" },
-    el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" }, "🖼"),
-    el("span", {}, ta("render_soon")));
+  const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
+  phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
+  const ph = el("div", { class: "edc-pcard-render-ph" }, phIco, el("span", {}, ta("render_soon")));
   slot.append(ph);
   loadRenderInto(slot, ph, player, onLoaded);
   return slot;
