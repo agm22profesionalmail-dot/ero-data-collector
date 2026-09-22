@@ -381,10 +381,15 @@ function summaryRow() {
     el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
     el("strong", {}, state.alias || t("your_char")),
     el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
-    el("span", { class: "edc-preview-badge" }, "🧢 " + (head ? headName(head) : "—")),
-    el("span", { class: "edc-preview-badge" }, "🎽 " + (cloth ? clothName(cloth) : "—")),
-    el("span", { class: "edc-preview-badge" }, "👟 " + (shoes ? shoesName(shoes) : "—")),
-    el("span", { class: "edc-preview-badge" }, (state.banner_signed_url || state.bannerFile) ? "🖼 ✓" : "🖼 —"),
+    el("span", { class: "edc-preview-badge" },
+      el("span", { class: "edc-badge-ico", html: preIcon("head") }),   " " + (head  ? headName(head)   : "—")),
+    el("span", { class: "edc-preview-badge" },
+      el("span", { class: "edc-badge-ico", html: preIcon("cloth") }),  " " + (cloth ? clothName(cloth) : "—")),
+    el("span", { class: "edc-preview-badge" },
+      el("span", { class: "edc-badge-ico", html: preIcon("shoes") }),  " " + (shoes ? shoesName(shoes) : "—")),
+    el("span", { class: "edc-preview-badge" },
+      el("span", { class: "edc-badge-ico", html: preIcon("banner") }), " ",
+      el("span", { class: "edc-badge-ico", html: preIcon((state.banner_signed_url || state.bannerFile) ? "ok" : "none") })),
   );
 }
 
@@ -453,7 +458,9 @@ function updatePreview(node) {
     el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
     el("strong", {}, state.alias || t("your_char")),
     el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
-    el("span", { class: "edc-preview-badge" }, willHaveBanner() ? "🖼 banner ✓" : "🖼 —"),
+    el("span", { class: "edc-preview-badge" },
+      el("span", { class: "edc-badge-ico", html: preIcon("banner") }), " ",
+      el("span", { class: "edc-badge-ico", html: preIcon(willHaveBanner() ? "ok" : "none") })),
   );
 }
 
@@ -806,6 +813,21 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 </ul>
 <p>Game data and images (character configurator) are loaded from <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
 <p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
+}
+
+// Iconos de resumen del preview (head/cloth/shoes/banner/ok). SVG inline
+// mínimos (geometric marks) — reemplazan los emojis 🧢 🎽 👟 🖼 ✓ para
+// coherencia visual y accesibilidad. Color hereda del contenedor.
+function preIcon(kind, size = 12) {
+  const p = {
+    head:   '<path d="M2 8.4c0-3 2.4-5.4 6-5.4s6 2.4 6 5.4V10H2V8.4zm-.5 2.6h13v1.2H1.5V11z" fill="currentColor"/>',
+    cloth:  '<path d="M4 3l2.5-1L8 3.6 9.5 2 12 3v2.6l-2 1V13H6V6.6l-2-1V3z" fill="currentColor"/>',
+    shoes:  '<path d="M2 10c0-1.6 1.2-2.7 2.8-2.7H8l4 1.5V11c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1v-1z" fill="currentColor"/>',
+    banner: '<path d="M2 3.5h12v9H2v-9zm1.5 1.5v5.2l2.7-2.3 2.2 2 3.1-3.3V5H3.5z" fill="currentColor"/>',
+    ok:     '<path d="M3 8.2l2.8 2.8 6.2-6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    none:   '<path d="M4 8h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  };
+  return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px">${p[kind] || ''}</svg>`;
 }
 
 // Logo oficial de X (X Corp.): trazado original tal cual lo sirve x.com.
