@@ -41,6 +41,7 @@ const S = {
     f_species: "Species & gender", f_skin: "Skin tone", f_eye: "Eye color",
     f_hair: "Hairstyle", f_brows: "Eyebrows", f_legs: "Legs",
     f_head: "Head gear", f_cloth: "Clothing", f_shoes: "Shoes",
+    g_character: "Character", g_gear: "Gear",
     base: "Base", alt: "ALT", girl: "Girl", boy: "Boy", inkling: "Inkling", octoling: "Octoling",
     show_all: "Show all options", show_selected: "Show only the selected one",
     cp_title: "Set your artist key",
@@ -76,6 +77,7 @@ const S = {
     f_species: "Especie y género", f_skin: "Tono de piel", f_eye: "Color de ojos",
     f_hair: "Peinado", f_brows: "Cejas", f_legs: "Piernas",
     f_head: "Gear cabeza", f_cloth: "Gear ropa", f_shoes: "Gear zapatillas",
+    g_character: "Personaje", g_gear: "Equipo",
     base: "Base", alt: "ALT", girl: "Chica", boy: "Chico", inkling: "Inkling", octoling: "Octoling",
     show_all: "Ver todas las opciones", show_selected: "Ver solo la elegida",
     cp_title: "Elige tu clave de artista",
@@ -265,24 +267,27 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showGallery() }, ta("back_gallery")),
       el("div", { class: "edc-apply-actions" }, backBtn())));
     // Ficha: render izquierda; a la derecha nombre + Splashtag (con hover-descargar)
-    // + plantilla de personaje. Sin banner_path: no metemos el widget (evita
-    // rectángulo vacío entre nombre y opciones).
-    const mainChildren = [ el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")) ];
-    if (p.banner_path) mainChildren.push(renderBanner(p, { size: "detail", interactive: true }));
-    mainChildren.push(renderSheet(p));
+    // + plantilla de personaje. El banner se monta oculto y se muestra sólo si
+    // la imagen carga OK (así el rectángulo vacío nunca aparece: sin path o con
+    // 404, el widget se queda hidden y no ocupa espacio).
     wrap.append(el("div", { class: "edc-pcard" },
       renderSlot(p),
-      el("div", { class: "edc-pcard-main" }, ...mainChildren)));
+      el("div", { class: "edc-pcard-main" },
+        el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
+        renderBanner(p, { size: "detail", interactive: true }),
+        renderSheet(p))));
   }
 }
 
 // ── Banner Splashtag ─────────────────────────────────────────────────
 // Reutilizado por la tarjeta del listado y por la ficha del jugador.
-// - Bucket `banners` es privado: cargamos vía createSignedUrl (patrón store.js).
-// - Sin banner_path: placeholder neutral con el alias en display (tarjeta).
-// - opts.interactive true: overlay hover con botón "Descargar banner".
-//   El listado NUNCA es interactivo, solo la ficha (regla explícita).
-// - onclick del botón: stopPropagation para que el clic no abra la ficha.
+// - Bucket `banners` es privado: cargamos vía createSignedUrl.
+// - Modo "card" (listado): siempre visible. Con banner_path carga la imagen;
+//   sin banner_path o si falla, se queda el placeholder (fondo neutral +
+//   alias en display font). Sin overlay ni botón de descarga.
+// - Modo "detail" (ficha): interactive; con overlay hover + botón "Descargar
+//   banner". El widget arranca OCULTO y sólo se muestra si la imagen carga OK.
+//   Así, sin banner o con fallo, no queda un rectángulo vacío en la ficha.
 function renderBanner(player, opts = {}) {
   const size = opts.size === "card" ? "card" : "detail";
   const interactive = !!opts.interactive;
@@ -290,7 +295,7 @@ function renderBanner(player, opts = {}) {
   wrap.className = "edc-banner-wrap edc-banner-wrap-" + size;
   const ph = document.createElement("div");
   ph.className = "edc-banner-ph";
-  if (!player?.banner_path) {
+  const showPlaceholder = () => {
     ph.classList.add("edc-banner-ph-empty");
     const aliasBig = document.createElement("span");
     aliasBig.className = "edc-banner-ph-alias";
@@ -299,11 +304,15 @@ function renderBanner(player, opts = {}) {
     aliasTag.className = "edc-banner-ph-tag";
     aliasTag.textContent = tag("no_banner");
     ph.append(aliasBig, aliasTag);
-    wrap.appendChild(ph);
+  };
+  if (!player?.banner_path) {
+    if (size === "card") { showPlaceholder(); wrap.appendChild(ph); return wrap; }
+    wrap.hidden = true;  // ficha sin banner: no ocupa espacio
     return wrap;
   }
-  wrap.appendChild(ph);
+  if (size === "card") wrap.appendChild(ph);
   if (interactive) {
+    wrap.hidden = true;  // ficha: se desoculta al cargar la imagen OK
     const overlay = document.createElement("div");
     overlay.className = "edc-banner-overlay";
     const dl = document.createElement("button");
@@ -327,23 +336,32 @@ function renderBanner(player, opts = {}) {
     overlay.appendChild(dl);
     wrap.appendChild(overlay);
   }
-  loadBannerInto(wrap, ph, player);
+  loadBannerInto(wrap, ph, player, {
+    onLoad: () => { wrap.hidden = false; },
+    onFail: () => { if (size === "card") showPlaceholder(); /* ficha: queda hidden */ },
+  });
   return wrap;
 }
 
-async function loadBannerInto(container, ph, player) {
+async function loadBannerInto(container, ph, player, cb = {}) {
   try {
     const { data: d } = await supabase.storage.from("banners")
       .createSignedUrl(player.banner_path, 3600);
-    if (!d?.signedUrl) return;
+    if (!d?.signedUrl) { cb.onFail?.(); return; }
     const img = document.createElement("img");
     img.className = "edc-banner-img";
     img.alt = "";
     img.decoding = "async";
     img.loading = "lazy";
-    img.onload = () => { if (container.isConnected) { ph.remove(); container.prepend(img); } };
+    img.onload = () => {
+      if (!container.isConnected) return;
+      if (ph.isConnected) ph.remove();
+      container.prepend(img);
+      cb.onLoad?.();
+    };
+    img.onerror = () => { cb.onFail?.(); };
     img.src = d.signedUrl;
-  } catch { /* placeholder queda */ }
+  } catch { cb.onFail?.(); }
 }
 
 // helper i18n reutilizable fuera del closure de renderArtistPanel
@@ -462,13 +480,14 @@ function renderSheet(p) {
 
   const sheet = el("div", { class: "edc-pcard-sheet" });
   sheet.append(
+    el("div", { class: "edc-pcard-section-sep edc-pcard-section-sep-first" }, ta("g_character")),
     fieldRow(ta("f_species"), speciesValue),
     fieldRow(ta("f_skin"), choiceStrip(skinOpts, p.skin_tone)),
     fieldRow(ta("f_eye"), choiceStrip(eyeOpts, p.eye_color)),
     fieldRow(ta("f_hair"), hair ? plainSwatchRow(hairUrl(hair)) : plainSwatchRow("")),
     fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, browIdx) : plainSwatchRow("")),
     fieldRow(ta("f_legs"), bot ? legsRow(bot, p.bottom_variation) : plainSwatchRow("")),
-    el("div", { class: "edc-pcard-section-sep" }, getLang() === "es" ? "Equipo" : "Gear"),
+    el("div", { class: "edc-pcard-section-sep" }, ta("g_gear")),
     fieldRow(ta("f_head"), gearRow(head, gearUrl, headName, p.gear_head_variation)),
     fieldRow(ta("f_cloth"), gearRow(cloth, gearUrl, clothName, p.gear_cloth_variation)),
     fieldRow(ta("f_shoes"), gearRow(shoes, gearUrl, shoesName, p.gear_shoes_variation)),

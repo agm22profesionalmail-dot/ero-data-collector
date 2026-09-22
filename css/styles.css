@@ -787,34 +787,43 @@ body {
   text-shadow: 0 2px 18px rgba(246,80,254,.2);
 }
 
-/* sub-panel oscuro con la plantilla del personaje */
+/* Sub-panel oscuro con la plantilla del personaje. Layout de UNA columna con
+   dos secciones agrupadas (Character / Gear): el choiceStrip se expande sin
+   ahogar la fila, y las filas nunca se salen de la card en ningún ancho. */
 .edc-pcard-sheet {
-  background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px; padding: 6px 16px 10px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px;
+  padding: 4px 18px 14px;
+  display: flex; flex-direction: column; gap: 0;
 }
-/* el separador de sección ocupa las 2 columnas */
-.edc-pcard-section-sep { grid-column: 1 / -1; }
-.edc-pcard-field { display: flex; align-items: center; gap: 10px; min-width: 0;
-  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.edc-pcard-field { display: flex; align-items: center; gap: 14px; min-width: 0;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.055); }
 .edc-pcard-field:last-child { border-bottom: none; }
-.edc-pcard-field-label { flex: none; width: 72px; font-size: .67rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .3px; color: var(--muted); line-height: 1.25; }
-.edc-pcard-field-value { display: flex; align-items: center; gap: 8px; min-width: 0;
-  font-size: .82rem; font-weight: 600; color: var(--text); flex: 1; }
+.edc-pcard-field-label { flex: none; width: 118px; font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px; color: var(--muted); line-height: 1.25; }
+.edc-pcard-field-value { display: flex; align-items: center; gap: 10px; min-width: 0;
+  font-size: .85rem; font-weight: 600; color: var(--text); flex: 1; }
 .edc-pcard-field-value > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.edc-pcard-swatch { width: 42px; height: 42px; flex: none; border-radius: 10px; background: var(--panel-2);
+.edc-pcard-swatch { width: 44px; height: 44px; flex: none; border-radius: 10px; background: var(--panel-2);
   box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; }
-.edc-pcard-swatch img { width: 36px; height: 36px; object-fit: contain; }
+.edc-pcard-swatch img { width: 38px; height: 38px; object-fit: contain; }
+
+/* Section header (eyebrow). Dos por sheet = respeta la ratio de eyebrows. */
 .edc-pcard-section-sep {
-  font-size: .59rem; font-weight: 800; text-transform: uppercase; letter-spacing: .7px;
-  color: var(--accent-2); opacity: .7; padding: 10px 0 2px;
-  display: flex; align-items: center; gap: 8px;
+  font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--accent-2); padding: 18px 0 6px; margin-top: 4px;
+  border-top: 1px solid var(--border);
 }
-.edc-pcard-section-sep::before { content: ""; flex: 1; height: 1px; background: var(--border); }
-@media (max-width: 980px) { .edc-pcard-sheet { grid-template-columns: 1fr; }
-  .edc-pcard-section-sep { grid-column: 1; } }
+.edc-pcard-section-sep-first { border-top: none; padding-top: 8px; margin-top: 0; }
+
 .edc-pcard-alt { flex: none; font-size: .6rem; font-weight: 800; letter-spacing: .5px; color: var(--accent-2);
-  background: rgba(25,211,197,.14); padding: 1px 6px; border-radius: 999px; }
+  background: rgba(25,211,197,.14); padding: 2px 7px; border-radius: 999px; }
+
+@media (max-width: 560px) {
+  .edc-pcard-field { gap: 10px; }
+  .edc-pcard-field-label { width: 92px; }
+  .edc-pcard-swatch { width: 40px; height: 40px; }
+  .edc-pcard-swatch img { width: 34px; height: 34px; }
+}
 
 /* Tira de opciones (piel/ojos/cejas): la elegida siempre visible y marcada;
    el resto se muestra al pulsar el toggle "+". Evita que el artista dude qué
