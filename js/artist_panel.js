@@ -375,8 +375,13 @@ function setMainWide(on) {
   const m = document.querySelector("main.edc-main");
   if (!m) return;
   m.classList.toggle("edc-main--wide", !!on);
-  if (on) m.style.maxWidth = "1180px";
+  if (on) m.style.maxWidth = "1280px";
   else m.style.maxWidth = "";
+  // Fallback de .edc-apply:has(> .edc-pcard) para navegadores sin :has()
+  for (const a of m.querySelectorAll(".edc-apply")) {
+    a.classList.toggle("edc-apply--wide", !!on);
+    a.style.maxWidth = on ? "none" : "";
+  }
 }
 
 // helper i18n reutilizable fuera del closure de renderArtistPanel

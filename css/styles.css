@@ -163,7 +163,11 @@ body {
    `:has()` es el camino moderno; `.edc-main--wide` es fallback JS para navegadores
    viejos que no soportan :has() (aplicada desde showDetail del panel de artista). */
 .edc-main:has(.edc-pcard),
-.edc-main--wide { max-width: 1180px; }
+.edc-main--wide { max-width: 1280px; }
+/* El panel de artista vive dentro de .edc-apply (640px, pensado para
+   formularios): en la ficha se libera para que la carta use todo el ancho. */
+.edc-apply:has(> .edc-pcard),
+.edc-apply--wide { max-width: none; }
 
 /* Login */
 .edc-login { text-align: center; margin-top: 8vh; }
@@ -902,7 +906,7 @@ body {
    colores morado/amarillo eran solo placeholder. Paleta real = tema Splatoon 3
    dark del sitio, con acentos de tinta (magenta/teal). ── */
 .edc-pcard {
-  display: grid; grid-template-columns: minmax(190px, 320px) minmax(0, 1fr);
+  display: grid; grid-template-columns: minmax(200px, 340px) minmax(0, 1fr);
   gap: 28px; align-items: start; margin-top: 6px;
   padding: 28px; border-radius: 22px;
   background: linear-gradient(160deg, var(--panel) 0%, var(--bg-2) 100%);
@@ -932,11 +936,13 @@ body {
 @keyframes edc-pcard-fade { from { opacity: 0 } to { opacity: 1 } }
 
 /* zona derecha: nombre + datos */
-.edc-pcard-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.edc-pcard-main { display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  container-type: inline-size; }
 .edc-pcard-name {
   font-family: var(--font-display); font-size: clamp(1.4rem, 2.6vw, 2.3rem); line-height: 1.04;
   color: var(--text); letter-spacing: .3px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* El nombre del jugador SIEMPRE completo: parte línea, nunca "…" */
+  overflow-wrap: anywhere;
   text-shadow: 0 2px 0 rgba(0,0,0,.4); /* relieve Splatoon, sin glow */
 }
 
@@ -962,10 +968,9 @@ body {
   text-transform: uppercase; letter-spacing: .5px; color: var(--muted); line-height: 1.2; }
 .edc-pcard-field-value { display: flex; align-items: center; gap: 10px; min-width: 0;
   font-size: .84rem; font-weight: 600; color: var(--text); }
+/* Nombres de prendas/especie SIEMPRE completos: envuelven, nunca "…" */
 .edc-pcard-field-value > span:not(.edc-pcard-alt) {
-  min-width: 0; line-height: 1.25;
-  overflow: hidden; text-overflow: ellipsis;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  min-width: 0; line-height: 1.25; overflow-wrap: anywhere;
 }
 .edc-pcard-swatch { width: 42px; height: 42px; flex: none; border-radius: 10px; background: var(--panel-2);
   box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; }
@@ -984,6 +989,12 @@ body {
   background: rgba(96,216,192,.14); padding: 2px 7px; border-radius: 999px; }
 
 @media (max-width: 720px) {
+  .edc-pcard-sheet { grid-template-columns: 1fr; column-gap: 0; }
+  .edc-pcard-section-sep { grid-column: 1; }
+}
+/* Columna de datos estrecha (ventana media): 1 columna para que los nombres
+   de prendas quepan enteros en vez de partirse letra a letra. */
+@container (max-width: 480px) {
   .edc-pcard-sheet { grid-template-columns: 1fr; column-gap: 0; }
   .edc-pcard-section-sep { grid-column: 1; }
 }
