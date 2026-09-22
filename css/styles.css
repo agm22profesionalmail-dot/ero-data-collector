@@ -668,15 +668,58 @@ body {
   border-radius: 8px; padding: 8px 10px; font-size: .82rem; word-break: break-all; color: var(--accent-2); }
 
 /* Panel del artista (?panel) — galería del grupo + ficha de solo lectura */
-.edc-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 4px; }
-.edc-panel-card { cursor: pointer; transition: transform .15s var(--ease-out), border-color .15s var(--ease-out); }
-.edc-panel-card:hover { transform: translateY(-2px); border-color: var(--accent-2); }
-.edc-panel-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.edc-panel-avatar { width: 36px; height: 36px; border-radius: 6px; border: 2px solid var(--accent-2); flex: none; }
-.edc-panel-card-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.edc-panel-card-id strong { font-size: .98rem; }
-.edc-panel-contact { font-size: .78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.edc-panel-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.edc-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; margin-top: 4px; }
+
+/* Tarjeta con Splashtag arriba + identificación debajo (referencia MUESTRA) */
+.edc-panel-pcard {
+  cursor: pointer; padding: 0; overflow: hidden; display: flex; flex-direction: column;
+  transition: transform .15s var(--ease-out), border-color .15s var(--ease-out), box-shadow .15s var(--ease-out);
+}
+.edc-panel-pcard:hover { transform: translateY(-2px); border-color: var(--accent-2); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.edc-panel-pcard-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.edc-panel-pcard-alias { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: .3px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edc-panel-pcard-meta { font-size: .78rem; color: var(--muted); }
+.edc-panel-pcard-contact { display: flex; align-items: flex-start; gap: 8px; margin-top: 2px; }
+.edc-panel-pcard-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; margin-top: 6px;
+  box-shadow: 0 0 0 2px var(--border); }
+.edc-panel-pcard-lines { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.edc-panel-pcard-handle { font-size: .8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edc-panel-pcard-did { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Banner Splashtag — reutilizado por la tarjeta y por la ficha
+   ratio ~700x198 (~3.53:1) del generador oficial splashtagmaker.com */
+.edc-banner-wrap { position: relative; overflow: hidden; background: var(--panel-2);
+  aspect-ratio: 700 / 198; width: 100%; }
+.edc-banner-wrap-card { border-bottom: 1px solid var(--border); }
+.edc-banner-wrap-detail { border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); }
+.edc-banner-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.edc-banner-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-family: var(--font-display); font-size: 1.4rem; letter-spacing: .5px;
+  background: linear-gradient(135deg, #1a1f36 0%, #2a1a3b 100%);
+}
+.edc-banner-ph-empty { color: rgba(255,255,255,.45); }
+.edc-banner-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0); opacity: 0; transition: background .18s var(--ease-out), opacity .18s var(--ease-out);
+  pointer-events: none;
+}
+.edc-banner-wrap:hover .edc-banner-overlay,
+.edc-banner-wrap:focus-within .edc-banner-overlay {
+  background: rgba(0,0,0,.55); opacity: 1; pointer-events: auto;
+}
+.edc-banner-dl-btn {
+  background: var(--accent); color: #fff; border: none; border-radius: 999px;
+  padding: 8px 16px; font-size: .82rem; font-weight: 700; letter-spacing: .3px;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  transform: translateY(4px); transition: transform .18s var(--ease-out), background .15s;
+}
+.edc-banner-wrap:hover .edc-banner-dl-btn,
+.edc-banner-wrap:focus-within .edc-banner-dl-btn { transform: translateY(0); }
+.edc-banner-dl-btn:hover { background: var(--accent-2); }
+.edc-banner-dl-btn:disabled { opacity: .6; cursor: default; }
 
 /* ── Ficha = carta de jugador. La referencia (IMAGEN MUESTRA.psd) fijaba el
    LAYOUT (render tipo carta a la izquierda, nombre arriba, datos debajo); sus
@@ -718,9 +761,6 @@ body {
   color: var(--text); letter-spacing: .5px; word-break: break-word;
   text-shadow: 0 2px 18px rgba(246,80,254,.2);
 }
-
-/* botón de descarga de la splashtag */
-.edc-pcard-dl { display: flex; }
 
 /* sub-panel oscuro con la plantilla del personaje */
 .edc-pcard-sheet {
