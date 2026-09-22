@@ -165,3 +165,37 @@ begin
   v_sent := public.queue_artist_email(v_email, v_name, v_slug, v_generic, v_lang, true);
   return json_build_object('sent', v_sent);
 end $function$;
+
+-- 6) Estado del último email de un artista (para el plugin ero-dashboard).
+--    Protegida por admin_check como el resto de admin_*.
+CREATE OR REPLACE FUNCTION public.admin_email_status(p_user text, p_pass text, p_id uuid)
+RETURNS json
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_email text;
+  r record;
+BEGIN
+  IF NOT public.admin_check(p_user, p_pass) THEN
+    RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';
+  END IF;
+  SELECT email INTO v_email FROM public.artists WHERE id = p_id;
+  SELECT created_at, sent_at, error INTO r
+    FROM public.artist_email_outbox
+   WHERE email = v_email
+   ORDER BY created_at DESC
+   LIMIT 1;
+  IF NOT FOUND THEN
+    RETURN json_build_object('state', 'none');
+  END IF;
+  RETURN json_build_object(
+    'state', CASE WHEN r.sent_at IS NOT NULL THEN 'sent'
+                  WHEN r.error IS NOT NULL THEN 'error'
+                  ELSE 'pending' END,
+    'error', r.error, 'created_at', r.created_at, 'sent_at', r.sent_at);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.admin_email_status(text, text, uuid) TO anon, authenticated;
