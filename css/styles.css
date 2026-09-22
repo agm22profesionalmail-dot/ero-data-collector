@@ -126,8 +126,11 @@ body {
 
 /* Main */
 .edc-main { max-width: 920px; margin: 0 auto; padding: 24px 18px 80px; }
-/* La ficha del jugador necesita más ancho para caber el sheet 2-col con nombres. */
-.edc-main:has(.edc-pcard) { max-width: 1180px; }
+/* La ficha del jugador necesita más ancho para caber el sheet 2-col con nombres.
+   `:has()` es el camino moderno; `.edc-main--wide` es fallback JS para navegadores
+   viejos que no soportan :has() (aplicada desde showDetail del panel de artista). */
+.edc-main:has(.edc-pcard),
+.edc-main--wide { max-width: 1180px; }
 
 /* Login */
 .edc-login { text-align: center; margin-top: 8vh; }

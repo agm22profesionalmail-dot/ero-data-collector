@@ -100,6 +100,8 @@ export const isPanelRoute = () => new URLSearchParams(location.search).has("pane
 export function leavePanel() {
   if (!isPanelRoute()) return false;
   history.pushState(null, "", location.pathname);
+  const m = document.querySelector("main.edc-main");
+  if (m) m.classList.remove("edc-main--wide");
   return true;
 }
 
@@ -231,6 +233,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 
   function showGallery() {
     clear(wrap);
+    setMainWide(false);
     wrap.append(el("div", { class: "edc-admin-head" },
       el("div", { class: "edc-section-title" }, ta("title")),
       el("div", { class: "edc-apply-actions" },
@@ -263,6 +266,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 
   function showDetail(p) {
     clear(wrap);
+    setMainWide(true);
     wrap.append(el("div", { class: "edc-admin-head" },
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showGallery() }, ta("back_gallery")),
       el("div", { class: "edc-apply-actions" }, backBtn())));
@@ -362,6 +366,14 @@ async function loadBannerInto(container, ph, player, cb = {}) {
     img.onerror = () => { cb.onFail?.(); };
     img.src = d.signedUrl;
   } catch { cb.onFail?.(); }
+}
+
+// Amplía el max-width del <main> sólo cuando estamos en la ficha del jugador.
+// Fallback para navegadores sin :has() (que ya lo hace en CSS).
+function setMainWide(on) {
+  const m = document.querySelector("main.edc-main");
+  if (!m) return;
+  m.classList.toggle("edc-main--wide", !!on);
 }
 
 // helper i18n reutilizable fuera del closure de renderArtistPanel
