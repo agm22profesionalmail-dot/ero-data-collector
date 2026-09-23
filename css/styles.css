@@ -314,6 +314,8 @@ body {
 .edc-gear-label { width: 90px; font-size: .85rem; color: var(--muted); }
 .edc-gear-preview { width: 50px; height: 50px; object-fit: contain; background: var(--bg-2); border-radius: 8px; flex: none; }
 .edc-gear-name { flex: 1; min-width: 0; font-size: .88rem; overflow-wrap: anywhere; }
+/* Nombre oficial en el OTRO idioma (EN/ES), debajo del principal */
+.edc-gear-alt { display: block; font-size: .74rem; color: var(--muted); margin-top: 2px; }
 .edc-var-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
 .edc-var-toggle.disabled { opacity: .35; cursor: default; }
 .edc-var-label { font-size: .7rem; color: var(--muted); }
@@ -354,6 +356,7 @@ body {
   filter: drop-shadow(0 4px 10px rgba(0,0,0,.45));
 }
 .edc-gallery-cell div { font-size: .72rem; color: var(--muted); margin-top: 6px; line-height: 1.2; overflow-wrap: anywhere; }
+.edc-gallery-cell .edc-gallery-alt { margin-top: 2px; font-size: .66rem; opacity: .75; }
 .edc-empty { color: var(--muted); padding: 24px; text-align: center; grid-column: 1 / -1; }
 
 /* Banner */
@@ -1002,6 +1005,7 @@ body {
 }
 .edc-pcard-section-sep-first { border-top: none; padding-top: 6px; margin-top: 0; }
 
+.edc-pcard-name-alt { display: block; font-size: .74rem; font-weight: 500; color: var(--muted); margin-top: 2px; }
 .edc-pcard-alt { flex: none; font-size: .6rem; font-weight: 800; letter-spacing: .5px; color: var(--accent-2);
   background: rgba(96,216,192,.14); padding: 2px 7px; border-radius: 999px; }
 

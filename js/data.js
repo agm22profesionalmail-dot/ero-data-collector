@@ -1,5 +1,6 @@
 // Capa de datos: carga RSDB de Flexlion + filtros por especie + helpers de imagen/nombre
 import { RSDB, LANG_URL, ANIM_URL, IMG, DUMMY_IMG, isSquid, isMale } from "./config.js";
+import { getLang } from "./i18n.js";
 
 let DATA = null;
 
@@ -14,8 +15,24 @@ async function getText(url) {
   return r.text();
 }
 
+// Nombres OFICIALES del juego en inglés y español de España (gear, armas,
+// badges). Los genera tools/build_names.py desde Leanny/splat3:
+// { head|clothes|shoes: {código: [en, es]}, weapon: {RowId: [en, es]},
+//   badge: {"Badge_…": [en, es]} }. Si no carga, se usa el EUen de Flexlion.
+let NAMES = null;
+let namesPromise = null;
+export function loadNames() {
+  if (!namesPromise) {
+    namesPromise = getJson(new URL("../assets/lang/names.json", import.meta.url).href)
+      .then((n) => (NAMES = n))
+      .catch((e) => { console.warn("names.json:", e); NAMES = {}; return NAMES; });
+  }
+  return namesPromise;
+}
+
 export async function loadData() {
   if (DATA) return DATA;
+  await loadNames();
   const [weapons, headgear, clothes, shoes, hair, eyebrows, bottoms, lang, animTxt] =
     await Promise.all([
       getJson(RSDB + "/WeaponInfoMain.json"),
@@ -54,12 +71,40 @@ export const validBottoms = () => DATA.bottoms.filter((b) => b.Order !== -1);
 export const validWeapons = () =>
   DATA.weapons.filter((w) => w.Type === "Versus" || w.__RowId === "Free");
 
-// ── Nombres (EUen) ────────────────────────────────────────────────────
+// ── Nombres oficiales EN/ES ───────────────────────────────────────────
+// xxxNames(e) → [en, es]; xxxName(e) → en el idioma de la web;
+// altName(pair) → en el OTRO idioma (para mostrarlo debajo o en el tooltip).
 const L = (k) => DATA.lang[k] ?? {};
-export const weaponName = (e) => L("CommonMsg/Weapon/WeaponName_Main")[e.__RowId] ?? e.__RowId;
-export const headName   = (e) => L("CommonMsg/Gear/GearName_Head")[e.__RowId.slice(4)] ?? e.__RowId.slice(4);
-export const clothName  = (e) => L("CommonMsg/Gear/GearName_Clothes")[e.__RowId.slice(4)] ?? e.__RowId.slice(4);
-export const shoesName  = (e) => L("CommonMsg/Gear/GearName_Shoes")[e.__RowId.slice(4)] ?? e.__RowId.slice(4);
+const langIdx = () => (getLang() === "es" ? 1 : 0);
+function namePair(cat, key, flexSection) {
+  const p = NAMES?.[cat]?.[key];
+  if (p) return p;
+  const en = (flexSection && DATA ? L(flexSection)[key] : null) || key;
+  return [en, en];
+}
+export const curName = (pair) => (pair ? pair[langIdx()] : "");
+export const altName = (pair) => {
+  if (!pair) return "";
+  const o = pair[1 - langIdx()];
+  return o && o !== pair[langIdx()] ? o : "";
+};
+export const weaponNames = (e) => namePair("weapon", e.__RowId, "CommonMsg/Weapon/WeaponName_Main");
+export const headNames   = (e) => namePair("head", e.__RowId.slice(4), "CommonMsg/Gear/GearName_Head");
+export const clothNames  = (e) => namePair("clothes", e.__RowId.slice(4), "CommonMsg/Gear/GearName_Clothes");
+export const shoesNames  = (e) => namePair("shoes", e.__RowId.slice(4), "CommonMsg/Gear/GearName_Shoes");
+export const weaponName = (e) => curName(weaponNames(e));
+export const headName   = (e) => curName(headNames(e));
+export const clothName  = (e) => curName(clothNames(e));
+export const shoesName  = (e) => curName(shoesNames(e));
+
+// Badges (fichero "Badge_<Name>" del generador) → texto oficial [en, es] o null
+export const badgeNames = (file) => NAMES?.badge?.[String(file).split("/").pop()] ?? null;
+
+// Banners: el juego NO les da nombre. names.json trae etiqueta de origen
+// para los oficiales (catálogo, Salmon Run, Side Order…) y el nombre oficial
+// del escenario/arma especial en los de fans; el resto → null.
+export const bannerNames = (file) =>
+  NAMES?.banner?.[String(file).replace(/^(custom\/)?banners\//, "")] ?? null;
 
 // ── URLs de imagen ────────────────────────────────────────────────────
 export const skinUrl = (i) => `${IMG}/player/skin_color/${i}.png`;

@@ -2,7 +2,7 @@
 import { SPECIES, isMale, SKIN_TONES, EYE_COLORS, NO_WEAPON } from "./config.js";
 import {
   data, getById, hairFor, eyebrowsFor, validBottoms, validWeapons,
-  weaponName, headName, clothName, shoesName,
+  weaponName, headNames, clothNames, shoesNames, curName, altName,
   skinUrl, eyeUrl, typeUrl, hairUrl, eyebrowUrl, pantsUrl, pantsVarUrl, pantsVarLocalUrl,
   gearUrl, weaponUrl, animUrl, colorToHex, hexToColor,
 } from "./data.js";
@@ -152,26 +152,29 @@ export function renderConfigurator(container, state, onChange) {
     // Equipamiento
     card.append(el("div", { class: "edc-section-title" }, t("section_gear")));
     const d = data();
-    card.append(gearRow(t("gear_head"), "gear_head", d.headgear, gearUrl, headName, true));
-    card.append(gearRow(t("gear_cloth"), "gear_cloth", d.clothes, gearUrl, clothName, true));
-    card.append(gearRow(t("gear_shoes"), "gear_shoes", d.shoes, gearUrl, shoesName, true));
+    card.append(gearRow(t("gear_head"), "gear_head", d.headgear, gearUrl, headNames, true));
+    card.append(gearRow(t("gear_cloth"), "gear_cloth", d.clothes, gearUrl, clothNames, true));
+    card.append(gearRow(t("gear_shoes"), "gear_shoes", d.shoes, gearUrl, shoesNames, true));
     // Arma y pose/animación: las define el equipo (fuera de la web del jugador).
 
     return card;
   }
 
-  function gearRow(label, field, entries, urlFn, nameFn, hasVar) {
+  // namesFn(e) → [en, es]: se muestra el del idioma de la web y debajo el otro
+  function gearRow(label, field, entries, urlFn, namesFn, hasVar) {
     const cur = getById(entries, state[field]);
     const row = el("div", { class: "edc-gear-row" });
     row.append(el("div", { class: "edc-gear-label" }, label));
     const prevImg = imgWithFallback(cur ? urlFn(cur) : "");
     prevImg.className = "edc-gear-preview";
     row.append(prevImg);
-    row.append(el("div", { class: "edc-gear-name" }, cur ? nameFn(cur) : "—"));
+    const curPair = cur ? namesFn(cur) : null;
+    row.append(el("div", { class: "edc-gear-name" }, curPair ? curName(curPair) : "—",
+      curPair && altName(curPair) ? el("span", { class: "edc-gear-alt" }, altName(curPair)) : null));
     row.append(el("button", { class: "edc-btn edc-btn-sm", onClick: () => {
       openGallery({
         title: label,
-        items: entries.map((e) => ({ id: String(e.Id), label: nameFn(e), img: urlFn(e) })),
+        items: entries.map((e) => { const p = namesFn(e); return { id: String(e.Id), label: curName(p), alt: altName(p), img: urlFn(e) }; }),
         onSelect: (id) => { state[field] = Number(id); state[field + "_variation"] = 0; change(); paint(); },
       });
     } }, t("change")));

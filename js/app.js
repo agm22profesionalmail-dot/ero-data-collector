@@ -7,7 +7,7 @@ import {
   signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshSessionUser,
   signOut, getSession, onAuthChange, identityProfile, consumeAuthError,
 } from "./auth.js";
-import { loadData, colorToHex, data, getById, headName, clothName, shoesName } from "./data.js";
+import { loadData, colorToHex, data, getById, headNames, clothNames, shoesNames, curName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
 import { loadPlayer, savePlayer, getBannerSignedUrl, syncIdentityFields } from "./store.js";
@@ -409,6 +409,13 @@ function renderPreviewScreen() {
 }
 
 // Resumen de 1 línea con las opciones seleccionadas
+// Chip de gear de la vista previa: nombre oficial en el idioma de la web; el
+// del otro idioma va en el tooltip.
+function gearBadge(icon, pair) {
+  return el("span", { class: "edc-preview-badge", title: pair ? pair.join(" / ") : "" },
+    el("span", { class: "edc-badge-ico", html: preIcon(icon) }), " " + (pair ? curName(pair) : "—"));
+}
+
 function summaryRow() {
   const sp = SPECIES[state.player_type] || SPECIES[0];
   const d = data();
@@ -419,12 +426,9 @@ function summaryRow() {
     el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
     el("strong", {}, state.alias || t("your_char")),
     el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
-    el("span", { class: "edc-preview-badge" },
-      el("span", { class: "edc-badge-ico", html: preIcon("head") }),   " " + (head  ? headName(head)   : "—")),
-    el("span", { class: "edc-preview-badge" },
-      el("span", { class: "edc-badge-ico", html: preIcon("cloth") }),  " " + (cloth ? clothName(cloth) : "—")),
-    el("span", { class: "edc-preview-badge" },
-      el("span", { class: "edc-badge-ico", html: preIcon("shoes") }),  " " + (shoes ? shoesName(shoes) : "—")),
+    gearBadge("head", head ? headNames(head) : null),
+    gearBadge("cloth", cloth ? clothNames(cloth) : null),
+    gearBadge("shoes", shoes ? shoesNames(shoes) : null),
     el("span", { class: "edc-preview-badge" },
       el("span", { class: "edc-badge-ico", html: preIcon("banner") }), " ",
       el("span", { class: "edc-badge-ico", html: preIcon((state.banner_signed_url || state.bannerFile) ? "ok" : "none") })),
