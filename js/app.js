@@ -15,7 +15,7 @@ import { el, clear, toast } from "./ui.js";
 import {
   captureRefFromUrl, resolveRefArtist, needsRefConsent, renderRefConsent, clearRef,
   isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply, saveArtistVariant,
-  loadLinkedArtists, linkArtist,
+  loadLinkedArtists, linkArtist, loadArtistVariant, CHAR_FIELDS,
 } from "./artists.js";
 import { isAdminRoute, renderAdminPanel, leaveAdmin } from "./admin.js";
 import { isPanelRoute, renderArtistPanel, leavePanel } from "./artist_panel.js";
@@ -375,7 +375,14 @@ function renderArtistChoiceScreen() {
   // Opción B — crear variante para este artista
   const customBtn = el("button", { class: "edc-btn edc-btn-sm" },
     withName(t("artist_choice_custom"), name));
-  customBtn.addEventListener("click", () => {
+  customBtn.addEventListener("click", async () => {
+    customBtn.disabled = true;
+    // La versión se edita sobre el MISMO state del editor: se guarda aparte la
+    // ficha principal y se restaura al salir/guardar, para que nunca se
+    // muestre ni se guarde la versión como si fuera la ficha principal.
+    state._mainChar = pickChar(state);
+    const saved = await loadArtistVariant(refArtist.id);
+    if (saved) applyChar(state, saved);   // continuar la versión que ya existía
     state._artistVariantFor = refArtist.id;
     mode = "artist_custom";
     renderModeView();
@@ -454,7 +461,7 @@ function renderEditor() {
     const banner = el("div", { class: "edc-card edc-ref-card" },
       el("div", { class: "edc-ref-kicker" }, withName(t("artist_choice_custom"), refArtist.name)),
       el("p", { class: "edc-ref-note" }, withName(t("artist_choice_custom_note"), refArtist.name)),
-      el("button", { class: "edc-btn-link", onClick: () => { mode = "artist_choice"; renderModeView(); } },
+      el("button", { class: "edc-btn-link", onClick: () => { leaveVariantMode(); mode = "artist_choice"; renderModeView(); } },
         t("artist_choice_back")));
     appEl().append(banner);
   }
@@ -475,9 +482,13 @@ function renderEditor() {
   appEl().append(cfg);
   renderConfigurator(cfg, state, () => updatePreview(preview));
 
-  const bnr = el("div");
-  appEl().append(bnr);
-  renderBanner(bnr, state, () => updatePreview(preview));
+  // La versión para un artista no incluye splashtag: el generador solo se
+  // muestra al editar la ficha principal.
+  if (mode !== "artist_custom") {
+    const bnr = el("div");
+    appEl().append(bnr);
+    renderBanner(bnr, state, () => updatePreview(preview));
+  }
 
   const help = el("div");
   appEl().append(help);
@@ -491,6 +502,20 @@ function renderEditor() {
     saveBtnLabel);
   const bar = el("div", { class: "edc-card", style: "padding:0" }, el("div", { class: "edc-save-bar" }, saveBtn, status));
   appEl().append(bar);
+}
+
+// ── Versión para un artista: la ficha principal se aparta y se restaura ──
+function pickChar(s) {
+  const o = {};
+  for (const k of CHAR_FIELDS) o[k] = structuredClone(s[k]);
+  return o;
+}
+function applyChar(s, src) {
+  for (const k of CHAR_FIELDS) if (src[k] !== undefined && src[k] !== null) s[k] = structuredClone(src[k]);
+}
+function leaveVariantMode() {
+  if (state?._mainChar) applyChar(state, state._mainChar);
+  if (state) { delete state._mainChar; delete state._artistVariantFor; }
 }
 
 function updatePreview(node) {
@@ -584,7 +609,7 @@ async function doSave(btn, status) {
       await saveArtistVariant(artistId, state);
       await ov.phase(withName(t("artist_choice_custom_saved"), artName), 100, 700);
       ov.close();
-      delete state._artistVariantFor;
+      leaveVariantMode();
       clearRef();
       toast(withName(t("artist_choice_custom_saved"), artName), "ok");
       mode = "preview";

@@ -138,6 +138,24 @@ export function renderRefConsent(container, artist, state, onChange) {
   ));
 }
 
+// Campos del personaje que forman una "versión para un artista"
+// (mismos nombres en players y en player_artist_chars).
+export const CHAR_FIELDS = [
+  "player_type", "hair", "bottom", "bottom_variation", "skin_tone", "eye_brows", "eye_color",
+  "gear_head", "gear_head_variation", "gear_cloth", "gear_cloth_variation",
+  "gear_shoes", "gear_shoes_variation", "weapon_main", "anim_name", "color",
+];
+
+// Versión ya guardada del jugador para ese artista (RLS: solo las suyas) o null.
+export async function loadArtistVariant(artistId) {
+  try {
+    const { data, error } = await supabase.from("player_artist_chars")
+      .select(CHAR_FIELDS.join(",")).eq("artist_id", artistId).maybeSingle();
+    if (error) { console.warn("player_artist_chars:", error); return null; }
+    return data || null;
+  } catch (e) { console.warn("player_artist_chars:", e); return null; }
+}
+
 // Guarda (o actualiza) la variante de personaje que el jugador crea
 // específicamente para un artista. No toca la ficha principal del jugador.
 // Llama al RPC artist_save_char (migración 20260922_01/07), que además asocia

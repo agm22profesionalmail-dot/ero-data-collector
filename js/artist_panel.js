@@ -36,6 +36,7 @@ const S = {
     empty: "No players in your group yet.",
     no_alias: "No alias", view: "View sheet",
     render_soon: "Render coming soon",
+    render_variant: "Render of this version coming soon",
     download_card: "Download Splashtag",
     download_banner: "Download banner",
     no_banner: "No Splashtag",
@@ -77,6 +78,7 @@ const S = {
     empty: "Aún no hay jugadores en tu grupo.",
     no_alias: "Sin alias", view: "Ver ficha",
     render_soon: "Render en preparación",
+    render_variant: "Render de esta versión en preparación",
     download_card: "Descargar Splashtag",
     download_banner: "Descargar banner",
     no_banner: "Sin Splashtag",
@@ -459,9 +461,12 @@ function renderSlot(player, onLoaded) {
   const slot = el("div", { class: "edc-pcard-render" });
   const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
   phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
-  const ph = el("div", { class: "edc-pcard-render-ph" }, phIco, el("span", {}, ta("render_soon")));
+  // Si el jugador hizo una versión para este artista, el render existente es
+  // el de su ficha PRINCIPAL (otro personaje): no se enseña.
+  const ph = el("div", { class: "edc-pcard-render-ph" }, phIco,
+    el("span", {}, ta(player?.has_variant ? "render_variant" : "render_soon")));
   slot.append(ph);
-  loadRenderInto(slot, ph, player, onLoaded);
+  if (!player?.has_variant) loadRenderInto(slot, ph, player, onLoaded);
   return slot;
 }
 async function loadRenderInto(slot, ph, player, onLoaded) {
