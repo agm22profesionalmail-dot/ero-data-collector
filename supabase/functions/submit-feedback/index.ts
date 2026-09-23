@@ -316,7 +316,9 @@ async function submit(req: Request, body: SubmitBody) {
   }
 
   // Anti-spam: por contacto y por IP en la última hora
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("cf-connecting-ip") || "";
+  // IP puesta por el proxy primero: el primer valor de x-forwarded-for lo puede falsear el cliente
+  const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip")
+    || (req.headers.get("x-forwarded-for") ?? "").split(",").pop()?.trim() || "";
   const ipHash = ip ? await sha256Hex(`${IP_SALT}|${ip}`) : null;
   const contactFilter = method === "email"
     ? `contact_email=eq.${encodeURIComponent(email as string)}`
