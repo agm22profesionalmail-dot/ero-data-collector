@@ -602,3 +602,6 @@ function renderSheet(p) {
   );
   return sheet;
 }
+
+// Reutilizados por el panel de admin (listado de todas las fichas).
+export { ensureData, renderSlot, renderBanner, renderSheet, setMainWide };
