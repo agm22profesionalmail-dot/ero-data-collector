@@ -238,7 +238,9 @@ export function renderAdminPanel(container, { onBack } = {}) {
         ...vars.map((a) => chip(a.artist_id, `${ta("version_for")} ${a.name || a.slug || "?"}`))));
     }
     const v = artistId ? vars.find((a) => a.artist_id === artistId)?.variant : null;
-    const shown = v ? { ...p, ...v, has_variant: true } : { ...p, has_variant: false };
+    const shown = v
+      ? { ...p, ...v, has_variant: true, variant_render: `${p.user_id}/artist/${artistId}.png` }
+      : { ...p, has_variant: false };
     wrap.append(el("div", { class: "edc-pcard" },
       renderSlot(shown),
       el("div", { class: "edc-pcard-main" },
