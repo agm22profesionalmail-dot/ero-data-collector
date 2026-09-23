@@ -9,6 +9,7 @@ import { SPLATTAG_CDN, LEANNY_BADGE_CDN } from "./config.js";
 import { getLang, t } from "./i18n.js";
 import { el, clear, debounce } from "./ui.js";
 import EXTRA_BADGES from "./extra-badges.js";
+import { loadNames, badgeNames, bannerNames, curName, altName } from "./data.js";
 
 const TAG_W = 700, TAG_H = 200, TEXT_SCALE = 2;
 const A = (p) => `${SPLATTAG_CDN}/assets/${p}`;
@@ -73,6 +74,7 @@ async function loadAssets() {
   const [aj, lj] = await Promise.all([
     fetch(`${SPLATTAG_CDN}/assets.min.json`).then((r) => r.json()),
     fetch(`${SPLATTAG_CDN}/lang.min.json`).then((r) => r.json()),
+    loadNames(), // nombres oficiales EN/ES de badges y banners
   ]);
   _assetsRaw = aj; _langRaw = lj;
   _assets = { banners: parseBanners(aj), badges: parseBadges(aj) };
@@ -156,6 +158,14 @@ async function loadWatermarks() {
 
 function sectionLabel(name, langKey) { return (_langRaw[langKey]?.sections?.[name]) || name; }
 
+// Etiqueta de un badge/banner: texto oficial del juego en el idioma de la web
+// (badges) o su origen/nombre oficial (banners); si no hay, el nombre de
+// fichero legible. alt = el mismo en el otro idioma (búsqueda y tooltip).
+function assetNames(file) {
+  const pair = badgeNames(file) || bannerNames(file);
+  return pair ? { label: curName(pair), alt: altName(pair) } : { label: prettify(file), alt: "" };
+}
+
 function prettify(file) {
   const base = file.split("/").pop();
   return base
@@ -167,7 +177,8 @@ function prettify(file) {
 const CFG_KEY = (state) => "edc_splattag_" + (state._userId || "anon");
 
 function defaultGen(state) {
-  const langKey = getLang() === "es" ? "USes" : "USen";
+  // Español de España (EUes) para los títulos del splashtag, no el latinoamericano
+  const langKey = getLang() === "es" ? "EUes" : "USen";
   return {
     langKey,
     banner: _assets.banners[0]?.file || null,
@@ -400,8 +411,9 @@ function openAssetPicker({ title, items, langKey, onSelect }) {
     let lastSection = null, any = false;
     const frag = document.createDocumentFragment();
     for (const it of items) {
-      const label = prettify(it.file);
-      if (ql && !label.toLowerCase().includes(ql) && !it.file.toLowerCase().includes(ql)) continue;
+      const { label, alt } = assetNames(it.file);
+      if (ql && !label.toLowerCase().includes(ql) && !alt.toLowerCase().includes(ql)
+        && !it.file.toLowerCase().includes(ql)) continue;
       any = true;
       if (it.section !== lastSection) {
         lastSection = it.section;
@@ -410,7 +422,8 @@ function openAssetPicker({ title, items, langKey, onSelect }) {
       const base = it.url || A(it.file);
       const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy", decoding: "async" });
       img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = base + ".png"; } };
-      frag.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: label, onClick: () => { onSelect(it); close(); } },
+      frag.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: alt ? `${label}
+${alt}` : label, onClick: () => { onSelect(it); close(); } },
         img, el("div", {}, label)));
     }
     if (!any) frag.append(el("div", { class: "edc-empty" }, t("no_results")));

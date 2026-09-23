@@ -14,7 +14,7 @@ import { getLang } from "./i18n.js";
 import { el, clear, toast, imgWithFallback } from "./ui.js";
 import {
   loadData, data, getById, colorToHex,
-  headName, clothName, shoesName,
+  headNames, clothNames, shoesNames, curName, altName,
   skinUrl, eyeUrl, typeUrl, hairUrl, eyebrowUrl, pantsVarUrl, pantsVarLocalUrl, gearUrl,
   eyebrowsFor,
 } from "./data.js";
@@ -496,10 +496,15 @@ function legsRow(bot, v) {
   const label = Number(v) === 0 ? ta("base") : "V" + v;
   return el("div", { class: "edc-pcard-field-value" }, swatchWrap(img), el("span", {}, label));
 }
-function gearRow(entry, urlFn, nameFn, variation) {
+// namesFn(e) → [en, es]: nombre oficial en el idioma de la web y, debajo, en
+// el otro (el artista puede buscar la prenda con cualquiera de los dos).
+function gearRow(entry, urlFn, namesFn, variation) {
+  const pair = entry ? namesFn(entry) : null;
+  const alt = altName(pair);
   return el("div", { class: "edc-pcard-field-value" },
-    swatchWrap(imgWithFallback(entry ? urlFn(entry) : "", entry ? nameFn(entry) : "")),
-    el("span", {}, entry ? nameFn(entry) : "—"),
+    swatchWrap(imgWithFallback(entry ? urlFn(entry) : "", pair ? curName(pair) : "")),
+    el("span", {}, pair ? curName(pair) : "—",
+      alt ? el("span", { class: "edc-pcard-name-alt" }, alt) : null),
     (entry?.VariationNum && Number(variation) === 1) ? el("span", { class: "edc-pcard-alt" }, ta("alt")) : null);
 }
 
@@ -586,9 +591,9 @@ function renderSheet(p) {
     fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, browIdx) : plainSwatchRow("")),
     fieldRow(ta("f_legs"), bot ? legsRow(bot, p.bottom_variation) : plainSwatchRow("")),
     el("div", { class: "edc-pcard-section-sep" }, ta("g_gear")),
-    fieldRow(ta("f_head"), gearRow(head, gearUrl, headName, p.gear_head_variation)),
-    fieldRow(ta("f_cloth"), gearRow(cloth, gearUrl, clothName, p.gear_cloth_variation)),
-    fieldRow(ta("f_shoes"), gearRow(shoes, gearUrl, shoesName, p.gear_shoes_variation)),
+    fieldRow(ta("f_head"), gearRow(head, gearUrl, headNames, p.gear_head_variation)),
+    fieldRow(ta("f_cloth"), gearRow(cloth, gearUrl, clothNames, p.gear_cloth_variation)),
+    fieldRow(ta("f_shoes"), gearRow(shoes, gearUrl, shoesNames, p.gear_shoes_variation)),
   );
   return sheet;
 }

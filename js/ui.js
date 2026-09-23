@@ -53,12 +53,14 @@ export function openGallery({ title, items, onSelect }) {
   const render = (q) => {
     clear(grid);
     const ql = (q || "").toLowerCase();
-    const filtered = items.filter((it) => !ql || it.label.toLowerCase().includes(ql));
+    const filtered = items.filter((it) => !ql || it.label.toLowerCase().includes(ql)
+      || (it.alt || "").toLowerCase().includes(ql));
     if (!filtered.length) { grid.append(el("div", { class: "edc-empty" }, t("no_results"))); return; }
     const frag = document.createDocumentFragment();
     for (const it of filtered) {
       frag.append(el("div", { class: "edc-gallery-cell", onClick: () => { onSelect(it.id); close(); } },
-        imgWithFallback(it.img, it.label), el("div", {}, it.label)));
+        imgWithFallback(it.img, it.label), el("div", {}, it.label),
+        it.alt ? el("div", { class: "edc-gallery-alt" }, it.alt) : null));
     }
     grid.append(frag);
   };
