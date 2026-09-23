@@ -530,7 +530,7 @@ async function sendSmtp(to: string, subject: string, text: string, html: string)
 
 // Mensaje directo por Discord. null = enviado; si no, el motivo del fallo.
 // Un bot solo puede escribir a quien comparte servidor con él (error 50007).
-async function sendDiscordDm(discordId: string, content: string): Promise<string | null> {
+async function sendDiscordDm(discordId: string, payload: DiscordPayload): Promise<string | null> {
   if (!DISCORD_BOT_TOKEN) return "discord bot not configured";
   const api = (path: string, body: unknown) => fetch(`https://discord.com/api/v10${path}`, {
     method: "POST",
@@ -542,7 +542,7 @@ async function sendDiscordDm(discordId: string, content: string): Promise<string
     const ch = await api("/users/@me/channels", { recipient_id: discordId });
     if (!ch.ok) return `discord ${ch.status}: ${(await ch.text()).slice(0, 200)}`;
     const { id } = await ch.json();
-    const msg = await api(`/channels/${id}/messages`, { content: content.slice(0, 2000), allowed_mentions: { parse: [] } });
+    const msg = await api(`/channels/${id}/messages`, payload);
     if (!msg.ok) return `discord ${msg.status}: ${(await msg.text()).slice(0, 200)}`;
     return null;
   } catch (err) {
@@ -550,29 +550,78 @@ async function sendDiscordDm(discordId: string, content: string): Promise<string
   }
 }
 
-// Texto corto para Discord (límite 2000). key = null → sin clave (rechazo, o
-// el artista ya eligió la suya): solo se le manda al panel.
-function discordText(row: Outbox, key: string | null) {
+// Mensaje de Discord con el aspecto del email: embed con la franja morada de
+// la marca, cabecera con el logo, la misma portada, clave tras spoiler, pasos
+// numerados, botones de enlace y el pie legal. key = null → sin clave
+// (rechazo, o el artista ya eligió la suya): solo se le manda al panel.
+type DiscordPayload = {
+  content?: string;
+  embeds: Record<string, unknown>[];
+  components: Record<string, unknown>[];
+  allowed_mentions: { parse: string[] };
+};
+
+function discordMessage(row: Outbox, key: string | null): DiscordPayload {
   const lang: "en" | "es" = row.lang === "es" ? "es" : "en";
   const name = row.name || "artist";
-  const note = lang === "es"
-    ? "_Te escribimos por aquí porque no hemos podido hacerte llegar el email._"
-    : "_We're messaging you here because we couldn't get the email to you._";
+  const panelLink = `${SITE_URL}/?panel`;
+  const siteLink = `${SITE_URL}/`;
+  const icon = `${ASSETS}/apple-touch-icon.png`;
+  const why = lang === "es"
+    ? "-# Te escribimos por aquí porque no hemos podido hacerte llegar el email."
+    : "-# We're messaging you here because we couldn't get the email to you.";
+  const button = (label: string, url: string) => ({ type: 2, style: 5, label, url });
+  const base = { allowed_mentions: { parse: [] as string[] }, content: why };
+
   if (row.kind === "rejected") {
     const t = rejectCopy(lang, name);
-    return [`**${t.title}**`, "", t.hello, "", ...t.paras, "", `${t.cta}: <${SITE_URL}/>`, "", note].join("\n");
+    return {
+      ...base,
+      embeds: [{
+        color: 0x7a7f96,
+        author: { name: `OC Data Collector · ${t.kicker}`, icon_url: icon, url: siteLink },
+        title: t.title,
+        description: [t.hello, "", ...t.paras.flatMap((p) => [p, ""]), `-# ${t.help}`].join("\n"),
+        image: { url: `${ASSETS}/email-hero-rejected.jpg` },
+        footer: { text: t.legal, icon_url: icon },
+        timestamp: new Date().toISOString(),
+      }],
+      components: [{ type: 1, components: [button(t.cta, siteLink)] }],
+    };
   }
-  const t = copy(lang, !!row.reset, name);
-  const lines = [`**${t.title}**`, "", t.hello, "", t.intro, "", `${t.cta}: <${SITE_URL}/?panel>`];
-  if (key) lines.push("", `${t.keyTitle}: ||${key}||`, t.keyNote);
-  if (!row.reset && row.slug) lines.push("", `${t.linkTitle}: <${SITE_URL}/?ref=${encodeURIComponent(row.slug)}>`);
-  lines.push("", t.help, "", note);
-  return lines.join("\n");
+
+  const reset = !!row.reset;
+  const t = copy(lang, reset, name);
+  const refLink = `${SITE_URL}/?ref=${encodeURIComponent(row.slug ?? "")}`;
+  const steps = (reset ? t.steps.slice(0, 3) : t.steps).map((s, i) => `**${i + 1}.** ${s}`).join("\n");
+  const fields: { name: string; value: string }[] = [];
+  if (key) fields.push({ name: t.keyTitle, value: `||\`${key}\`||\n-# ${t.keyNote}` });
+  if (!reset && row.slug) fields.push({ name: t.linkTitle, value: `\`${refLink}\`\n-# ${t.linkNote}` });
+  fields.push({ name: t.stepsTitle, value: steps });
+  const linkLabel = lang === "es" ? "Mi enlace de artista" : "My artist link";
+  return {
+    ...base,
+    embeds: [{
+      color: 0x8b5cff,
+      author: { name: `OC Data Collector · ${t.kicker}`, icon_url: icon, url: siteLink },
+      title: t.title,
+      url: panelLink,
+      description: `${t.hello}\n\n${t.intro}`,
+      fields,
+      image: { url: `${ASSETS}/${pickHero(row.hero)}` },
+      footer: { text: `${t.help}\n${t.legal}`, icon_url: icon },
+      timestamp: new Date().toISOString(),
+    }],
+    components: [{
+      type: 1,
+      components: [button(t.cta, panelLink), ...(!reset && row.slug ? [button(linkLabel, refLink)] : [])],
+    }],
+  };
 }
 
 // Plan B por Discord. Devuelve el parche para la fila de la cola.
 async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: string | null, reason: string) {
-  const dmErr = artist?.discord_id ? await sendDiscordDm(artist.discord_id, discordText(row, key)) : "no discord id";
+  const dmErr = artist?.discord_id ? await sendDiscordDm(artist.discord_id, discordMessage(row, key)) : "no discord id";
   if (!dmErr) {
     return {
       sent_at: row.sent_at ?? new Date().toISOString(), key: null, error: null, note: reason,
