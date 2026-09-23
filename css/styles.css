@@ -839,6 +839,12 @@ body {
 .edc-admin-v { color: var(--text); word-break: break-all; }
 .edc-admin-keycard { text-align: left; max-width: 460px; }
 .edc-admin-secret { margin: 8px 0; }
+.edc-admin-tabs { justify-content: flex-start; margin: 0 0 14px; }
+.edc-admin-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.edc-admin-filters .edc-input { flex: 1 1 260px; margin: 0; }
+.edc-admin-check { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--muted); cursor: pointer; }
+.edc-admin-note { margin-bottom: 12px; }
+.edc-admin-vbadge { align-self: flex-start; margin-top: 4px; }
 .edc-admin-secret code { display: block; background: var(--bg-2); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font-size: .82rem; word-break: break-all; color: var(--accent-2); }
 
