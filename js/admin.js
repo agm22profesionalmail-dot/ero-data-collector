@@ -58,14 +58,15 @@ export function leaveAdmin() {
   return true;
 }
 
-// { user, pass }: en memoria + sessionStorage de esta pestaña, para que
-// recargar o que el navegador descarte la pestaña en segundo plano no cierre
-// la sesión. Se borra al cerrar la pestaña o al pulsar "Salir".
+// { user, pass }: en memoria + localStorage, para que la sesión no se cierre
+// sola (cambiar de pestaña, recargar, cerrar el navegador). Solo se borra al
+// pulsar "Salir" (aquí o arriba a la derecha) o si dejan de ser válidas.
 const CREDS_KEY = "edc_admin_creds";
 const store = {
-  get() { try { return JSON.parse(sessionStorage.getItem(CREDS_KEY) || "null"); } catch { return null; } },
-  set(v) { try { v ? sessionStorage.setItem(CREDS_KEY, JSON.stringify(v)) : sessionStorage.removeItem(CREDS_KEY); } catch { /* sin storage */ } },
+  get() { try { return JSON.parse(localStorage.getItem(CREDS_KEY) || "null"); } catch { return null; } },
+  set(v) { try { v ? localStorage.setItem(CREDS_KEY, JSON.stringify(v)) : localStorage.removeItem(CREDS_KEY); } catch { /* sin storage */ } },
 };
+export function forgetAdmin() { creds = null; rows = null; store.set(null); }
 let creds = store.get();
 let rows = null;    // último listado de artistas
 let tab = "requests"; // "requests" | "players"

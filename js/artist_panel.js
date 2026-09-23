@@ -33,6 +33,7 @@ const S = {
     bad_key: "Wrong key or unauthorized access.", err: "Error: ",
     refresh: "Refresh", change_key: "Change key",
     back: "← Back to site", back_gallery: "← Back to group",
+    render_beta: "*3D renders are in beta, expect errors.",
     empty: "No players in your group yet.",
     no_alias: "No alias", view: "View sheet",
     render_soon: "Render coming soon",
@@ -75,6 +76,7 @@ const S = {
     bad_key: "Clave o acceso incorrectos.", err: "Error: ",
     refresh: "Actualizar", change_key: "Cambiar clave",
     back: "← Volver a la web", back_gallery: "← Volver al grupo",
+    render_beta: "*Renderizados 3D en fase beta, espera errores.",
     empty: "Aún no hay jugadores en tu grupo.",
     no_alias: "Sin alias", view: "Ver ficha",
     render_soon: "Render en preparación",
@@ -118,14 +120,15 @@ export function leavePanel() {
   return true;
 }
 
-// Clave en memoria + sessionStorage de esta pestaña: recargar o que el
-// navegador descarte la pestaña en segundo plano no obliga a meterla otra vez.
-// Se borra al cerrar la pestaña o con "Cambiar clave".
+// Clave en memoria + localStorage: la sesión del panel no se cierra sola
+// (cambiar de pestaña, recargar, cerrar el navegador). Solo se borra con
+// "Cambiar clave", al cerrar sesión arriba a la derecha o si deja de valer.
 const KEY_STORE = "edc_panel_key";
 const keyStore = {
-  get() { try { return sessionStorage.getItem(KEY_STORE); } catch { return null; } },
-  set(v) { try { v ? sessionStorage.setItem(KEY_STORE, v) : sessionStorage.removeItem(KEY_STORE); } catch { /* sin storage */ } },
+  get() { try { return localStorage.getItem(KEY_STORE); } catch { return null; } },
+  set(v) { try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch { /* sin storage */ } },
 };
+export function forgetPanelKey() { artistKey = null; rows = null; mustChange = false; termsOk = false; keyStore.set(null); }
 let artistKey = null;
 let rows = null;       // último grupo devuelto por artist_group
 let mustChange = false; // must_change_password del último rpcGroup
@@ -357,7 +360,9 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
     // la imagen carga OK (así el rectángulo vacío nunca aparece: sin path o con
     // 404, el widget se queda hidden y no ocupa espacio).
     wrap.append(el("div", { class: "edc-pcard" },
-      renderSlot(p),
+      el("div", { class: "edc-pcard-side" },
+        renderSlot(p),
+        el("p", { class: "edc-pcard-beta" }, ta("render_beta"))),
       el("div", { class: "edc-pcard-main" },
         el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
         renderBanner(p, { size: "detail", interactive: true }),

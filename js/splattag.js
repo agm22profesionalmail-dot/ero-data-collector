@@ -7,7 +7,7 @@
 // Créditos completos en el aviso legal (app.js → legalHtml).
 import { SPLATTAG_CDN, LEANNY_BADGE_CDN, LEANNY_NPL_CDN } from "./config.js";
 import { getLang, t } from "./i18n.js";
-import { el, clear, debounce } from "./ui.js";
+import { el, clear, debounce, toast } from "./ui.js";
 import EXTRA_BADGES from "./extra-badges.js";
 import EXTRA_BANNERS from "./extra-banners.js";
 import { loadNames, badgeNames, bannerNames, curName, altName } from "./data.js";
@@ -388,6 +388,70 @@ function drawTag(canvas, g, imgs, fonts) {
 
 function bannerMetaBadge(file) { return _assets.badges.find((b) => b.file === file) || null; }
 
+// ── Banner / insignias propios ─────────────────────────────────────────
+// El jugador puede subir su propio banner (700×200) y hasta 3 insignias
+// (cuadradas). Se normalizan en un canvas (re-codifica la imagen: solo
+// quedan píxeles) y se guardan como data URL en la config del generador:
+// g.customBanner y g.customBadges[i]. En g.banner / g.badges[i] queda un
+// marcador (CUSTOM_BANNER / CUSTOM_BADGE + i).
+const CUSTOM_BANNER = "custom:banner";
+const CUSTOM_BADGE = "custom:badge";
+const BADGE_PX = 128;
+const UPLOAD_MAX = 2 * 1024 * 1024;
+const UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const isCustomBadge = (f) => typeof f === "string" && f.startsWith(CUSTOM_BADGE);
+
+function pickImageFile() {
+  return new Promise((res) => {
+    const inp = el("input", { type: "file", accept: UPLOAD_TYPES.join(",") });
+    inp.addEventListener("change", () => res(inp.files?.[0] || null));
+    inp.click();
+  });
+}
+
+// Encaja la imagen en w×h. Banner ("cover"): cubre el área y recorta lo que
+// sobre. Insignia ("contain"): entera y centrada sobre transparente.
+// Devuelve { url, adjusted } o lanza si no es una imagen válida.
+async function normalizeUpload(file, w, h, mode) {
+  if (!file || file.size > UPLOAD_MAX || !UPLOAD_TYPES.includes(file.type)) throw new Error("bad");
+  const src = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ko) => {
+      const i = new Image();
+      i.onload = () => ok(i); i.onerror = () => ko(new Error("bad"));
+      i.src = src;
+    });
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (!iw || !ih) throw new Error("bad");
+    const adjusted = Math.abs(iw / ih - w / h) > 0.01;
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    const k = mode === "cover" ? Math.max(w / iw, h / ih) : Math.min(w / iw, h / ih);
+    const dw = iw * k, dh = ih * k;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    let url = c.toDataURL("image/webp", 0.92);
+    if (!url.startsWith("data:image/webp")) url = c.toDataURL("image/png");
+    return { url, adjusted };
+  } finally {
+    URL.revokeObjectURL(src);
+  }
+}
+
+async function uploadCustom(w, h, mode) {
+  const file = await pickImageFile();
+  if (!file) return null;
+  try {
+    const r = await normalizeUpload(file, w, h, mode);
+    if (r.adjusted) toast(t("gen_upload_adjusted").replace("{size}", mode === "cover" ? `${w}×${h}` : t("gen_square")), "err");
+    return r.url;
+  } catch {
+    toast(t("gen_upload_bad"), "err");
+    return null;
+  }
+}
+
 function exportPng(canvas) {
   // Blindado contra el bug de "Save no funciona": canvas.toBlob puede no llamar
   // al callback (canvas tainted, memoria baja, race con redraw). Sin timeout,
@@ -408,7 +472,7 @@ function exportPng(canvas) {
 }
 
 // ── Selectores modales ────────────────────────────────────────────────
-function openAssetPicker({ title, items, langKey, onSelect }) {
+function openAssetPicker({ title, items, langKey, onSelect, onUpload, uploadHint }) {
   const overlay = el("div", { class: "edc-modal-overlay" });
   const close = () => { overlay.remove(); document.removeEventListener("keydown", esc); };
   const esc = (e) => { if (e.key === "Escape") close(); };
@@ -443,9 +507,13 @@ ${alt}` : label, onClick: () => { onSelect(it); close(); } },
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
 
+  const upload = onUpload ? el("div", { class: "edc-gen-upload" },
+    el("button", { class: "edc-btn edc-btn-sm", onClick: () => { close(); onUpload(); } }, "⬆ " + t("gen_upload")),
+    el("span", {}, uploadHint || "")) : null;
+
   overlay.append(el("div", { class: "edc-modal" },
     el("div", { class: "edc-modal-head" }, el("h3", {}, title), el("button", { class: "edc-modal-close", onClick: close }, "×")),
-    search, body));
+    upload, search, body));
   document.body.append(overlay);
   render(""); search.focus();
 }
@@ -514,6 +582,8 @@ export function renderSplattagGenerator(container, state, onUse) {
       imgs.banner = null; imgs.layerImages = [];
       if (imgs.bannerMeta?.layers) {
         imgs.layerImages = await Promise.all(imgs.bannerMeta.layerFiles.map((f) => loadImage(A(f) + ".png").catch(() => null)));
+      } else if (g.banner === CUSTOM_BANNER) {
+        try { imgs.banner = g.customBanner ? await loadImage(g.customBanner) : null; } catch { imgs.banner = null; }
       } else if (g.banner) {
         try { imgs.banner = await loadImage((imgs.bannerMeta?.url || A(g.banner)) + ".png"); } catch { imgs.banner = null; }
       }
@@ -521,6 +591,11 @@ export function renderSplattagGenerator(container, state, onUse) {
     };
     const reloadBadge = async (i) => {
       if (!g.badges[i]) { imgs.badges[i] = null; redraw(); return; }
+      if (isCustomBadge(g.badges[i])) {
+        const url = g.customBadges?.[i];
+        try { imgs.badges[i] = url ? await loadImage(url) : null; } catch { imgs.badges[i] = null; }
+        redraw(); return;
+      }
       const bm = bannerMetaBadge(g.badges[i]);
       const base = bm?.url || A(g.badges[i]);
       try { imgs.badges[i] = await loadImage(base + ".png"); } catch { imgs.badges[i] = null; }
@@ -550,8 +625,15 @@ export function renderSplattagGenerator(container, state, onUse) {
     // Banner + color de texto
     const bannerBtn = el("button", { class: "edc-btn", onClick: () => openAssetPicker({
       title: t("gen_pick_banner"), items: _assets.banners, langKey: g.langKey,
-      onSelect: (it) => { g.banner = it.file; if (it.colour && !it.layers) { g.colour = "#" + it.colour; colorInput.value = g.colour; }
+      onSelect: (it) => { g.banner = it.file; g.customBanner = null; if (it.colour && !it.layers) { g.colour = "#" + it.colour; colorInput.value = g.colour; }
         touch(); renderLayerPickers(); reloadBanner(); },
+      uploadHint: t("gen_upload_hint_banner"),
+      onUpload: async () => {
+        const url = await uploadCustom(TAG_W, TAG_H, "cover");
+        if (!url) return;
+        g.banner = CUSTOM_BANNER; g.customBanner = url;
+        touch(); renderLayerPickers(); reloadBanner();
+      },
     }) }, t("gen_banner"));
     const colorInput = el("input", { type: "color", class: "edc-gen-color", value: g.colour });
     colorInput.addEventListener("input", () => { g.colour = colorInput.value; onEdit(); });
@@ -612,9 +694,21 @@ export function renderSplattagGenerator(container, state, onUse) {
       const slot = el("button", { class: "edc-btn edc-btn-sm edc-badge-slot", title: t("gen_badge_slot") + " " + (i + 1) });
       const refreshSlot = () => { slot.textContent = g.badges[i] ? "★" : "+"; };
       slot.addEventListener("click", () => {
-        if (g.badges[i]) { g.badges[i] = null; touch(); refreshSlot(); reloadBadge(i); return; }
+        const setCustom = (url) => {
+          const cb = Array.isArray(g.customBadges) ? g.customBadges.slice(0, 3) : [];
+          while (cb.length < 3) cb.push(null);
+          cb[i] = url; g.customBadges = cb;
+        };
+        if (g.badges[i]) { g.badges[i] = null; setCustom(null); touch(); refreshSlot(); reloadBadge(i); return; }
         openAssetPicker({ title: t("gen_pick_badge"), items: _assets.badges, langKey: g.langKey,
-          onSelect: (it) => { g.badges[i] = it.file; touch(); refreshSlot(); reloadBadge(i); } });
+          onSelect: (it) => { g.badges[i] = it.file; setCustom(null); touch(); refreshSlot(); reloadBadge(i); },
+          uploadHint: t("gen_upload_hint_badge"),
+          onUpload: async () => {
+            const url = await uploadCustom(BADGE_PX, BADGE_PX, "contain");
+            if (!url) return;
+            g.badges[i] = CUSTOM_BADGE + i; setCustom(url);
+            touch(); refreshSlot(); reloadBadge(i);
+          } });
       });
       refreshSlot();
       slots.append(slot);
