@@ -15,6 +15,7 @@ import { supabase } from "./supabase.js";
 import { t, getLang } from "./i18n.js";
 import { el, clear, toast } from "./ui.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
+import { checkEmailDomain, suggestEmail } from "./email_check.js";
 
 const REF_KEY = "edc_ref";              // slug del artista (sessionStorage)
 const APPLY_KEY = "edc_apply_pending";  // "1" si se fue al OAuth desde ?apply
@@ -292,7 +293,9 @@ export function renderArtistApply(container, { session, profile, actions }) {
   card.append(as);
 
   const errBox = el("div", { class: "edc-banner-err", hidden: "" });
-  const showErr = (msg) => { errBox.textContent = msg; errBox.hidden = !msg; };
+  const showErr = (msg, ...extra) => { errBox.replaceChildren(msg, ...extra); errBox.hidden = !msg; };
+  // Email al que ya se le ofreció corrección: si se reenvía igual, se respeta
+  let suggestedFor = "";
 
   card.append(el("label", { class: "edc-label" }, t("apply_name")));
   const name = el("input", { class: "edc-input", type: "text", maxlength: "60", placeholder: t("apply_name_ph"), value: draft.name, autocomplete: "nickname" });
@@ -341,9 +344,29 @@ export function renderArtistApply(container, { session, profile, actions }) {
     const r = draft.reason.trim();
     if (!n) { name.classList.add("error"); showErr(t("apply_name_required")); name.focus(); return; }
     if (!validEmail(em)) { email.classList.add("error"); showErr(t("apply_email_invalid")); email.focus(); return; }
+    // Errata en un dominio común ("gmial.com"): se ofrece la corrección una vez
+    const fix = suggestEmail(em);
+    if (fix && suggestedFor !== em) {
+      suggestedFor = em;
+      email.classList.add("error");
+      const use = el("button", { class: "edc-btn-link", type: "button", onClick: () => {
+        draft.email = fix; email.value = fix; email.classList.remove("error"); showErr(""); email.focus();
+      } }, t("apply_email_suggest_use"));
+      showErr(t("apply_email_suggest").replace("{email}", fix) + " ", use, el("br"), t("apply_email_suggest_keep"));
+      return;
+    }
     if (!validPortfolio(p)) { portfolio.classList.add("error"); showErr(t("apply_portfolio_invalid")); portfolio.focus(); return; }
     if (!terms.checked) { termsRow.classList.add("error"); showErr(t("apply_terms_required")); terms.focus(); return; }
-    submit.disabled = true; status.className = "edc-save-status"; status.textContent = t("apply_sending");
+    submit.disabled = true; status.className = "edc-save-status"; status.textContent = t("apply_email_checking");
+    // El dominio tiene que poder recibir correo (MX o A). Si el DNS no
+    // responde ("unknown") no se bloquea: la Edge Function vuelve a mirarlo
+    // al enviar y tira de Discord si hace falta.
+    if (await checkEmailDomain(em) === "dead") {
+      submit.disabled = false; status.textContent = "";
+      email.classList.add("error"); showErr(t("apply_email_dead")); email.focus();
+      return;
+    }
+    status.textContent = t("apply_sending");
     try {
       await submitRequest({ discord_id: profile.discord_id, name: n, email: em, portfolio: p, reason: r });
       sent = true;
