@@ -5,10 +5,11 @@
 // marca de agua de artistas. Assets servidos vía jsDelivr con CORS, para poder
 // exportar el canvas (crossOrigin="anonymous") sin "tainted canvas".
 // Créditos completos en el aviso legal (app.js → legalHtml).
-import { SPLATTAG_CDN, LEANNY_BADGE_CDN } from "./config.js";
+import { SPLATTAG_CDN, LEANNY_BADGE_CDN, LEANNY_NPL_CDN } from "./config.js";
 import { getLang, t } from "./i18n.js";
 import { el, clear, debounce } from "./ui.js";
 import EXTRA_BADGES from "./extra-badges.js";
+import EXTRA_BANNERS from "./extra-banners.js";
 import { loadNames, badgeNames, bannerNames, curName, altName } from "./data.js";
 
 const TAG_W = 700, TAG_H = 200, TEXT_SCALE = 2;
@@ -97,6 +98,15 @@ function parseBanners(data) {
     }
   };
   walk(data.banners, "banners/");
+  // Banners oficiales que SeymourSchlong aún no incluye (temporadas 8-9,
+  // Splatoon Raiders…): imagen desde Leanny/splat3 (solo .png), resuelta por
+  // `url`. Se colocan al final de su sección, antes de los banners de fans.
+  for (const e of EXTRA_BANNERS) {
+    const item = { file: "banners/" + e.f, colour: e.c, section: e.s, url: `${LEANNY_NPL_CDN}/${e.f}`, noWebp: true };
+    let at = -1;
+    out.forEach((b, i) => { if (b.section === e.s) at = i; });
+    out.splice(at < 0 ? out.length : at + 1, 0, item);
+  }
   walk(data.customBanners, "custom/banners/");
   return out;
 }
@@ -505,7 +515,7 @@ export function renderSplattagGenerator(container, state, onUse) {
       if (imgs.bannerMeta?.layers) {
         imgs.layerImages = await Promise.all(imgs.bannerMeta.layerFiles.map((f) => loadImage(A(f) + ".png").catch(() => null)));
       } else if (g.banner) {
-        try { imgs.banner = await loadImage(A(g.banner) + ".png"); } catch { imgs.banner = null; }
+        try { imgs.banner = await loadImage((imgs.bannerMeta?.url || A(g.banner)) + ".png"); } catch { imgs.banner = null; }
       }
       redraw();
     };

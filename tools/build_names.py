@@ -118,6 +118,9 @@ import urllib.request
 ST_ASSETS = "https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@main/assets.min.json"
 st = json.loads(urllib.request.urlopen(ST_ASSETS, timeout=30).read().decode("utf-8"))
 files = [b["file"] for b in st["banners"] + st["customBanners"] if isinstance(b, dict) and "file" in b]
+# + los oficiales que añade la web por su cuenta (js/extra-banners.js)
+extra_js = (Path(__file__).resolve().parent.parent / "js" / "extra-banners.js").read_text(encoding="utf-8")
+files += [e["f"] for e in json.loads(extra_js.split("export default ", 1)[1].rstrip().rstrip(";"))]
 
 
 def norm(t: str) -> str:
@@ -160,6 +163,10 @@ for f in files:
         continue
     if re.match(r"Npl_[FS]dodr\d+$", f):
         banners[f] = ["Side Order", "Side Order"]
+        continue
+    m = re.match(r"Npl_News_Ability_Lv(\d+)$", f)
+    if m:
+        banners[f] = origin("Splatoon Raiders", "Splatoon Raiders", None, int(m.group(1)))
         continue
     m = re.match(r"Npl_Tutorial(\d+)$", f)
     if m:
