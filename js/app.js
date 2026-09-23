@@ -222,7 +222,7 @@ function renderFloatbar() {
        el("span", { class: "edc-float-label" }, t("join_discord"))),
     el("a", {
       class: "edc-float-btn edc-float-kofi",
-      href: "https://ko-fi.com/Q2Z422804H",
+      href: "https://ko-fi.com/zerosplatoon",
       target: "_blank", rel: "noopener noreferrer",
       "aria-label": t("kofi_btn"),
     }, el("span", { class: "edc-float-ico", html: kofiSvg(18) }),
