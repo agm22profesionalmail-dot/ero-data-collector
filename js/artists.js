@@ -210,6 +210,17 @@ export function restoreApplyRoute() {
 }
 const markApplyPending = () => ss.set(APPLY_KEY, "1");
 
+// Servidor de Discord (el mismo del botón flotante). El bot que manda los
+// avisos por mensaje directo cuando el email no llega (Edge Function
+// send-artist-credentials) solo puede escribir a quien esté en él.
+const DISCORD_INVITE = "https://discord.gg/Hckay4PGNR";
+function discordHint(svg) {
+  return el("div", { class: "edc-apply-discord-hint" },
+    el("span", {}, t("apply_discord_hint")),
+    el("a", { class: "edc-apply-discord-join", href: DISCORD_INVITE, target: "_blank", rel: "noopener noreferrer" },
+      el("span", { html: svg || "" }), t("apply_discord_join")));
+}
+
 // Borrador del formulario: sobrevive a los repintados de la vista (cambio de
 // idioma, refresco de token → route()) para no perder lo tecleado.
 let draft = { name: "", email: "", portfolio: "", reason: "", terms: false };
@@ -266,6 +277,7 @@ export function renderArtistApply(container, { session, profile, actions }) {
     card.append(el("div", { class: "edc-apply-done" },
       el("div", { class: "edc-apply-done-title" }, t("apply_done_title")),
       el("p", { class: "edc-apply-intro" }, t("apply_done")),
+      discordHint(actions.discordSvg ? actions.discordSvg() : ""),
       backLink()));
     return;
   }
@@ -310,6 +322,7 @@ export function renderArtistApply(container, { session, profile, actions }) {
   const email = el("input", { class: "edc-input", type: "email", maxlength: "254", placeholder: t("apply_email_ph"), value: draft.email, autocomplete: "email", inputmode: "email" });
   email.addEventListener("input", () => { draft.email = email.value; email.classList.remove("error"); showErr(""); });
   card.append(email);
+  card.append(discordHint(actions.discordSvg ? actions.discordSvg() : ""));
 
   card.append(el("label", { class: "edc-label" }, t("apply_portfolio")));
   const portfolio = el("input", { class: "edc-input", type: "url", maxlength: "200", placeholder: "https://…", value: draft.portfolio, autocomplete: "url", inputmode: "url" });
