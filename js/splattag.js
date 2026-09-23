@@ -472,36 +472,54 @@ function exportPng(canvas) {
 }
 
 // ── Selectores modales ────────────────────────────────────────────────
+// Solo un selector abierto a la vez: un doble clic en un botón lento abría dos
+// galerías de ~2.000 insignias seguidas y congelaba los equipos modestos.
+let _pickerOpen = false;
+const PICKER_FIRST = 120;   // celdas que se pintan al abrir
+const PICKER_CHUNK = 200;   // resto, por tandas, sin bloquear la página
+
 function openAssetPicker({ title, items, langKey, onSelect, onUpload, uploadHint }) {
+  if (_pickerOpen) return;
+  _pickerOpen = true;
   const overlay = el("div", { class: "edc-modal-overlay" });
-  const close = () => { overlay.remove(); document.removeEventListener("keydown", esc); };
+  let job = 0;   // invalida las tandas pendientes al cerrar o al buscar
+  const close = () => { job++; _pickerOpen = false; overlay.remove(); document.removeEventListener("keydown", esc); };
   const esc = (e) => { if (e.key === "Escape") close(); };
   const body = el("div", { class: "edc-gallery-grid edc-gallery-sectioned" });
   const search = el("input", { class: "edc-input edc-search", placeholder: t("search_ph"), style: "margin:12px 16px 0" });
 
   const render = (q) => {
+    const my = ++job;
     clear(body);
     const ql = (q || "").toLowerCase();
-    let lastSection = null, any = false;
-    const frag = document.createDocumentFragment();
+    const matches = [];
     for (const it of items) {
       const { label, alt } = assetNames(it.file);
       if (ql && !label.toLowerCase().includes(ql) && !alt.toLowerCase().includes(ql)
         && !it.file.toLowerCase().includes(ql)) continue;
-      any = true;
-      if (it.section !== lastSection) {
-        lastSection = it.section;
-        frag.append(el("div", { class: "edc-gallery-head" }, sectionLabel(it.section, langKey)));
-      }
-      const base = it.url || A(it.file);
-      const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy", decoding: "async" });
-      img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = base + ".png"; } };
-      frag.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: alt ? `${label}
-${alt}` : label, onClick: () => { onSelect(it); close(); } },
-        img, el("div", {}, label)));
+      matches.push({ it, label, alt });
     }
-    if (!any) frag.append(el("div", { class: "edc-empty" }, t("no_results")));
-    body.append(frag);
+    if (!matches.length) { body.append(el("div", { class: "edc-empty" }, t("no_results"))); return; }
+    let lastSection = null, pos = 0;
+    const paint = (n) => {
+      const frag = document.createDocumentFragment();
+      for (const end = Math.min(pos + n, matches.length); pos < end; pos++) {
+        const { it, label, alt } = matches[pos];
+        if (it.section !== lastSection) {
+          lastSection = it.section;
+          frag.append(el("div", { class: "edc-gallery-head" }, sectionLabel(it.section, langKey)));
+        }
+        const base = it.url || A(it.file);
+        const img = el("img", { src: base + (it.noWebp ? ".png" : ".webp"), alt: label, loading: "lazy", decoding: "async" });
+        img.onerror = () => { if (!img.dataset.png) { img.dataset.png = "1"; img.src = base + ".png"; } };
+        frag.append(el("div", { class: "edc-gallery-cell" + (it.layers ? " edc-cell-layers" : ""), title: alt ? `${label}
+${alt}` : label, onClick: () => { onSelect(it); close(); } },
+          img, el("div", {}, label)));
+      }
+      body.append(frag);
+      if (pos < matches.length) setTimeout(() => { if (my === job) paint(PICKER_CHUNK); }, 16);
+    };
+    paint(PICKER_FIRST);
   };
   search.addEventListener("input", debounce(() => render(search.value), 150));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -692,14 +710,17 @@ export function renderSplattagGenerator(container, state, onUse) {
     const slots = el("div", { class: "edc-gen-inline" });
     for (let i = 0; i < 3; i++) {
       const slot = el("button", { class: "edc-btn edc-btn-sm edc-badge-slot", title: t("gen_badge_slot") + " " + (i + 1) });
-      const refreshSlot = () => { slot.textContent = g.badges[i] ? "★" : "+"; };
+      // Quitar va en su propio botón: antes, pulsar un hueco lleno lo vaciaba sin
+      // avisar y el segundo clic abría la galería (parecía que "no hacía nada").
+      const remove = el("button", { class: "edc-btn edc-btn-sm edc-badge-remove", title: t("gen_badge_remove"), "aria-label": t("gen_badge_remove") + " " + (i + 1) }, "×");
+      const setCustom = (url) => {
+        const cb = Array.isArray(g.customBadges) ? g.customBadges.slice(0, 3) : [];
+        while (cb.length < 3) cb.push(null);
+        cb[i] = url; g.customBadges = cb;
+      };
+      const refreshSlot = () => { slot.textContent = g.badges[i] ? "★" : "+"; remove.hidden = !g.badges[i]; };
+      remove.addEventListener("click", () => { g.badges[i] = null; setCustom(null); touch(); refreshSlot(); reloadBadge(i); });
       slot.addEventListener("click", () => {
-        const setCustom = (url) => {
-          const cb = Array.isArray(g.customBadges) ? g.customBadges.slice(0, 3) : [];
-          while (cb.length < 3) cb.push(null);
-          cb[i] = url; g.customBadges = cb;
-        };
-        if (g.badges[i]) { g.badges[i] = null; setCustom(null); touch(); refreshSlot(); reloadBadge(i); return; }
         openAssetPicker({ title: t("gen_pick_badge"), items: _assets.badges, langKey: g.langKey,
           onSelect: (it) => { g.badges[i] = it.file; setCustom(null); touch(); refreshSlot(); reloadBadge(i); },
           uploadHint: t("gen_upload_hint_badge"),
@@ -711,7 +732,7 @@ export function renderSplattagGenerator(container, state, onUse) {
           } });
       });
       refreshSlot();
-      slots.append(slot);
+      slots.append(el("span", { class: "edc-badge-pair" }, slot, remove));
     }
     controls.append(row(t("gen_badges"), slots));
 

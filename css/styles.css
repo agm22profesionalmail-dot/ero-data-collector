@@ -401,6 +401,9 @@ body {
 .edc-gen-pick-val { font-size: .82rem; color: var(--text); opacity: .9; }
 .edc-badge-slot { min-width: 40px; font-size: 1rem; line-height: 1; }
 .edc-badge-slot:not(:empty) { color: var(--warn); }
+.edc-badge-pair { display: inline-flex; align-items: center; gap: 2px; }
+.edc-badge-remove { min-width: 28px; padding-left: 6px; padding-right: 6px; font-size: 1rem; line-height: 1; color: var(--muted); }
+.edc-badge-remove[hidden] { display: none; }
 .edc-gen-select { width: auto; min-width: 180px; padding: 7px 10px; }
 .edc-gen-sign { width: auto; min-width: 64px; padding: 7px 8px; }
 .edc-cell-layers { position: relative; }
