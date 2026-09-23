@@ -831,6 +831,23 @@ body {
 .edc-apply-done-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--ok); margin-bottom: 6px; }
 .edc-apply-done .edc-apply-intro { margin-bottom: 16px; }
 
+/* Reportes y sugerencias (?feedback). Botones segmentados con el mismo
+   activo que el selector de idioma (acento sólido); el resto hereda .edc-btn. */
+.edc-seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.edc-seg-btn { display: inline-flex; align-items: center; gap: 6px; }
+.edc-seg-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.edc-seg-btn[aria-pressed="true"]:hover { background: var(--accent); filter: brightness(1.08); }
+.edc-seg-ico { display: inline-flex; line-height: 0; }
+.edc-seg-ico svg { height: 14px; width: auto; }
+.edc-fb-message { min-height: 140px; }
+.edc-fb-counter-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.edc-fb-counter { font-size: .76rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.edc-fb-counter.is-short { color: var(--warn); }
+.edc-fb-hint { font-size: .78rem; line-height: 1.5; color: var(--muted); margin: 0 0 6px; }
+.edc-fb-ok { color: var(--ok); }
+.edc-fb-method { margin-top: 4px; }
+.edc-fb-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
 /* Enlace discreto del footer a la solicitud de artista */
 .edc-footer-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
   color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px;
