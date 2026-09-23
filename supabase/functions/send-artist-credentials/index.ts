@@ -32,6 +32,7 @@ type Outbox = {
   id: string; email: string; name: string | null; slug: string | null; key: string | null;
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
   kind?: "credentials" | "rejected";   // migración 20260923_04
+  hero?: number | null;                 // migración 20260923_05 (portada fija, pruebas)
 };
 
 const rest = (path: string, init: RequestInit = {}) =>
@@ -81,7 +82,9 @@ const C = {
 // Portadas del email de acceso: una al azar por envío (Deep Cut, Squid
 // Sisters, Off the Hook; ilustraciones de las cartas de Tableturf).
 const APPROVED_HEROES = ["email-hero-approved-1.jpg", "email-hero-approved-2.jpg", "email-hero-approved-3.jpg"];
-const pickHero = () => APPROVED_HEROES[Math.floor(Math.random() * APPROVED_HEROES.length)];
+// hero (1-3) en la fila de la cola fija la portada (envíos de prueba); si no, al azar
+const pickHero = (n?: number | null) =>
+  (n && APPROVED_HEROES[n - 1]) || APPROVED_HEROES[Math.floor(Math.random() * APPROVED_HEROES.length)];
 const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
 
@@ -160,7 +163,7 @@ function e(s: string) {
   }[c] as string));
 }
 
-type Args = { name: string; refLink: string; panelLink: string; key: string; lang: "en" | "es"; reset: boolean };
+type Args = { name: string; refLink: string; panelLink: string; key: string; lang: "en" | "es"; reset: boolean; hero?: number | null };
 
 function subjectFor(lang: "en" | "es", reset: boolean) {
   return copy(lang, reset, "").subject;
@@ -178,7 +181,7 @@ function renderHtml(args: Args) {
   return compact(renderHtmlRaw(args));
 }
 
-function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
+function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset, hero }: Args) {
   const t = copy(lang, reset, name);
   const block = (title: string, inner: string, note: string) => `
 <tr><td class="px" style="padding:0 40px 20px 40px;">
@@ -237,7 +240,7 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
     <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
     <!-- Portada -->
     <tr><td style="padding:0;">
-      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/${pickHero()}" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
+      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/${pickHero(hero)}" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
     </td></tr>
     <!-- Titular -->
     <tr><td class="px" style="padding:32px 40px 8px 40px;">
@@ -457,7 +460,7 @@ Deno.serve(async (req) => {
     : renderText({ name, refLink, panelLink, key: row.key as string, lang: language, reset });
   const html = rejected
     ? renderRejectHtml(language, name, siteLink)
-    : renderHtml({ name, refLink, panelLink, key: row.key as string, lang: language, reset });
+    : renderHtml({ name, refLink, panelLink, key: row.key as string, lang: language, reset, hero: row.hero });
 
   const client = new SMTPClient({
     connection: {
