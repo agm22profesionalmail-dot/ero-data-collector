@@ -20,6 +20,8 @@ import {
 } from "./data.js";
 import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
+import { getRenderSignedUrl, renderPaths } from "./store.js";
+import { createRenderSpin } from "./render_spin.js";
 
 const S = {
   en: {
@@ -489,33 +491,28 @@ function tag(k) {
 // getBannerSignedUrl en store.js). Mientras no exista el archivo se queda el
 // placeholder "Render en preparación"; la carga es asíncrona y defensiva
 // (bucket o archivo ausentes → placeholder, sin romper la ficha).
+// Con el PNG cargado, si además existe el sprite de giro (spin.webp), el
+// componente render_spin.js habilita el turntable (arrastre/teclado/botones).
 function renderSlot(player, onLoaded) {
-  const slot = el("div", { class: "edc-pcard-render" });
   const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
   phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
   // Si el jugador hizo una versión para este artista, su render es el de esa
-  // versión (variant_render: <user_id>/artist/<artist_id>.png), nunca el de la
-  // ficha PRINCIPAL (otro personaje). Mientras no exista, placeholder.
+  // versión (variant_render: <user_id>/artist/<artist_id>.png, spin en
+  // <user_id>/artist/<artist_id>_spin.webp), nunca el de la ficha PRINCIPAL
+  // (otro personaje). Mientras no exista, placeholder.
   const ph = el("div", { class: "edc-pcard-render-ph" }, phIco,
     el("span", {}, ta(player?.has_variant ? "render_variant" : "render_soon")));
-  slot.append(ph);
-  const path = player?.has_variant ? player.variant_render
-    : (player?.user_id ? `${player.user_id}/render.png` : null);
-  if (path) loadRenderInto(slot, ph, path, onLoaded);
-  return slot;
-}
-async function loadRenderInto(slot, ph, path, onLoaded) {
-  let url = null;
-  try {
-    const { data: d } = await supabase.storage.from("renders")
-      .createSignedUrl(path, 3600);
-    url = d?.signedUrl || null;
-  } catch { url = null; }
-  if (!url) return;
-  const img = el("img", { class: "edc-pcard-render-img", alt: "", decoding: "async" });
-  img.onload = () => { if (slot.isConnected) { ph.remove(); slot.append(img); onLoaded?.(); } };
-  img.onerror = () => {};  // aún sin render → se queda el placeholder
-  img.src = url;
+  let png = null, spin = null;
+  if (player?.has_variant && player.variant_render) {
+    png = player.variant_render;
+    spin = player.variant_render.replace(/\.png$/i, "_spin.webp");
+  } else if (player?.user_id) ({ png, spin } = renderPaths(player.user_id));
+  return createRenderSpin({
+    placeholder: ph,
+    pngUrl: png ? getRenderSignedUrl(png) : null,
+    spinUrl: spin ? getRenderSignedUrl(spin) : null,
+    onLoaded,
+  });
 }
 
 // ── Plantilla de personaje, READ-ONLY (panel amarillo de la ficha) ───

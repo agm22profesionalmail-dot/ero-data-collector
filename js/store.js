@@ -26,6 +26,21 @@ export async function getBannerSignedUrl(path) {
   return data?.signedUrl ?? null;
 }
 
+// Bucket privado `renders` (render.png / spin.webp del worker de Blender).
+// Devuelve null si no hay path, el bucket no existe o falla la firma: el que
+// llama lo trata como "aún sin render".
+export async function getRenderSignedUrl(path) {
+  if (!path) return null;
+  try {
+    const { data } = await supabase.storage.from("renders").createSignedUrl(path, 3600);
+    return data?.signedUrl ?? null;
+  } catch { return null; }
+}
+// Rutas del render principal y del sprite de giro de un usuario.
+export const renderPaths = (userId) => userId
+  ? { png: `${userId}/render.png`, spin: `${userId}/spin.webp` }
+  : { png: null, spin: null };
+
 export async function savePlayer(state, user, profile) {
   let banner_path = state.banner_path || null;
   let banner_sha256 = state.banner_sha256 || null;

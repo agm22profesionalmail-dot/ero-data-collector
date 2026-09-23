@@ -10,7 +10,8 @@ import {
 import { loadData, colorToHex, data, getById, headNames, clothNames, shoesNames, curName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerSignedUrl, syncIdentityFields } from "./store.js";
+import { loadPlayer, savePlayer, getBannerSignedUrl, getRenderSignedUrl, renderPaths, syncIdentityFields } from "./store.js";
+import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
 import {
   captureRefFromUrl, resolveRefArtist, needsRefConsent, renderRefConsent, clearRef,
@@ -412,10 +413,31 @@ function renderPreviewScreen() {
   card.append(el("div", { class: "edc-save-bar" },
     el("button", { class: "edc-btn edc-btn-primary", onClick: () => { mode = "edit"; renderModeView(); } }, t("edit_player"))));
   appEl().append(card);
+  appEl().append(renderMyRenderCard());
 
   const help = el("div");
   appEl().append(help);
   renderHelp(help);
+}
+
+// "Tu render 3D": el render PRINCIPAL del propio jugador (<user_id>/render.png
+// + spin.webp del bucket privado `renders`). Nunca las versiones por artista.
+// Sin render todavía → placeholder con el aviso de que se genera en unas horas.
+function renderMyRenderCard() {
+  const { png, spin } = renderPaths(session?.user?.id);
+  const ph = el("div", { class: "edc-pcard-render-ph" },
+    el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true",
+      html: '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>' }),
+    el("span", {}, t("my_render_pending")));
+  const view = createRenderSpin({
+    placeholder: ph,
+    pngUrl: png ? getRenderSignedUrl(png) : null,
+    spinUrl: spin ? getRenderSignedUrl(spin) : null,
+  });
+  return el("div", { class: "edc-card edc-myrender" },
+    el("div", { class: "edc-section-title" }, t("my_render_title")),
+    el("div", { class: "edc-myrender-slot" }, view),
+    el("p", { class: "edc-pcard-beta" }, t("my_render_beta")));
 }
 
 // Resumen de 1 línea con las opciones seleccionadas

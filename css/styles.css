@@ -1125,3 +1125,63 @@ body {
 .edc-cp-rules li { margin: 2px 0; }
 
 @media (prefers-reduced-motion: reduce) { .edc-pcard-render-img { animation: none; } }
+
+/* ── Render 3D con giro (js/render_spin.js) ─────────────────────────
+   Raíz .edc-rspin = escenario (.edc-pcard-render, misma carta de siempre)
+   + barra de controles debajo. Sin sprite (sin .has-spin) no hay controles
+   ni cursor de arrastre: se ve exactamente como antes. */
+.edc-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.edc-rspin { min-width: 0; outline: none; border-radius: 16px; }
+.edc-rspin:focus-visible .edc-rspin-stage { box-shadow: inset 0 0 44px rgba(0,0,0,.4), 0 0 0 2px var(--accent-2); }
+/* El PNG HD y el sprite son 4:5 (1000x1250 / 480x600): el escenario adopta ese
+   ratio en cuanto hay imagen para que el fotograma 0 y el PNG coincidan al píxel. */
+.edc-rspin-stage { aspect-ratio: 3 / 4; }
+.edc-rspin.has-img .edc-rspin-stage { aspect-ratio: 4 / 5; }
+.edc-rspin.has-spin .edc-rspin-stage {
+  cursor: grab; user-select: none; -webkit-user-select: none;
+  touch-action: pan-y;          /* el dedo en horizontal gira; en vertical sigue haciendo scroll */
+}
+.edc-rspin.is-dragging .edc-rspin-stage { cursor: grabbing; }
+.edc-rspin-stage > img { pointer-events: none; -webkit-user-drag: none; }
+.edc-rspin-stage > [hidden] { display: none; }
+/* Sprite: tira horizontal de 10 fotogramas → 1000% de ancho, un fotograma visible */
+.edc-rspin-sprite {
+  position: absolute; inset: 0;
+  background-repeat: no-repeat; background-size: 1000% 100%; background-position: 0 0;
+  pointer-events: none;
+}
+/* Aviso "Arrastra para girar": pill sobre el borde inferior; desaparece tras la 1ª interacción */
+.edc-rspin-hint {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  padding: 5px 12px; border-radius: var(--radius-pill);
+  background: rgba(11,14,26,.72); color: var(--text); font-size: .72rem; font-weight: 600;
+  letter-spacing: .3px; white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity .25s var(--ease-out);
+}
+.edc-rspin.has-spin .edc-rspin-hint { opacity: 1; }
+.edc-rspin.has-spin.is-hinted .edc-rspin-hint,
+.edc-rspin.is-dragging .edc-rspin-hint { opacity: 0; }
+/* Controles: fila compacta que envuelve a 375 px sin scroll horizontal */
+.edc-rspin-ctrls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; min-width: 0; }
+.edc-rspin-group { display: inline-flex; align-items: center; gap: 4px; margin-right: 2px; }
+.edc-rspin-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin-right: 2px; }
+.edc-rspin-btn {
+  font: inherit; font-size: .74rem; font-weight: 700; line-height: 1; padding: 6px 10px; min-width: 30px;
+  border-radius: var(--radius-pill); cursor: pointer;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  transition: background .15s var(--ease-out), border-color .15s var(--ease-out), transform .12s var(--ease-out);
+}
+.edc-rspin-btn:hover { background: #2b3760; border-color: #3d4e7e; }
+.edc-rspin-btn:active { transform: translateY(1px) scale(.97); }
+.edc-rspin-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.edc-rspin-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* "Tu render 3D" en la pantalla del jugador: carta a tamaño de retrato */
+.edc-myrender-slot { max-width: 340px; }
+.edc-myrender .edc-pcard-beta { margin-top: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .edc-rspin-hint, .edc-rspin-btn { transition: none; }
+}
