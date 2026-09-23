@@ -78,6 +78,10 @@ const C = {
   brand: "#8b5cff",      // morado de la web (franja y detalles)
   cta: "#5b2ee0",        // morado oscuro: contraste AA con texto blanco
 };
+// Portadas del email de acceso: una al azar por envío (Deep Cut, Squid
+// Sisters, Off the Hook; ilustraciones de las cartas de Tableturf).
+const APPROVED_HEROES = ["email-hero-approved-1.jpg", "email-hero-approved-2.jpg", "email-hero-approved-3.jpg"];
+const pickHero = () => APPROVED_HEROES[Math.floor(Math.random() * APPROVED_HEROES.length)];
 const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
 
@@ -233,7 +237,7 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
     <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
     <!-- Portada -->
     <tr><td style="padding:0;">
-      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/og-image.jpg" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
+      <a href="${e(panelLink)}" style="text-decoration:none;"><img src="${ASSETS}/${pickHero()}" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
     </td></tr>
     <!-- Titular -->
     <tr><td class="px" style="padding:32px 40px 8px 40px;">
