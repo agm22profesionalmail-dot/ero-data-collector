@@ -41,7 +41,8 @@ const S = {
     download_card: "Download Splashtag",
     download_banner: "Download banner",
     no_banner: "No Splashtag",
-    f_species: "Species & gender", f_skin: "Skin tone", f_eye: "Eye color",
+    f_species: "Species & gender", f_skin: "Skin tone", f_eye: "Eye color", f_ink: "Ink color",
+    ink_copy: "Copy", ink_copied: "Copied: ", show_formats: "Show HEX / RGB / HSL",
     f_hair: "Hairstyle", f_brows: "Eyebrows", f_legs: "Legs",
     f_head: "Head gear", f_cloth: "Clothing", f_shoes: "Shoes",
     g_character: "Character", g_gear: "Gear",
@@ -84,7 +85,8 @@ const S = {
     download_card: "Descargar Splashtag",
     download_banner: "Descargar banner",
     no_banner: "Sin Splashtag",
-    f_species: "Especie y género", f_skin: "Tono de piel", f_eye: "Color de ojos",
+    f_species: "Especie y género", f_skin: "Tono de piel", f_eye: "Color de ojos", f_ink: "Color de tinta",
+    ink_copy: "Copiar", ink_copied: "Copiado: ", show_formats: "Ver HEX / RGB / HSL",
     f_hair: "Peinado", f_brows: "Cejas", f_legs: "Piernas",
     f_head: "Gear cabeza", f_cloth: "Gear ropa", f_shoes: "Gear zapatillas",
     g_character: "Personaje", g_gear: "Equipo",
@@ -550,6 +552,56 @@ function gearRow(entry, urlFn, namesFn, variation) {
 // swatch aislado y se equivoque de tono. Toggle "solo la elegida ↔ todas":
 // por defecto se muestra la elegida ampliada; al pulsar se despliegan las
 // demás en la misma línea (o en varias, si son muchas — el CSS envuelve).
+// Color de tinta: colapsado muestra la muestra + HEX; el toggle "+" abre el
+// mismo popover que piel/ojos con el color en HEX, RGB y HSL, cada uno copiable.
+function inkFormats(color) {
+  const c = color || { r: 1, g: 1, b: 1 };
+  const [r, g, b] = [c.r, c.g, c.b].map((v) => Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 255));
+  const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255, l = (max + min) / 2, d = max - min;
+  let h = 0, s = 0;
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    const [R, G, B] = [r / 255, g / 255, b / 255];
+    h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+    h = Math.round(h * 60); if (h < 0) h += 360;
+  }
+  return [
+    ["HEX", colorToHex(c).toUpperCase()],
+    ["RGB", `rgb(${r}, ${g}, ${b})`],
+    ["HSL", `hsl(${h}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`],
+  ];
+}
+function inkRow(color) {
+  const formats = inkFormats(color);
+  const hex = formats[0][1];
+  const strip = el("div", { class: "edc-pcard-strip edc-pcard-ink-strip" });
+  strip.dataset.expanded = "false";
+  strip.append(el("div", { class: "edc-pcard-ink-head" },
+    el("div", { class: "edc-pcard-choice is-selected edc-pcard-ink-swatch", style: `background:${hex}`, title: hex }),
+    el("span", { class: "edc-pcard-ink-hex" }, hex)));
+  for (const [fmt, val] of formats) {
+    const btn = el("button", { class: "edc-pcard-ink-copy", type: "button", title: ta("ink_copy") + " " + fmt }, ta("ink_copy"));
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try { await navigator.clipboard.writeText(val); toast(ta("ink_copied") + val, "ok"); } catch { /* sin portapapeles */ }
+    });
+    strip.append(el("div", { class: "edc-pcard-ink-fmt" },
+      el("span", { class: "edc-pcard-ink-k" }, fmt), el("code", { class: "edc-pcard-ink-v" }, val), btn));
+  }
+  const toggle = el("button", { class: "edc-pcard-strip-toggle", type: "button", title: ta("show_formats") }, "+");
+  toggle.setAttribute("aria-label", ta("show_formats"));
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = strip.dataset.expanded !== "true";
+    closeAllChoiceStrips(willOpen ? strip : null);
+    strip.dataset.expanded = willOpen ? "true" : "false";
+    toggle.textContent = willOpen ? "−" : "+";
+    toggle.title = ta(willOpen ? "show_selected" : "show_formats");
+  });
+  ensureStripOutsideCloser();
+  return el("div", { class: "edc-pcard-field-value edc-pcard-choice-value" }, strip, toggle);
+}
+
 function choiceStrip(options, selectedIdx, opts = {}) {
   const strip = el("div", { class: "edc-pcard-strip" });
   strip.dataset.expanded = "false";
@@ -624,6 +676,7 @@ function renderSheet(p) {
     fieldRow(ta("f_species"), speciesValue),
     fieldRow(ta("f_skin"), choiceStrip(skinOpts, p.skin_tone)),
     fieldRow(ta("f_eye"), choiceStrip(eyeOpts, p.eye_color)),
+    fieldRow(ta("f_ink"), inkRow(p.color)),
     fieldRow(ta("f_hair"), hair ? plainSwatchRow(hairUrl(hair)) : plainSwatchRow("")),
     fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, browIdx) : plainSwatchRow("")),
     fieldRow(ta("f_legs"), bot ? legsRow(bot, p.bottom_variation) : plainSwatchRow("")),

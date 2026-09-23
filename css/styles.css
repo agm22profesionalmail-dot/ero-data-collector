@@ -1067,6 +1067,20 @@ body {
   box-shadow: inset 0 0 0 2px var(--accent-2), 0 0 0 2px rgba(96,216,192,.28);
   background: rgba(96,216,192,.08);
 }
+/* Color de tinta: cabecera (muestra + HEX) y, desplegado, una fila por formato */
+.edc-pcard-ink-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.edc-pcard-ink-swatch { box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 0 2px rgba(96,216,192,.28); }
+.edc-pcard-ink-hex { font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.edc-pcard-ink-strip[data-expanded="false"] > .edc-pcard-ink-fmt { display: none; }
+.edc-pcard-ink-strip[data-expanded="true"] { flex-direction: column; align-items: stretch; min-width: 280px; gap: 8px; }
+.edc-pcard-ink-strip[data-expanded="true"] .edc-pcard-ink-swatch { width: 42px; height: 42px; border-radius: 10px; }
+.edc-pcard-ink-fmt { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; }
+.edc-pcard-ink-k { font-size: .64rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); }
+.edc-pcard-ink-v { font-size: .84rem; color: var(--text); background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 8px; white-space: nowrap; user-select: all; }
+.edc-pcard-ink-copy { font: inherit; font-size: .72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--muted); border: 1px solid var(--border); transition: color .18s, border-color .18s; }
+.edc-pcard-ink-copy:hover, .edc-pcard-ink-copy:focus-visible { color: var(--text); border-color: var(--accent-2); }
 /* En pantallas estrechas (sheet 1-col), el popover puede desbordar; que ancle a la izquierda */
 @media (max-width: 720px) {
   .edc-pcard-strip[data-expanded="true"] { left: 0; right: 0; max-width: none; }
