@@ -336,6 +336,8 @@ body {
    lateral se desbordaba y generaba scroll horizontal en el modal. */
 .edc-input.edc-search { width: auto; }
 .edc-modal-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.edc-gen-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 16px 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; }
+.edc-gen-upload span { flex: 1 1 220px; font-size: .78rem; line-height: 1.45; color: var(--muted); }
 .edc-modal-head h3 { margin: 0; font-size: 1rem; font-weight: 700; flex: 1; letter-spacing: .5px; }
 .edc-modal-close { background: none; border: 0; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0 4px; }
 .edc-modal-close:hover { color: var(--text); }
@@ -946,6 +948,9 @@ body {
 }
 @media (max-width: 720px) { .edc-pcard { grid-template-columns: 1fr; gap: 18px; padding: 16px; border-radius: 18px; } }
 
+.edc-pcard-side { min-width: 0; }
+/* aviso bajo el render: pequeño, blanco y sin negrita */
+.edc-pcard-beta { margin: 8px 2px 0; font-size: .74rem; font-weight: 400; line-height: 1.4; color: #fff; opacity: .85; }
 /* carta del render (retrato), fondo oscuro para que destaque el modelo 3D */
 .edc-pcard-render {
   position: relative; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden;

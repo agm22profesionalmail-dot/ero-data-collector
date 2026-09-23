@@ -17,8 +17,8 @@ import {
   isApplyRoute, goApply, goHome, restoreApplyRoute, renderArtistApply, saveArtistVariant,
   loadLinkedArtists, linkArtist, loadArtistVariant, CHAR_FIELDS,
 } from "./artists.js";
-import { isAdminRoute, renderAdminPanel, leaveAdmin } from "./admin.js";
-import { isPanelRoute, renderArtistPanel, leavePanel } from "./artist_panel.js";
+import { isAdminRoute, renderAdminPanel, leaveAdmin, forgetAdmin } from "./admin.js";
+import { isPanelRoute, renderArtistPanel, leavePanel, forgetPanelKey } from "./artist_panel.js";
 
 const $ = (id) => document.getElementById(id);
 const appEl = () => $("app");
@@ -67,7 +67,7 @@ function renderAuthArea() {
       if (!p.hasDiscord)
         chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: () => doLink("discord") }, t("link_discord")));
     }
-    chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: async () => { await signOut(); } }, t("logout")));
+    chip.append(el("button", { class: "edc-btn edc-btn-sm", onClick: async () => { forgetPanelKey(); forgetAdmin(); await signOut(); } }, t("logout")));
     area.append(chip);
   }
 }
