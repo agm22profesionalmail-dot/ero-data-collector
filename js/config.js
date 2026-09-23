@@ -10,6 +10,14 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // exactamente igual que antes: solo Discord, sin botones ni vinculación de X.
 export const X_LOGIN_ENABLED = true;
 
+// ── Render 3D propio del jugador ──────────────────────────────────────
+// Sección "Tu render 3D" en la pantalla del personaje guardado (app.js →
+// renderMyRenderCard). Los renders están en BETA: mientras no salgan de beta
+// los jugadores NO ven su propio render. Con false no se pide ninguna URL
+// firmada ni aparece nada en la pantalla del jugador. Ponlo a true cuando los
+// renders estén disponibles. El visor del panel de artistas no depende de esto.
+export const SHOW_OWN_RENDER = false;
+
 // ── Fuentes de assets Splatoon (Flexlion, públicas) ───────────────────
 export const GITHUB_RAW = "https://raw.githubusercontent.com/Flexlion/flexlion.github.io/master";
 export const IMG = GITHUB_RAW + "/assets/img";
