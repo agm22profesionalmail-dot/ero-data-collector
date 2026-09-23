@@ -15,6 +15,7 @@ const S = {
     user: "User", pass: "Password", login: "Sign in",
     bad_creds: "Wrong user or password.", refresh: "Refresh", logout: "Sign out",
     back: "← Back to site", empty: "No requests yet.",
+    render_beta: "*3D renders are in beta, expect errors.",
     st_pending: "Pending", st_approved: "Approved", st_rejected: "Rejected", st_revoked: "Revoked",
     players: "players", discord: "Discord ID", portfolio: "Portfolio", reason: "Reason", link: "Artist link",
     approve: "Approve", reject: "Reject", revoke: "Revoke", reapprove: "Re-approve", reset_key: "New key",
@@ -34,6 +35,7 @@ const S = {
     user: "Usuario", pass: "Clave", login: "Entrar",
     bad_creds: "Usuario o clave incorrectos.", refresh: "Actualizar", logout: "Salir",
     back: "← Volver a la web", empty: "Aún no hay solicitudes.",
+    render_beta: "*Renderizados 3D en fase beta, espera errores.",
     st_pending: "Pendiente", st_approved: "Aprobado", st_rejected: "Rechazado", st_revoked: "Revocado",
     players: "jugadores", discord: "ID de Discord", portfolio: "Portfolio", reason: "Motivo", link: "Enlace del artista",
     approve: "Aprobar", reject: "Rechazar", revoke: "Revocar", reapprove: "Reaprobar", reset_key: "Nueva clave",
@@ -253,7 +255,9 @@ export function renderAdminPanel(container, { onBack } = {}) {
       ? { ...p, ...v, has_variant: true, variant_render: `${p.user_id}/artist/${artistId}.png` }
       : { ...p, has_variant: false };
     wrap.append(el("div", { class: "edc-pcard" },
-      renderSlot(shown),
+      el("div", { class: "edc-pcard-side" },
+        renderSlot(shown),
+        el("p", { class: "edc-pcard-beta" }, ta("render_beta"))),
       el("div", { class: "edc-pcard-main" },
         el("div", { class: "edc-pcard-name" }, p.alias || ta("no_alias")),
         renderBanner(p, { size: "detail", interactive: true }),
