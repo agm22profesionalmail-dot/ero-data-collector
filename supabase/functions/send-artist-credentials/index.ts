@@ -1,8 +1,9 @@
 // Edge Function: send-artist-credentials
 //
-// Envía el email de acceso al artista aprobado (o restablecido). La disparan
-// las RPCs admin_approve / admin_reset_generic vía pg_net con {"id": <uuid>}
-// de una fila de public.artist_email_outbox (migración 20260922_08).
+// Envía el email de acceso al artista aprobado (o restablecido) y el aviso de
+// solicitud rechazada. La disparan las RPCs admin_approve /
+// admin_reset_generic / admin_reject vía pg_net con {"id": <uuid>} de una fila
+// de public.artist_email_outbox (migraciones 20260922_08 y 20260923_04).
 //
 // Seguridad: quien llama NO manda datos ni credenciales, solo el id. La
 // función lee la fila con la service_role que Supabase inyecta sola
@@ -28,8 +29,9 @@ const MAX_AGE_MS = 15 * 60 * 1000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Outbox = {
-  id: string; email: string; name: string | null; slug: string; key: string | null;
+  id: string; email: string; name: string | null; slug: string | null; key: string | null;
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
+  kind?: "credentials" | "rejected";   // migración 20260923_04
 };
 
 const rest = (path: string, init: RequestInit = {}) =>
@@ -283,6 +285,128 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset }: Args) {
 </html>`;
 }
 
+// ── Solicitud rechazada ─────────────────────────────────────────────────
+// Misma maqueta que el de acceso, sin clave, enlace ni pasos. El botón lleva
+// a la web.
+type RejectCopy = {
+  htmlLang: string; subject: string; preheader: string; kicker: string;
+  title: string; hello: string; paras: string[]; cta: string;
+  help: string; auto: string; legal: string;
+};
+
+function rejectCopy(lang: "en" | "es", name: string): RejectCopy {
+  if (lang === "es") {
+    return {
+      htmlLang: "es",
+      subject: "Tu solicitud al programa beta de artistas",
+      preheader: "Hemos revisado tu solicitud al panel de artistas de OC Data Collector.",
+      kicker: "Programa beta de artistas",
+      title: "No hemos podido aceptar tu solicitud",
+      hello: `Hola, ${name}:`,
+      paras: [
+        "Gracias por tu interés en el programa beta de artistas de OC Data Collector. Hemos revisado tu solicitud y, por ahora, no podemos aceptarla.",
+        "El motivo es que no cumple los requisitos del programa o no incluye la información suficiente para considerarla una solicitud válida.",
+      ],
+      cta: "Ir a OC Data Collector",
+      help: "Si crees que se trata de un error o quieres aportar más información, escríbenos por Discord.",
+      auto: "Mensaje automático. Si no has solicitado acceso, puedes ignorar este correo.",
+      legal: "Proyecto fan sin afiliación con Nintendo. Splatoon es una marca registrada de Nintendo.",
+    };
+  }
+  return {
+    htmlLang: "en",
+    subject: "Your artist beta program application",
+    preheader: "We've reviewed your application to the OC Data Collector artist panel.",
+    kicker: "Artist beta program",
+    title: "We couldn't accept your application",
+    hello: `Hi ${name},`,
+    paras: [
+      "Thank you for your interest in the OC Data Collector artist beta program. We've reviewed your application and, for now, we can't accept it.",
+      "This is because it doesn't meet the program requirements or doesn't include enough information to be considered a valid application.",
+    ],
+    cta: "Go to OC Data Collector",
+    help: "If you think this is a mistake or want to share more information, message us on Discord.",
+    auto: "Automated message. If you didn't request access, you can ignore this email.",
+    legal: "Fan project, not affiliated with Nintendo. Splatoon is a trademark of Nintendo.",
+  };
+}
+
+function renderRejectHtml(lang: "en" | "es", name: string, siteLink: string) {
+  const t = rejectCopy(lang, name);
+  return compact(`<!doctype html>
+<html lang="${t.htmlLang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${e(t.subject)}</title>
+<style>
+  @media only screen and (max-width:480px) {
+    .px { padding-left:22px !important; padding-right:22px !important; }
+    .kicker { display:none !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${e(t.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page};">
+<tr><td align="center" style="padding:32px 12px;">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <tr><td style="padding:0 4px 16px 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle" width="44"><img src="${ASSETS}/apple-touch-icon.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:8px;"></td>
+        <td valign="middle" style="font-family:${FONT};font-size:17px;font-weight:800;color:${C.ink};letter-spacing:.2px;"><span style="color:${C.cta};">OC</span> Data Collector</td>
+        <td class="kicker" valign="middle" align="right" style="font-family:${FONT};font-size:12px;color:${C.muted};">${e(t.kicker)}</td>
+      </tr></table>
+    </td></tr>
+  </table>
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:${C.card};border-radius:16px;overflow:hidden;border:1px solid ${C.line};">
+    <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
+    <tr><td style="padding:0;">
+      <img src="${ASSETS}/email-hero-rejected.jpg" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;">
+    </td></tr>
+    <tr><td class="px" style="padding:32px 40px 8px 40px;">
+      <h1 style="margin:0;font-family:${FONT};font-size:24px;line-height:31px;font-weight:800;color:${C.ink};">${e(t.title)}</h1>
+    </td></tr>
+    <tr><td class="px" style="padding:12px 40px 0 40px;font-family:${FONT};font-size:15px;line-height:24px;color:${C.body};">
+      <p style="margin:0 0 12px 0;">${e(t.hello)}</p>
+      ${t.paras.map((p) => `<p style="margin:0 0 12px 0;">${e(p)}</p>`).join("")}
+    </td></tr>
+    <tr><td class="px" style="padding:12px 40px 28px 40px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="border-radius:999px;background:${C.cta};">
+          <a href="${e(siteLink)}" style="display:inline-block;padding:14px 30px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${e(t.cta)}</a>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td class="px" style="padding:0 40px 32px 40px;">
+      <div style="border-top:1px solid ${C.line};padding-top:18px;font-family:${FONT};font-size:14px;line-height:22px;color:${C.body};">${e(t.help)}</div>
+    </td></tr>
+  </table>
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <tr><td align="center" style="padding:20px 24px 0 24px;font-family:${FONT};font-size:12px;line-height:19px;color:${C.muted};">
+      <p style="margin:0 0 6px 0;">${e(t.auto)}</p>
+      <p style="margin:0 0 6px 0;">OC Data Collector by ERO's Team &middot; <a href="https://eroplayerdata.pages.dev" style="color:${C.muted};text-decoration:underline;">eroplayerdata.pages.dev</a></p>
+      <p style="margin:0;">${e(t.legal)}</p>
+    </td></tr>
+  </table>
+
+</td></tr>
+</table>
+</body>
+</html>`);
+}
+
+function renderRejectText(lang: "en" | "es", name: string, siteLink: string) {
+  const t = rejectCopy(lang, name);
+  return [t.title, "", t.hello, "", ...t.paras.flatMap((p) => [p, ""]),
+    `${t.cta}: ${siteLink}`, "", t.help, "", t.auto, t.legal].join("\n");
+}
+
 function renderText({ name, refLink, panelLink, key, lang, reset }: Args) {
   const t = copy(lang, reset, name);
   const lines = [
@@ -306,8 +430,10 @@ Deno.serve(async (req) => {
   const r = await rest(`artist_email_outbox?id=eq.${id}&sent_at=is.null&select=*`);
   const rows: Outbox[] = r.ok ? await r.json() : [];
   const row = rows[0];
-  // Respuesta neutra: no revela si el id existe
-  if (!row || !row.key || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
+  const rejected = row?.kind === "rejected";
+  // Respuesta neutra: no revela si el id existe. El de acceso necesita clave;
+  // el de rechazo no lleva ninguna.
+  if (!row || (!rejected && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
     return new Response(JSON.stringify({ ok: false }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
@@ -318,9 +444,16 @@ Deno.serve(async (req) => {
   const language: "en" | "es" = row.lang === "es" ? "es" : "en";
   const reset = !!row.reset;
   const name = row.name || "artist";
-  const refLink = `${SITE_URL}/?ref=${encodeURIComponent(row.slug)}`;
+  const refLink = `${SITE_URL}/?ref=${encodeURIComponent(row.slug ?? "")}`;
   const panelLink = `${SITE_URL}/?panel`;
-  const subject = subjectFor(language, reset);
+  const siteLink = `${SITE_URL}/`;
+  const subject = rejected ? rejectCopy(language, name).subject : subjectFor(language, reset);
+  const text = rejected
+    ? renderRejectText(language, name, siteLink)
+    : renderText({ name, refLink, panelLink, key: row.key as string, lang: language, reset });
+  const html = rejected
+    ? renderRejectHtml(language, name, siteLink)
+    : renderHtml({ name, refLink, panelLink, key: row.key as string, lang: language, reset });
 
   const client = new SMTPClient({
     connection: {
@@ -336,10 +469,8 @@ Deno.serve(async (req) => {
       // base64 en vez del quoted-printable de denomailer (su codificador
       // dejaba "=20" visibles en Gmail)
       mimeContent: [
-        { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64",
-          content: b64(renderText({ name, refLink, panelLink, key: row.key, lang: language, reset })) },
-        { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64",
-          content: b64(renderHtml({ name, refLink, panelLink, key: row.key, lang: language, reset })) },
+        { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64", content: b64(text) },
+        { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64", content: b64(html) },
       ],
     });
   } catch (err) {
