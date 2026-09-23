@@ -168,6 +168,11 @@ body {
    formularios): en la ficha se libera para que la carta use todo el ancho. */
 .edc-apply:has(> .edc-pcard),
 .edc-apply--wide { max-width: none; }
+/* Galería de fichas (panel de artista y pestaña de registros del admin): usa
+   todo el ancho de la ventana y mete tantas columnas como quepan; al estrechar
+   la ventana o en móvil, auto-fill baja el número de fichas por fila. */
+.edc-main:has(.edc-panel-grid) { max-width: none; padding-inline: clamp(14px, 3vw, 48px); }
+.edc-apply:has(.edc-panel-grid) { max-width: none; }
 
 /* Login */
 .edc-login { text-align: center; margin-top: 8vh; }
