@@ -461,20 +461,22 @@ function renderSlot(player, onLoaded) {
   const slot = el("div", { class: "edc-pcard-render" });
   const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
   phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
-  // Si el jugador hizo una versión para este artista, el render existente es
-  // el de su ficha PRINCIPAL (otro personaje): no se enseña.
+  // Si el jugador hizo una versión para este artista, su render es el de esa
+  // versión (variant_render: <user_id>/artist/<artist_id>.png), nunca el de la
+  // ficha PRINCIPAL (otro personaje). Mientras no exista, placeholder.
   const ph = el("div", { class: "edc-pcard-render-ph" }, phIco,
     el("span", {}, ta(player?.has_variant ? "render_variant" : "render_soon")));
   slot.append(ph);
-  if (!player?.has_variant) loadRenderInto(slot, ph, player, onLoaded);
+  const path = player?.has_variant ? player.variant_render
+    : (player?.user_id ? `${player.user_id}/render.png` : null);
+  if (path) loadRenderInto(slot, ph, path, onLoaded);
   return slot;
 }
-async function loadRenderInto(slot, ph, player, onLoaded) {
-  if (!player?.user_id) return;
+async function loadRenderInto(slot, ph, path, onLoaded) {
   let url = null;
   try {
     const { data: d } = await supabase.storage.from("renders")
-      .createSignedUrl(`${player.user_id}/render.png`, 3600);
+      .createSignedUrl(path, 3600);
     url = d?.signedUrl || null;
   } catch { url = null; }
   if (!url) return;
