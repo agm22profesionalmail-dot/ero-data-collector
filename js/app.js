@@ -19,6 +19,7 @@ import {
 } from "./artists.js";
 import { isAdminRoute, renderAdminPanel, leaveAdmin, forgetAdmin } from "./admin.js";
 import { isPanelRoute, renderArtistPanel, leavePanel, forgetPanelKey } from "./artist_panel.js";
+import { isFeedbackRoute, goFeedback, leaveFeedback, restoreFeedbackRoute, renderFeedback } from "./feedback.js";
 
 const $ = (id) => document.getElementById(id);
 const appEl = () => $("app");
@@ -165,6 +166,8 @@ function renderFooter() {
     el("span", {}, t("footer")),
     // Enlace discreto a la solicitud de acceso de artista (?apply)
     !isApplyRoute() && el("button", { class: "edc-footer-link", onClick: openApply }, t("footer_artist")),
+    // Reportes y sugerencias (?feedback)
+    !isFeedbackRoute() && el("button", { class: "edc-footer-link", onClick: openFeedback }, t("footer_feedback")),
   ));
   f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
 
@@ -685,7 +688,7 @@ function stateFromRow(row) {
 function updateNavLinks() {
   const navLinks = $("navLinks");
   if (!navLinks) return;
-  navLinks.hidden = isAdminRoute() || isPanelRoute() || isApplyRoute();
+  navLinks.hidden = isAdminRoute() || isPanelRoute() || isApplyRoute() || isFeedbackRoute();
 }
 
 function route() {
@@ -698,6 +701,7 @@ function route() {
   if (isAdminRoute()) { renderAdminView(); return; }
   if (isPanelRoute()) { renderPanelView(); return; }
   if (isApplyRoute()) { renderApplyView(); return; }
+  if (isFeedbackRoute()) { renderFeedbackView(); return; }
   if (session?.user) renderApp();
   else renderLogin();
 }
@@ -713,6 +717,17 @@ function renderApplyView() {
 
 function openApply() { if (goApply()) { route(); renderFooter(); } }
 function closeApply() { if (goHome()) { route(); renderFooter(); } }
+
+// ── Reportes y sugerencias (?feedback) ──────────────────────────────
+function renderFeedbackView() {
+  profile = session?.user ? identityProfile(session.user) : null;
+  renderFeedback(appEl(), {
+    session, profile,
+    actions: { login: doLogin, linkDiscord: () => doLink("discord"), back: closeFeedback, discordSvg },
+  });
+}
+function openFeedback() { if (goFeedback()) { route(); renderFooter(); window.scrollTo({ top: 0 }); } }
+function closeFeedback() { if (leaveFeedback()) { route(); renderFooter(); } }
 
 // ── Panel de admin (?admin) ──────────────────────────────────────────
 function renderAdminView() { renderAdminPanel(appEl(), { onBack: closeAdmin }); }
@@ -734,6 +749,7 @@ async function init() {
   // OAuth en sessionStorage) y restaura ?apply si se fue al OAuth desde ahí.
   captureRefFromUrl();
   restoreApplyRoute();
+  restoreFeedbackRoute();
 
   applyStaticI18n();
 
@@ -742,7 +758,7 @@ async function init() {
 
   onLangChange(() => {
     applyStaticI18n();
-    if (!isConfigured() || isApplyRoute() || isAdminRoute() || isPanelRoute()) { route(); return; }
+    if (!isConfigured() || isApplyRoute() || isAdminRoute() || isPanelRoute() || isFeedbackRoute()) { route(); return; }
     if (session?.user && state) renderModeView();
     else route();
   });
