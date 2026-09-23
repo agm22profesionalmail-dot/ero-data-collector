@@ -118,7 +118,15 @@ export function leavePanel() {
   return true;
 }
 
-let artistKey = null;  // clave en memoria (nunca a disco)
+// Clave en memoria + sessionStorage de esta pestaña: recargar o que el
+// navegador descarte la pestaña en segundo plano no obliga a meterla otra vez.
+// Se borra al cerrar la pestaña o con "Cambiar clave".
+const KEY_STORE = "edc_panel_key";
+const keyStore = {
+  get() { try { return sessionStorage.getItem(KEY_STORE); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem(KEY_STORE, v) : sessionStorage.removeItem(KEY_STORE); } catch { /* sin storage */ } },
+};
+let artistKey = null;
 let rows = null;       // último grupo devuelto por artist_group
 let mustChange = false; // must_change_password del último rpcGroup
 let termsOk = false;   // TyC aceptados en esta visita (o RPC aún no desplegada)
@@ -147,6 +155,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
   const hasDiscord = !!(session?.user && profile?.hasDiscord);
 
   if (!hasDiscord) showConnect();
+  else if (!rows && !mustChange && keyStore.get()) resume(keyStore.get());
   else if (!rows && !mustChange) showKeyForm();
   else if (mustChange) showChangePassword();
   else gateTerms(showGallery);
@@ -207,8 +216,24 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         backBtn())));
   }
 
+  // Reentra con la clave guardada en la pestaña; si ya no vale, al formulario
+  async function resume(k) {
+    clear(wrap);
+    wrap.append(el("div", { class: "edc-card" }, el("p", { class: "edc-apply-intro" }, "…")));
+    try {
+      const group = await rpcGroup(k);
+      artistKey = k;
+      if (group.must_change_password) { mustChange = true; return showChangePassword(); }
+      await ensureData();
+      rows = group.players;
+      gateTerms(showGallery);
+    } catch (e) {
+      showKeyForm(isUnauthorized(e) ? ta("bad_key") : null);
+    }
+  }
+
   function showKeyForm(errMsg) {
-    rows = null; artistKey = null; mustChange = false; termsOk = false;
+    rows = null; artistKey = null; mustChange = false; termsOk = false; keyStore.set(null);
     clear(wrap);
     const input = el("input", { class: "edc-input", type: "password", placeholder: ta("key_ph"), autocomplete: "off" });
     const err = el("div", { class: "edc-banner-err" }); err.hidden = !errMsg; err.textContent = errMsg || "";
@@ -219,7 +244,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
       btn.disabled = true;
       try {
         const group = await rpcGroup(k);
-        artistKey = k;
+        artistKey = k; keyStore.set(k);
         if (group.must_change_password) {
           mustChange = true;
           showChangePassword();
@@ -261,7 +286,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
       try {
         const { error } = await supabase.rpc("artist_change_password", { p_current: artistKey, p_new: a });
         if (error) throw error;
-        artistKey = a; mustChange = false;
+        artistKey = a; keyStore.set(a); mustChange = false;
         await ensureData();
         const group = await rpcGroup(artistKey);
         rows = group.players;

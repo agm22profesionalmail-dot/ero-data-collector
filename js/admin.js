@@ -58,7 +58,15 @@ export function leaveAdmin() {
   return true;
 }
 
-let creds = null;   // { user, pass } en memoria (nunca a disco)
+// { user, pass }: en memoria + sessionStorage de esta pestaña, para que
+// recargar o que el navegador descarte la pestaña en segundo plano no cierre
+// la sesión. Se borra al cerrar la pestaña o al pulsar "Salir".
+const CREDS_KEY = "edc_admin_creds";
+const store = {
+  get() { try { return JSON.parse(sessionStorage.getItem(CREDS_KEY) || "null"); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem(CREDS_KEY, JSON.stringify(v)) : sessionStorage.removeItem(CREDS_KEY); } catch { /* sin storage */ } },
+};
+let creds = store.get();
 let rows = null;    // último listado de artistas
 let tab = "requests"; // "requests" | "players"
 let oc = null;      // { media, players } de admin_players
@@ -78,10 +86,12 @@ export function renderAdminPanel(container, { onBack } = {}) {
   container.append(wrap);
   const backBtn = () => el("button", { class: "edc-btn-link", onClick: onBack }, ta("back"));
 
-  if (!creds) showLogin(); else showList();
+  if (!creds) showLogin();
+  else if (rows) showList();
+  else reload().then(showList).catch((e) => showLogin(isUnauthorized(e) ? ta("bad_creds") : ta("err") + (e?.message || "")));
 
   function showLogin(errMsg) {
-    creds = null;
+    creds = null; rows = null; store.set(null);
     clear(wrap);
     const user = el("input", { class: "edc-input", type: "text", placeholder: ta("user"), autocomplete: "username" });
     const pass = el("input", { class: "edc-input", type: "password", placeholder: ta("pass"), autocomplete: "current-password" });
@@ -91,7 +101,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
       const u = user.value.trim(), p = pass.value;
       if (!u || !p) return;
       btn.disabled = true;
-      try { creds = { user: u, pass: p }; rows = await rpc("admin_list", { p_user: u, p_pass: p }); showList(); }
+      try { creds = { user: u, pass: p }; rows = await rpc("admin_list", { p_user: u, p_pass: p }); store.set(creds); showList(); }
       catch (e) { showLogin(isUnauthorized(e) ? ta("bad_creds") : ta("err") + (e?.message || "")); }
     };
     btn.addEventListener("click", submit);
