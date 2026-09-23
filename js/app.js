@@ -1,6 +1,6 @@
 // Orquestador de la SPA
 import { artistTermsHtml } from "./artist_terms.js";
-import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
+import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED, SHOW_OWN_RENDER } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured } from "./supabase.js";
 import {
@@ -413,7 +413,9 @@ function renderPreviewScreen() {
   card.append(el("div", { class: "edc-save-bar" },
     el("button", { class: "edc-btn edc-btn-primary", onClick: () => { mode = "edit"; renderModeView(); } }, t("edit_player"))));
   appEl().append(card);
-  appEl().append(renderMyRenderCard());
+  // Renders en beta: solo si SHOW_OWN_RENDER (config.js). Con false no se
+  // firma ninguna URL ni se monta la sección.
+  if (SHOW_OWN_RENDER) appEl().append(renderMyRenderCard());
 
   const help = el("div");
   appEl().append(help);
@@ -423,6 +425,7 @@ function renderPreviewScreen() {
 // "Tu render 3D": el render PRINCIPAL del propio jugador (<user_id>/render.png
 // + spin.webp del bucket privado `renders`). Nunca las versiones por artista.
 // Sin render todavía → placeholder con el aviso de que se genera en unas horas.
+// Solo se llama con SHOW_OWN_RENDER = true (renders fuera de beta).
 function renderMyRenderCard() {
   const { png, spin } = renderPaths(session?.user?.id);
   const ph = el("div", { class: "edc-pcard-render-ph" },

@@ -1178,6 +1178,15 @@ body {
 .edc-rspin-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .edc-rspin-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* Móvil: los controles en UNA fila — fuera la etiqueta "Girar" (queda en los
+   aria-label de ◀ ▶) y botones más compactos. */
+@media (max-width: 480px) {
+  .edc-rspin-label { display: none; }
+  .edc-rspin-ctrls { gap: 4px; }
+  .edc-rspin-group { margin-right: 0; }
+  .edc-rspin-btn { padding: 6px 8px; font-size: .7rem; min-width: 28px; }
+}
+
 /* "Tu render 3D" en la pantalla del jugador: carta a tamaño de retrato */
 .edc-myrender-slot { max-width: 340px; }
 .edc-myrender .edc-pcard-beta { margin-top: 10px; }
