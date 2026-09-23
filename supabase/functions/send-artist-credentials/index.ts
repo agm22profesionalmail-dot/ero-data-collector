@@ -15,7 +15,18 @@
 //   GMAIL_USER          = zerosplatoon22@gmail.com
 //   GMAIL_APP_PASSWORD  = app password de Google (16 caracteres)
 //   SITE_URL            = https://eroplayerdata.pages.dev
+//   DISCORD_BOT_TOKEN   = token del bot de Discord (opcional: sin él no hay
+//                         plan B por mensaje directo)
 // SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los inyecta Supabase.
+//
+// Entrega (migración 20260923_06):
+//  1) Antes de enviar se mira el DNS del dominio (MX, o A/AAAA). Si no puede
+//     recibir correo, se usa el email verificado de la cuenta de Discord del
+//     artista (auth.users) y, si tampoco vale, un mensaje directo de Discord.
+//  2) Si Gmail rechaza el envío, también se tira de Discord.
+//  3) {"action":"check_bounces"} (pg_cron cada 15 min): lee por IMAP los
+//     rebotes de mailer-daemon del buzón de envío, marca bounced_at en la
+//     cola y reenvía el aviso por Discord.
 //
 // Desplegar con verify_jwt = false (pg_net no manda JWT de usuario).
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
@@ -25,7 +36,9 @@ const GMAIL_APP_PASSWORD = (Deno.env.get("GMAIL_APP_PASSWORD") ?? "").replace(/\
 const SITE_URL = (Deno.env.get("SITE_URL") ?? "https://eroplayerdata.pages.dev").replace(/\/+$/, "");
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const MAX_AGE_MS = 15 * 60 * 1000;
+const BOUNCE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Outbox = {
@@ -33,6 +46,9 @@ type Outbox = {
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
   kind?: "credentials" | "rejected";   // migración 20260923_04
   hero?: number | null;                 // migración 20260923_05 (portada fija, pruebas)
+  channel?: string | null;              // migración 20260923_06: email | email_alt | discord
+  delivered_to?: string | null;
+  bounced_at?: string | null;
 };
 
 const rest = (path: string, init: RequestInit = {}) =>
@@ -426,28 +442,149 @@ function renderText({ name, refLink, panelLink, key, lang, reset }: Args) {
   return lines.join("\n");
 }
 
-Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return new Response("Server not configured", { status: 500 });
+// ── Entrega: DNS, alternativas y Discord ───────────────────────────────
 
-  let id = "";
-  try { id = String((await req.json())?.id ?? ""); } catch { /* sin cuerpo */ }
-  if (!UUID_RE.test(id)) return new Response("Bad request", { status: 400 });
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-  const r = await rest(`artist_email_outbox?id=eq.${id}&sent_at=is.null&select=*`);
-  const rows: Outbox[] = r.ok ? await r.json() : [];
-  const row = rows[0];
-  const rejected = row?.kind === "rejected";
-  // Respuesta neutra: no revela si el id existe. El de acceso necesita clave;
-  // el de rechazo no lleva ninguna.
-  if (!row || (!rejected && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
-    return new Response(JSON.stringify({ ok: false }), { status: 200, headers: { "Content-Type": "application/json" } });
+// DNS-over-HTTPS (Cloudflare y Google de reserva). null = no se pudo consultar.
+async function doh(name: string, type: "MX" | "A" | "AAAA") {
+  const code = { MX: 15, A: 1, AAAA: 28 }[type];
+  for (const base of ["https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"]) {
+    try {
+      const r = await fetch(`${base}?name=${encodeURIComponent(name)}&type=${type}`, {
+        headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(4000),
+      });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j.Status === 3) return { nx: true, answers: [] as { data: string }[] };
+      if (j.Status !== 0) continue;
+      return { nx: false, answers: ((j.Answer ?? []) as { type: number; data: string }[]).filter((a) => a.type === code) };
+    } catch { /* siguiente resolver */ }
   }
-  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
-    await mark(id, { error: "Gmail credentials not configured" });
-    return new Response("Gmail credentials not configured", { status: 500 });
-  }
+  return null;
+}
 
+// "ok" = el dominio recibe correo; "dead" = no existe, MX nulo o sin MX/A/AAAA;
+// "unknown" = DNS sin respuesta (no se bloquea: se intenta enviar igual).
+async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> {
+  const domain = (email.split("@").pop() ?? "").trim().toLowerCase().replace(/\.$/, "");
+  if (!domain) return "dead";
+  const mx = await doh(domain, "MX");
+  if (!mx) return "unknown";
+  if (mx.nx) return "dead";
+  if (mx.answers.length) return mx.answers.every((a) => /^\s*0\s+\.?\s*$/.test(a.data)) ? "dead" : "ok";
+  const a = await doh(domain, "A");
+  if (a?.answers.length) return "ok";
+  const aaaa = await doh(domain, "AAAA");
+  if (aaaa?.answers.length) return "ok";
+  return a || aaaa ? "dead" : "unknown";
+}
+
+type ArtistInfo = { discord_id: string | null; status: string; must_change_password: boolean | null };
+
+async function artistByEmail(email: string): Promise<ArtistInfo | null> {
+  const r = await rest(`artists?email=eq.${encodeURIComponent(email)}&select=discord_id,status,must_change_password&order=created_at.desc&limit=1`);
+  const rows = r.ok ? await r.json() : [];
+  return rows[0] ?? null;
+}
+
+// Email verificado de la cuenta de Discord (auth.users), vía RPC solo service_role
+async function discordAccountEmail(discordId: string): Promise<string | null> {
+  const r = await rest("rpc/artist_discord_email", { method: "POST", body: JSON.stringify({ p_discord_id: discordId }) });
+  if (!r.ok) return null;
+  const v = await r.json();
+  return typeof v === "string" && v.includes("@") ? v : null;
+}
+
+// Clave genérica vigente (la misma que ponen admin_approve / admin_reset_generic)
+async function genericKey(): Promise<string | null> {
+  const r = await rest("app_secrets?k=eq.generic_artist_key&select=v");
+  const rows = r.ok ? await r.json() : [];
+  return rows[0]?.v ?? null;
+}
+
+async function sendSmtp(to: string, subject: string, text: string, html: string) {
+  const client = new SMTPClient({
+    connection: {
+      hostname: "smtp.gmail.com", port: 465, tls: true,
+      auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
+    },
+  });
+  try {
+    await client.send({
+      from: `OC Data Collector <${GMAIL_USER}>`,
+      to,
+      subject,
+      // base64 en vez del quoted-printable de denomailer (su codificador
+      // dejaba "=20" visibles en Gmail)
+      mimeContent: [
+        { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64", content: b64(text) },
+        { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64", content: b64(html) },
+      ],
+    });
+  } finally {
+    try { await client.close(); } catch { /* ignore */ }
+  }
+}
+
+// Mensaje directo por Discord. null = enviado; si no, el motivo del fallo.
+// Un bot solo puede escribir a quien comparte servidor con él (error 50007).
+async function sendDiscordDm(discordId: string, content: string): Promise<string | null> {
+  if (!DISCORD_BOT_TOKEN) return "discord bot not configured";
+  const api = (path: string, body: unknown) => fetch(`https://discord.com/api/v10${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10000),
+  });
+  try {
+    const ch = await api("/users/@me/channels", { recipient_id: discordId });
+    if (!ch.ok) return `discord ${ch.status}: ${(await ch.text()).slice(0, 200)}`;
+    const { id } = await ch.json();
+    const msg = await api(`/channels/${id}/messages`, { content: content.slice(0, 2000), allowed_mentions: { parse: [] } });
+    if (!msg.ok) return `discord ${msg.status}: ${(await msg.text()).slice(0, 200)}`;
+    return null;
+  } catch (err) {
+    return `discord: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+// Texto corto para Discord (límite 2000). key = null → sin clave (rechazo, o
+// el artista ya eligió la suya): solo se le manda al panel.
+function discordText(row: Outbox, key: string | null) {
+  const lang: "en" | "es" = row.lang === "es" ? "es" : "en";
+  const name = row.name || "artist";
+  const note = lang === "es"
+    ? "_Te escribimos por aquí porque no hemos podido hacerte llegar el email._"
+    : "_We're messaging you here because we couldn't get the email to you._";
+  if (row.kind === "rejected") {
+    const t = rejectCopy(lang, name);
+    return [`**${t.title}**`, "", t.hello, "", ...t.paras, "", `${t.cta}: <${SITE_URL}/>`, "", note].join("\n");
+  }
+  const t = copy(lang, !!row.reset, name);
+  const lines = [`**${t.title}**`, "", t.hello, "", t.intro, "", `${t.cta}: <${SITE_URL}/?panel>`];
+  if (key) lines.push("", `${t.keyTitle}: ||${key}||`, t.keyNote);
+  if (!row.reset && row.slug) lines.push("", `${t.linkTitle}: <${SITE_URL}/?ref=${encodeURIComponent(row.slug)}>`);
+  lines.push("", t.help, "", note);
+  return lines.join("\n");
+}
+
+// Plan B por Discord. Devuelve el parche para la fila de la cola.
+async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: string | null, reason: string) {
+  const dmErr = artist?.discord_id ? await sendDiscordDm(artist.discord_id, discordText(row, key)) : "no discord id";
+  if (!dmErr) {
+    return {
+      sent_at: row.sent_at ?? new Date().toISOString(), key: null, error: null, note: reason,
+      channel: "discord", delivered_to: `discord:${artist?.discord_id}`,
+    };
+  }
+  return { error: `${reason} | ${dmErr}`.slice(0, 500), note: reason };
+}
+
+async function sendRow(row: Outbox) {
+  const id = row.id;
+  const rejected = row.kind === "rejected";
   const language: "en" | "es" = row.lang === "es" ? "es" : "en";
   const reset = !!row.reset;
   const name = row.name || "artist";
@@ -462,33 +599,181 @@ Deno.serve(async (req) => {
     ? renderRejectHtml(language, name, siteLink)
     : renderHtml({ name, refLink, panelLink, key: row.key as string, lang: language, reset, hero: row.hero });
 
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com", port: 465, tls: true,
-      auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
-    },
-  });
-  try {
-    await client.send({
-      from: `OC Data Collector <${GMAIL_USER}>`,
-      to: row.email,
-      subject,
-      // base64 en vez del quoted-printable de denomailer (su codificador
-      // dejaba "=20" visibles en Gmail)
-      mimeContent: [
-        { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64", content: b64(text) },
-        { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64", content: b64(html) },
-      ],
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("SMTP send failed:", msg);
-    try { await client.close(); } catch { /* ignore */ }
-    await mark(id, { error: msg.slice(0, 500) });
-    return new Response("SMTP error", { status: 502 });
+  const artist = await artistByEmail(row.email);
+
+  // 1) ¿El dominio recibe correo? Si no, email de la cuenta de Discord.
+  let target = row.email;
+  let channel = "email";
+  let reason = "";
+  if (await domainAccepts(row.email) === "dead") {
+    reason = `email domain can't receive mail (${row.email.split("@").pop()})`;
+    const alt = artist?.discord_id ? await discordAccountEmail(artist.discord_id) : null;
+    if (alt && alt.toLowerCase() !== row.email.toLowerCase() && await domainAccepts(alt) !== "dead") {
+      target = alt;
+      channel = "email_alt";
+    } else {
+      channel = "discord";
+    }
   }
-  try { await client.close(); } catch { /* ignore */ }
-  // Enviado: se borra la clave de la cola (no se queda en claro en la BBDD)
-  await mark(id, { sent_at: new Date().toISOString(), key: null, error: null });
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  // 2) Email (principal o alternativo); si Gmail lo rechaza, Discord.
+  if (channel !== "discord") {
+    try {
+      await sendSmtp(target, subject, text, html);
+      // Enviado: se borra la clave de la cola (no se queda en claro en la BBDD)
+      await mark(id, {
+        sent_at: new Date().toISOString(), key: null, error: null, channel,
+        delivered_to: channel === "email_alt" ? target : null, note: reason || null,
+      });
+      return json({ ok: true, channel });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("SMTP send failed:", msg);
+      reason = `smtp: ${msg}`.slice(0, 300);
+    }
+  }
+
+  // 3) Discord
+  const patch = await discordFallback(row, artist, rejected ? null : row.key, reason);
+  await mark(id, patch);
+  return "channel" in patch ? json({ ok: true, channel: "discord" }) : json({ ok: false, error: patch.error }, 502);
+}
+
+// ── Rebotes (IMAP) ─────────────────────────────────────────────────────
+// Gmail acepta el envío y el rebote llega después al buzón como un correo de
+// mailer-daemon. Cliente IMAP mínimo sobre TLS: LOGIN, SELECT, UID SEARCH,
+// UID FETCH (BODY.PEEK: no marca como leído) y LOGOUT.
+
+class Imap {
+  private buf = "";
+  private dec = new TextDecoder();
+  private enc = new TextEncoder();
+  private n = 0;
+  private constructor(private conn: Deno.TlsConn) {}
+
+  static async open(host: string) {
+    const imap = new Imap(await Deno.connectTls({ hostname: host, port: 993 }));
+    await imap.readUntil(/\r\n/);
+    return imap;
+  }
+
+  private async readUntil(re: RegExp, timeoutMs = 20000) {
+    const deadline = Date.now() + timeoutMs;
+    const chunk = new Uint8Array(65536);
+    while (!re.test(this.buf)) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const n = await Promise.race([
+        this.conn.read(chunk),
+        new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("imap timeout")), Math.max(0, deadline - Date.now())); }),
+      ]).finally(() => clearTimeout(timer));
+      if (n === null) throw new Error("imap connection closed");
+      this.buf += this.dec.decode(chunk.subarray(0, n), { stream: true });
+    }
+    const out = this.buf;
+    this.buf = "";
+    return out;
+  }
+
+  async cmd(command: string) {
+    const tag = `a${++this.n}`;
+    await this.conn.write(this.enc.encode(`${tag} ${command}\r\n`));
+    const done = new RegExp(`(?:^|\\r\\n)${tag} (OK|NO|BAD)([^\\r\\n]*)\\r\\n`);
+    const out = await this.readUntil(done);
+    const m = out.match(done);
+    if (m?.[1] !== "OK") throw new Error(`imap ${command.split(" ")[0]}: ${m?.[1]}${m?.[2] ?? ""}`);
+    return out;
+  }
+
+  close() { try { this.conn.close(); } catch { /* ignore */ } }
+}
+
+const imapQuote = (s: string) => `"${s.replace(/(["\\])/g, "\\$1")}"`;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const imapDate = (d: Date) => `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
+
+async function checkBounces() {
+  const since = new Date(Date.now() - BOUNCE_WINDOW_MS);
+  const r = await rest(
+    `artist_email_outbox?sent_at=gte.${since.toISOString()}&bounced_at=is.null` +
+    `&or=(channel.is.null,channel.in.(email,email_alt))&select=*`,
+  );
+  const rows: Outbox[] = r.ok ? await r.json() : [];
+  if (!rows.length) return json({ ok: true, checked: 0, bounced: 0 });
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return json({ ok: false, error: "Gmail credentials not configured" }, 500);
+
+  // Rebotes recientes: cabeceras + primeros 30 KB del cuerpo de cada uno
+  const bounces: { at: number; text: string }[] = [];
+  const imap = await Imap.open("imap.gmail.com");
+  try {
+    await imap.cmd(`LOGIN ${imapQuote(GMAIL_USER)} ${imapQuote(GMAIL_APP_PASSWORD)}`);
+    await imap.cmd("SELECT INBOX");
+    const found = await imap.cmd(`UID SEARCH SINCE ${imapDate(since)} OR FROM "mailer-daemon" FROM "postmaster"`);
+    const uids = (found.match(/\* SEARCH([^\r\n]*)/)?.[1] ?? "").trim().split(/\s+/).filter(Boolean).slice(-50);
+    for (const uid of uids) {
+      const out = await imap.cmd(`UID FETCH ${uid} (INTERNALDATE BODY.PEEK[HEADER] BODY.PEEK[TEXT]<0.30000>)`);
+      const date = out.match(/INTERNALDATE "([^"]+)"/)?.[1] ?? "";
+      const at = Date.parse(date.replace(/-/g, " "));
+      bounces.push({ at: Number.isFinite(at) ? at : Date.now(), text: out.toLowerCase() });
+    }
+    try { await imap.cmd("LOGOUT"); } catch { /* ignore */ }
+  } finally {
+    imap.close();
+  }
+
+  let bounced = 0;
+  for (const row of rows) {
+    const addr = (row.delivered_to || row.email).toLowerCase();
+    const sentAt = Date.parse(row.sent_at as string);
+    // Margen de 2 min por diferencias de reloj entre Gmail y Supabase
+    const hit = bounces.find((b) => b.at >= sentAt - 120000 && b.text.includes(addr));
+    if (!hit) continue;
+    bounced++;
+    const diag = hit.text.match(/diagnostic-code:[^\r\n]*/)?.[0]
+      ?? hit.text.match(/\b5\d\d[ -][^\r\n]{0,160}/)?.[0] ?? "bounced";
+    const reason = `bounced: ${diag.trim()}`.slice(0, 300);
+    const artist = await artistByEmail(row.email);
+    // Email de acceso y aún no ha elegido su clave → va la genérica vigente
+    const key = row.kind !== "rejected" && artist?.status === "approved" && artist.must_change_password
+      ? await genericKey() : null;
+    const patch = await discordFallback(row, artist, key, reason);
+    await mark(row.id, { bounced_at: new Date(hit.at).toISOString(), ...patch });
+  }
+  return json({ ok: true, checked: rows.length, bounces: bounces.length, bounced });
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return new Response("Server not configured", { status: 500 });
+
+  let body: { id?: unknown; action?: unknown } = {};
+  try { body = (await req.json()) ?? {}; } catch { /* sin cuerpo */ }
+
+  // Revisión de rebotes (pg_cron). No recibe datos: solo mira la cola.
+  if (body.action === "check_bounces") {
+    try {
+      return await checkBounces();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("check_bounces failed:", msg);
+      return json({ ok: false, error: msg }, 502);
+    }
+  }
+
+  const id = String(body.id ?? "");
+  if (!UUID_RE.test(id)) return new Response("Bad request", { status: 400 });
+
+  const r = await rest(`artist_email_outbox?id=eq.${id}&sent_at=is.null&select=*`);
+  const rows: Outbox[] = r.ok ? await r.json() : [];
+  const row = rows[0];
+  const rejected = row?.kind === "rejected";
+  // Respuesta neutra: no revela si el id existe. El de acceso necesita clave;
+  // el de rechazo no lleva ninguna.
+  if (!row || (!rejected && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
+    return json({ ok: false });
+  }
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+    await mark(id, { error: "Gmail credentials not configured" });
+    return new Response("Gmail credentials not configured", { status: 500 });
+  }
+  return await sendRow(row);
 });
