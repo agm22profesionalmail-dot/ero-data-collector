@@ -178,7 +178,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
     if (a.status === "pending")
       bar.append(
         el("button", { class: "edc-btn edc-btn-primary edc-btn-sm", onClick: () => run("admin_approve", { p_id: a.id }, showSecret) }, ta("approve")),
-        el("button", { class: "edc-btn edc-btn-sm", onClick: () => run("admin_set_status", { p_id: a.id, p_status: "rejected" }) }, ta("reject")));
+        el("button", { class: "edc-btn edc-btn-sm", onClick: () => run("admin_reject", { p_id: a.id }) }, ta("reject")));
     else if (a.status === "approved")
       bar.append(
         el("button", { class: "edc-btn edc-btn-sm", onClick: () => run("admin_reset_key", { p_id: a.id }, (r) => showSecret({ ...r, slug: a.slug })) }, ta("reset_key")),
