@@ -759,10 +759,15 @@ async function init() {
 
   if (isConfigured()) {
     session = await getSession();
+    // Supabase emite SIGNED_IN / TOKEN_REFRESHED al volver a la pestaña: si el
+    // usuario es el mismo solo se actualiza la sesión, sin redibujar (antes se
+    // perdía el panel abierto y el formulario a medias).
     onAuthChange((s) => {
-      const wasUser = !!session?.user;
+      const prevId = session?.user?.id || null;
       session = s;
-      if (!!s?.user !== wasUser) { state = null; hasRecord = false; mode = "edit"; }
+      const nextId = s?.user?.id || null;
+      if (nextId === prevId) return;
+      state = null; hasRecord = false; mode = "edit";
       applyStaticI18n();
       route();
     });
