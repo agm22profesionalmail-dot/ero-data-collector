@@ -241,7 +241,23 @@ async function submitRequest({ discord_id, name, email, portfolio, reason }) {
     preferred_lang, status: "pending",
     terms_version: ARTIST_TERMS_VERSION,
   });
+  if (error?.code === "23505") return reapply({ discord_id, name, email, portfolio, reason, preferred_lang });
   if (error) throw error;
+}
+
+// Ya hay una fila con ese Discord (23505). Si fue rechazada se puede volver a
+// pedir: artist_reapply (migración 20260925_01) la pasa a pending con los datos
+// nuevos. Si sigue pendiente (o la RPC aún no existe) → "ya tienes una solicitud".
+async function reapply({ discord_id, name, email, portfolio, reason, preferred_lang }) {
+  const { data, error } = await supabase.rpc("artist_reapply", {
+    p_discord_id: discord_id, p_name: name, p_email: email,
+    p_portfolio: portfolio || null, p_reason: reason || null,
+    p_lang: preferred_lang, p_terms_version: ARTIST_TERMS_VERSION,
+  });
+  if (!error && data === "reapplied") return;
+  if (!error && data === "approved") throw { code: "approved" };
+  if (error && error.code !== "PGRST202") throw error;
+  throw { code: "23505" };
 }
 
 // Portfolio: vacío o URL http(s) válida
@@ -388,8 +404,8 @@ export function renderArtistApply(container, { session, profile, actions }) {
       renderArtistApply(container, { session, profile, actions });
     } catch (e) {
       // 23505 = unique_violation (artists.discord_id): ya hay una solicitud
-      const dup = e?.code === "23505";
-      const msg = dup ? t("apply_dup") : t("apply_err") + (e?.message || t("link_err_generic"));
+      const dup = e?.code === "23505" || e?.code === "approved";
+      const msg = e?.code === "approved" ? t("apply_already_approved") : dup ? t("apply_dup") : t("apply_err") + (e?.message || t("link_err_generic"));
       status.className = "edc-save-status err"; status.textContent = msg;
       toast(msg, "err");
       if (!dup) console.warn("artists.insert:", e);
