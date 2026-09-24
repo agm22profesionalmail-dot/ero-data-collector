@@ -20,7 +20,7 @@ import {
 } from "./data.js";
 import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
-import { getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, renderCandidates } from "./store.js";
+import { getBannerSignedUrl, getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, renderCandidates } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 
 const S = {
@@ -440,9 +440,8 @@ function renderBanner(player, opts = {}) {
 
 async function loadBannerInto(container, ph, player, cb = {}) {
   try {
-    const { data: d } = await supabase.storage.from("banners")
-      .createSignedUrl(player.banner_path, 3600);
-    if (!d?.signedUrl) { cb.onFail?.(); return; }
+    const signedUrl = await getBannerSignedUrl(player.banner_path);
+    if (!signedUrl) { cb.onFail?.(); return; }
     const img = document.createElement("img");
     img.className = "edc-banner-img";
     img.alt = "";
@@ -456,7 +455,7 @@ async function loadBannerInto(container, ph, player, cb = {}) {
       cb.onLoad?.();
     };
     img.onerror = () => { cb.onFail?.(); };
-    img.src = d.signedUrl;
+    img.src = signedUrl;
   } catch { cb.onFail?.(); }
 }
 
