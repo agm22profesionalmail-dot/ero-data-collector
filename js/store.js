@@ -20,10 +20,41 @@ export async function loadPlayer(userId) {
   return data;
 }
 
+// URLs firmadas reutilizadas (2026-09-25, ahorro de egress de Supabase): cada
+// firma nueva es una URL distinta y el CDN/navegador la tratan como imagen
+// nueva. Se firma por 24 h y se reutiliza la misma URL durante 6 h (memoria +
+// localStorage), así las visitas repetidas salen de caché. Tras un re-render,
+// la imagen nueva puede tardar hasta ~1 h en verse (Cache-Control del worker).
+const SIGN_EXPIRES_S = 24 * 3600;
+const SIGN_REUSE_MS = 6 * 3600 * 1000;
+const SIGN_LS_KEY = "edc_signed_urls_v1";
+const signMem = new Map();
+function signCacheRead() {
+  try { return JSON.parse(localStorage.getItem(SIGN_LS_KEY) || "{}") || {}; } catch { return {}; }
+}
+function signCacheWrite(all) {
+  try { localStorage.setItem(SIGN_LS_KEY, JSON.stringify(all)); } catch { /* sin storage: solo memoria */ }
+}
+async function signedUrlCached(bucket, path) {
+  const key = `${bucket}/${path}`;
+  const now = Date.now();
+  const hit = signMem.get(key) || signCacheRead()[key];
+  if (hit && now - hit.at < SIGN_REUSE_MS) { signMem.set(key, hit); return hit.url; }
+  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, SIGN_EXPIRES_S);
+  const url = data?.signedUrl ?? null;
+  if (!url) return null;
+  const entry = { url, at: now };
+  signMem.set(key, entry);
+  const all = signCacheRead();
+  for (const k of Object.keys(all)) if (now - (all[k]?.at || 0) >= SIGN_REUSE_MS) delete all[k];
+  all[key] = entry;
+  signCacheWrite(all);
+  return url;
+}
+
 export async function getBannerSignedUrl(path) {
   if (!path) return null;
-  const { data } = await supabase.storage.from("banners").createSignedUrl(path, 3600);
-  return data?.signedUrl ?? null;
+  try { return await signedUrlCached("banners", path); } catch { return null; }
 }
 
 // Bucket privado `renders` (render.webp / spin.webp del worker de Blender).
@@ -32,8 +63,7 @@ export async function getBannerSignedUrl(path) {
 export async function getRenderSignedUrl(path) {
   if (!path) return null;
   try {
-    const { data } = await supabase.storage.from("renders").createSignedUrl(path, 3600);
-    return data?.signedUrl ?? null;
+    return await signedUrlCached("renders", path);
   } catch { return null; }
 }
 // Firma la primera ruta que exista de una lista de candidatos (firmar un
