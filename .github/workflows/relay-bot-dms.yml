@@ -1,0 +1,29 @@
+# Cada 5 min dispara la Edge Function relay-bot-dms, que reenvía a Zero por MD
+# las respuestas que la gente escribe al bot (Pelipper). Funciona con el PC de
+# Zero apagado. La función es idempotente y no necesita secrets aquí.
+# GitHub puede retrasar los cron unos minutos; no pasa nada (mira 72 h atrás).
+name: relay-bot-dms
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay-bot-dms
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Llamar a relay-bot-dms
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body --max-time 90 -X POST \
+            -H "Content-Type: application/json" -d '{}' \
+            https://xwyauyjeteztlevvtydb.supabase.co/functions/v1/relay-bot-dms
