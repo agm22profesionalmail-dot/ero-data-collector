@@ -20,7 +20,7 @@ import {
 } from "./data.js";
 import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
-import { getRenderSignedUrl, renderPaths } from "./store.js";
+import { getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, renderCandidates } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 
 const S = {
@@ -497,19 +497,21 @@ function renderSlot(player, onLoaded) {
   const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
   phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
   // Si el jugador hizo una versión para este artista, su render es el de esa
-  // versión (variant_render: <user_id>/artist/<artist_id>.png, spin en
+  // versión (variant_render: <user_id>/artist/<artist_id>.png según el RPC; se
+  // lee <artist_id>.webp y, si no existe, el .png; spin en
   // <user_id>/artist/<artist_id>_spin.webp), nunca el de la ficha PRINCIPAL
   // (otro personaje). Mientras no exista, placeholder.
   const ph = el("div", { class: "edc-pcard-render-ph" }, phIco,
     el("span", {}, ta(player?.has_variant ? "render_variant" : "render_soon")));
   let png = null, spin = null;
   if (player?.has_variant && player.variant_render) {
-    png = player.variant_render;
-    spin = player.variant_render.replace(/\.png$/i, "_spin.webp");
+    const base = player.variant_render.replace(/\.(png|webp)$/i, "");
+    png = renderCandidates(base);
+    spin = base + "_spin.webp";
   } else if (player?.user_id) ({ png, spin } = renderPaths(player.user_id));
   return createRenderSpin({
     placeholder: ph,
-    pngUrl: png ? getRenderSignedUrl(png) : null,
+    pngUrl: png ? getRenderSignedUrlFirst(png) : null,
     spinUrl: spin ? getRenderSignedUrl(spin) : null,
     onLoaded,
   });

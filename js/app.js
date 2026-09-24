@@ -10,7 +10,7 @@ import {
 import { loadData, colorToHex, data, getById, headNames, clothNames, shoesNames, curName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerSignedUrl, getRenderSignedUrl, renderPaths, syncIdentityFields } from "./store.js";
+import { loadPlayer, savePlayer, getBannerSignedUrl, getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, syncIdentityFields } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
 import {
@@ -422,8 +422,9 @@ function renderPreviewScreen() {
   renderHelp(help);
 }
 
-// "Tu render 3D": el render PRINCIPAL del propio jugador (<user_id>/render.png
-// + spin.webp del bucket privado `renders`). Nunca las versiones por artista.
+// "Tu render 3D": el render PRINCIPAL del propio jugador (<user_id>/render.webp,
+// o render.png si es anterior a la migración, + spin.webp del bucket privado
+// `renders`). Nunca las versiones por artista.
 // Sin render todavía → placeholder con el aviso de que se genera en unas horas.
 // Solo se llama con SHOW_OWN_RENDER = true (renders fuera de beta).
 function renderMyRenderCard() {
@@ -434,7 +435,7 @@ function renderMyRenderCard() {
     el("span", {}, t("my_render_pending")));
   const view = createRenderSpin({
     placeholder: ph,
-    pngUrl: png ? getRenderSignedUrl(png) : null,
+    pngUrl: png ? getRenderSignedUrlFirst(png) : null,
     spinUrl: spin ? getRenderSignedUrl(spin) : null,
   });
   return el("div", { class: "edc-card edc-myrender" },

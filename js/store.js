@@ -26,7 +26,7 @@ export async function getBannerSignedUrl(path) {
   return data?.signedUrl ?? null;
 }
 
-// Bucket privado `renders` (render.png / spin.webp del worker de Blender).
+// Bucket privado `renders` (render.webp / spin.webp del worker de Blender).
 // Devuelve null si no hay path, el bucket no existe o falla la firma: el que
 // llama lo trata como "aún sin render".
 export async function getRenderSignedUrl(path) {
@@ -36,9 +36,22 @@ export async function getRenderSignedUrl(path) {
     return data?.signedUrl ?? null;
   } catch { return null; }
 }
-// Rutas del render principal y del sprite de giro de un usuario.
+// Firma la primera ruta que exista de una lista de candidatos (firmar un
+// objeto inexistente falla → se prueba el siguiente). Sirve para el cambio de
+// formato de 2026-09-24: primero `render.webp` y, si aún no está, el
+// `render.png` antiguo.
+export async function getRenderSignedUrlFirst(paths) {
+  for (const path of paths || []) {
+    const url = await getRenderSignedUrl(path);
+    if (url) return url;
+  }
+  return null;
+}
+// Candidatos del render principal, por orden de preferencia (WebP, luego PNG).
+export const renderCandidates = (base) => [`${base}.webp`, `${base}.png`];
+// Rutas del render principal (lista de candidatos) y del sprite de giro de un usuario.
 export const renderPaths = (userId) => userId
-  ? { png: `${userId}/render.png`, spin: `${userId}/spin.webp` }
+  ? { png: renderCandidates(`${userId}/render`), spin: `${userId}/spin.webp` }
   : { png: null, spin: null };
 
 export async function savePlayer(state, user, profile) {
