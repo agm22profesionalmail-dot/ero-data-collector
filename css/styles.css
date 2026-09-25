@@ -440,6 +440,9 @@ body {
 @media (max-width: 720px) {
   .edc-save-bar { left: 16px; right: 16px; bottom: 16px; justify-content: center; }
 }
+/* Hueco al final de la página mientras la pill está visible: sin él, los botones de
+   Discord/Ko-fi (.edc-social) quedaban debajo de la pill y no se podía bajar más. */
+body:has(.edc-save-bar) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .edc-save-status { font-size: .82rem; color: var(--muted); }
 .edc-save-status.ok { color: var(--ok); }
 .edc-save-status.err { color: var(--err); }
