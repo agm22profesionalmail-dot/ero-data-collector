@@ -2,7 +2,7 @@
 import { artistTermsHtml } from "./artist_terms.js";
 import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED, SHOW_OWN_RENDER } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
-import { isConfigured } from "./supabase.js";
+import { isConfigured, supabase } from "./supabase.js";
 import {
   signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshSessionUser,
   signOut, getSession, onAuthChange, identityProfile, consumeAuthError,
@@ -32,6 +32,47 @@ let profile = null;
 let hasRecord = false;   // ¿el usuario ya tenía ficha guardada?
 let mode = "edit";        // "preview" | "edit"
 let refArtist = null;     // artista del enlace ?ref resuelto ({id, name}) o null
+let banned = null;        // { reason } si la cuenta está baneada → pantalla fija (memoria)
+const banCache = new Map(); // user id → false | { reason }: una consulta por sesión
+
+// ── Baneos ────────────────────────────────────────────────────────────
+// Pregunta al servidor (RPC am_i_banned) si la cuenta de la sesión está
+// baneada. Si la RPC no existe aún (PGRST202 / 404) o falla la red se sigue
+// como si no hubiera baneo: nunca rompe la web. El bloqueo real (escrituras
+// en players / artists / bucket banners) lo hace el servidor.
+async function checkBanned(user) {
+  if (!user) return false;
+  if (banCache.has(user.id)) return banCache.get(user.id);
+  let res = false;
+  try {
+    const { data, error } = await supabase.rpc("am_i_banned");
+    if (!error && data && data.banned === true) res = { reason: data.reason || "" };
+  } catch { /* sin RPC o sin red: se sigue normal */ }
+  banCache.set(user.id, res);
+  return res;
+}
+
+// Si está baneado: cierra la sesión y deja la pantalla "Cuenta baneada".
+async function enforceBan() {
+  const b = await checkBanned(session?.user);
+  if (!b) return false;
+  banned = b;
+  session = null; state = null; hasRecord = false; mode = "edit";
+  forgetPanelKey();
+  try { await signOut(); } catch { /* ya sin sesión */ }
+  return true;
+}
+
+function renderBannedScreen() {
+  clear(appEl());
+  appEl().append(el("div", { class: "edc-apply" },
+    el("div", { class: "edc-card" },
+      el("div", { class: "edc-section-title" }, t("banned_title")),
+      el("p", { class: "edc-apply-intro" }, t("banned_desc")),
+      banned?.reason ? el("p", { class: "edc-apply-intro" }, el("strong", {}, t("banned_reason")), " ", banned.reason) : null,
+      el("p", { class: "edc-apply-intro" }, t("banned_appeal"), " ",
+        el("a", { href: "https://discord.gg/Hckay4PGNR", target: "_blank", rel: "noopener noreferrer" }, "discord.gg/Hckay4PGNR")))));
+}
 
 // ── i18n estático ─────────────────────────────────────────────────────
 function applyStaticI18n() {
@@ -715,7 +756,7 @@ function stateFromRow(row) {
 function updateNavLinks() {
   const navLinks = $("navLinks");
   if (!navLinks) return;
-  navLinks.hidden = isAdminRoute() || isPanelRoute() || isApplyRoute() || isFeedbackRoute();
+  navLinks.hidden = !!banned || isAdminRoute() || isPanelRoute() || isApplyRoute() || isFeedbackRoute();
 }
 
 function route() {
@@ -726,6 +767,8 @@ function route() {
     return;
   }
   if (isAdminRoute()) { renderAdminView(); return; }
+  // Cuenta baneada: solo la pantalla fija (el admin entra por credenciales, no se toca)
+  if (banned) { renderBannedScreen(); return; }
   if (isPanelRoute()) { renderPanelView(); return; }
   if (isApplyRoute()) { renderApplyView(); return; }
   if (isFeedbackRoute()) { renderFeedbackView(); return; }
@@ -811,9 +854,11 @@ async function init() {
       const nextId = s?.user?.id || null;
       if (nextId === prevId) return;
       state = null; hasRecord = false; mode = "edit";
-      applyStaticI18n();
-      route();
+      const go = () => { applyStaticI18n(); route(); };
+      if (s?.user) enforceBan().then(go); else go();
     });
+    // Sesión ya iniciada al cargar: comprobar el baneo antes de pintar nada
+    if (session?.user && await enforceBan()) applyStaticI18n();
   }
   route();
   if (isConfigured() && X_LOGIN_ENABLED) finishPendingLink();
