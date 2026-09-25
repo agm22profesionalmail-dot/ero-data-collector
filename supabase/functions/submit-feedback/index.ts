@@ -1,7 +1,7 @@
 // Edge Function: submit-feedback
 //
 // Recibe los reportes de fallos y sugerencias del formulario ?feedback de la
-// web, los guarda en public.feedback (migración 20260923_07) y avisa a Zero
+// web, los guarda en public.feedback (migración 20260923_07) y avisa al propietario
 // por mensaje directo de Discord con el bot (Pelipper).
 //
 // Acciones (POST, JSON):
@@ -35,7 +35,7 @@ const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const IP_SALT = Deno.env.get("FEEDBACK_IP_SALT") || SERVICE_ROLE_KEY;
 
 const GUILD_ID = "1214272838912180234";        // ✨ZeroServer✨
-const NOTIFY_USER_ID = "575014104197234699";   // Zero (destinatario del aviso)
+const NOTIFY_USER_ID = Deno.env.get("OWNER_DISCORD_ID") ?? "";   // destinatario del aviso (secret)
 const SITE_URL = "https://eroplayerdata.pages.dev";
 const ICON_URL = `${SITE_URL}/assets/apple-touch-icon.png`;
 
@@ -352,7 +352,7 @@ async function submit(req: Request, body: SubmitBody) {
   const row = ((await insert.json()) as Row[])[0];
   if (!row?.id) return fail(req, "server", 500);
 
-  // Aviso a Zero. Si falla, el reporte queda guardado con notified=false.
+  // Aviso al propietario. Si falla, el reporte queda guardado con notified=false.
   const dmErr = await sendDiscordDm(NOTIFY_USER_ID, notifyPayload(row));
   if (dmErr) {
     console.error("feedback notify:", dmErr);

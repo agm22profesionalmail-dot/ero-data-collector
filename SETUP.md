@@ -61,7 +61,7 @@ Supabase → **Project Settings** → **API**:
 - **Project URL** → `SUPABASE_URL`.
 - **anon / public** key → `SUPABASE_ANON_KEY` (va en `js/config.js`, es segura de exponer).
 - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY`.
-  - ⚠️ **SECRETA**. Solo va en `08_Scripts/ero_data_collector/config.json` del PC (gitignored). Nunca en la web, repo, ni capturas.
+  - ⚠️ **SECRETA**. Solo en herramientas de servidor o locales fuera de este repo (y en los secrets de las Edge Functions, que la inyecta Supabase). Nunca en la web, en el repo ni en capturas.
 
 ---
 
@@ -78,14 +78,19 @@ Despliega siguiendo [`README.md`](README.md). Luego vuelve al paso 5 y pon la UR
 
 ---
 
-## 9. Configurar el sync local (en tu PC)
+## 9. (Opcional) Procesar las fichas fuera de la web
 
-En el vault: `08_Scripts/ero_data_collector/`
-1. Copia `config.example.json` → `config.json`.
-2. Rellena `supabase_url`, `service_role_key`, `vault_players_dir`.
-3. `pip install -r requirements.txt`
-4. Prueba: `python sync.py --once --dry-run`
-5. Registra la tarea programada: `register_task.ps1` (ver ese archivo).
+Las fichas y los banners quedan en Supabase (tabla `players` y bucket `banners`). Si quieres llevarlos a otra herramienta (un sync local, un bot…), hazlo desde un proceso propio con la `service_role` key, fuera de este repositorio, y valida los PNG antes de usarlos (magic bytes, re-encode y antivirus).
+
+## 9b. Secrets de las Edge Functions
+
+Supabase → **Edge Functions → Secrets**:
+- `DISCORD_BOT_TOKEN` — token del bot de Discord (avisos y DMs).
+- `OWNER_DISCORD_ID` — ID de Discord de quien recibe los avisos de reportes y las respuestas al bot.
+- `EXTRA_RECIPIENTS` — (opcional) IDs de Discord extra, separados por comas, cuyas respuestas al bot se reenvían.
+- `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `SITE_URL` — envío de emails a artistas.
+
+Para el despliegue en Cloudflare Pages: secret `CLOUDFLARE_API_TOKEN` y variable `CLOUDFLARE_ACCOUNT_ID` en el repo (Settings → Secrets and variables → Actions).
 
 ---
 

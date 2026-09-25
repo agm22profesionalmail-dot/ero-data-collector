@@ -1,9 +1,9 @@
 -- ============================================================
--- 20260925_02 — Avisos libres por email desde zerosplatoon22
+-- 20260925_02 — Avisos libres por email desde la cuenta del proyecto
 -- ============================================================
--- Regla de Zero (2026-09-25): los correos a artistas / jugadores / comunidad
--- salen SIEMPRE de zerosplatoon22@gmail.com (GMAIL_USER de la Edge Function
--- send-artist-credentials), nunca del correo personal.
+-- Los correos a artistas / jugadores / comunidad salen SIEMPRE de la cuenta
+-- de envío del proyecto (GMAIL_USER de la Edge Function send-artist-credentials),
+-- nunca de un correo personal.
 --
 -- La cola artist_email_outbox admite kind = 'custom' con asunto y texto
 -- libres. admin_send_email() los encola y avisa a la función, que los envía
@@ -11,7 +11,7 @@
 -- función cae a un DM de Pelipper (si el email es de un artista con Discord).
 --
 -- Se llama con las credenciales admin (p_user / p_pass) o con la service_role
--- (script local 08_Scripts/ero_data_collector/enviar_email.py).
+-- (desde una herramienta de administración local).
 -- Idempotente: se puede ejecutar varias veces sin error.
 -- ============================================================
 

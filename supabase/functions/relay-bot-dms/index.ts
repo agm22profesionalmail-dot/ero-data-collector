@@ -1,33 +1,33 @@
 // Edge Function: relay-bot-dms
 //
-// Reenvía a Zero por MD las respuestas que la gente escribe al bot (Pelipper)
-// en los mensajes directos que el bot usó para contestar reportes o avisar a
-// artistas. Así se ven aunque el PC de Zero esté apagado. No contesta nada
-// por su cuenta: solo reenvía.
+// Reenvía al propietario (OWNER_DISCORD_ID) por MD las respuestas que la gente
+// escribe al bot en los mensajes directos que el bot usó para contestar reportes
+// o avisar a artistas. No contesta nada por su cuenta: solo reenvía.
 //
 // Sin estado en la base de datos: cada reenvío lleva en el pie "src <id>" del
 // mensaje original, y antes de reenviar se leen los últimos mensajes del MD
-// bot ↔ Zero para no repetir. Es idempotente: llamarla de más no duplica.
+// bot ↔ propietario para no repetir. Es idempotente: llamarla de más no duplica.
 // Solo mira mensajes de las últimas LOOKBACK horas.
 //
 // La dispara .github/workflows/relay-bot-dms.yml cada 5 min (GitHub Actions).
 //
 // A quién mira: contactos de Discord de public.feedback (últimos 90 días),
-// artistas con discord_id y EXTRA_RECIPIENTS (gente a la que se escribió a
-// mano). Los bots no pueden listar sus MD por REST, por eso se abre el canal
+// artistas con discord_id y EXTRA_RECIPIENTS (IDs a los que se escribió a
+// mano, separados por comas). Los bots no pueden listar sus MD por REST, por eso se abre el canal
 // por destinatario (POST /users/@me/channels devuelve siempre el mismo).
 //
-// Secrets: DISCORD_BOT_TOKEN. SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los
+// Secrets: DISCORD_BOT_TOKEN, OWNER_DISCORD_ID y EXTRA_RECIPIENTS (opcional). SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los
 // inyecta Supabase. Desplegada con verify_jwt = false.
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 
-const ZERO_ID = "575014104197234699";
-const EXTRA_RECIPIENTS: Record<string, string> = {
-  "950933228934545438": "manual · Shiro (sugerencias render, 2026-09-24)",
-};
+const ZERO_ID = Deno.env.get("OWNER_DISCORD_ID") ?? "";
+const EXTRA_RECIPIENTS: Record<string, string> = Object.fromEntries(
+  (Deno.env.get("EXTRA_RECIPIENTS") ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+    .map((id) => [id, "manual"]),
+);
 const LOOKBACK_MS = 72 * 60 * 60 * 1000;
 const FEEDBACK_DAYS = 90;
 const DISCORD_EPOCH = 1420070400000n;
@@ -122,8 +122,9 @@ Deno.serve(async (req) => {
   let checked = 0, forwarded = 0;
   const errors: string[] = [];
   try {
+    if (!ZERO_ID) return json(500, { ok: false, error: "OWNER_DISCORD_ID not configured" });
     const zeroCh = await dmChannel(ZERO_ID);
-    if (!zeroCh) return json(502, { ok: false, error: "zero channel" });
+    if (!zeroCh) return json(502, { ok: false, error: "owner channel" });
     const done = new Set<string>();
     for (const m of await messagesSince(zeroCh, after)) {
       const src = m.author.bot ? m.embeds?.[0]?.footer?.text?.match(SRC_RE)?.[1] : undefined;

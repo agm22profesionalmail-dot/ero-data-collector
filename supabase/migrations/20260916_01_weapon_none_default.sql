@@ -2,8 +2,7 @@
 -- Migración 2026-09-16 (01) — sin arma por defecto en players
 -- El arma nunca se elige en la web (la asigna el equipo al montar la foto),
 -- pero el default 0 dejaba a todo el mundo con el Splattershot.
--- -1 = "Sin arma": valor que ya entienden el plugin calico-configurator
--- (galería "Sin arma") y sync.py al escribir la ficha en el vault.
+-- -1 = "Sin arma": valor que ya entienden las herramientas que leen las fichas.
 -- Idempotente: se puede ejecutar varias veces sin error.
 -- Ejecutar en: Supabase Dashboard -> SQL Editor -> New query -> Run
 -- ============================================================

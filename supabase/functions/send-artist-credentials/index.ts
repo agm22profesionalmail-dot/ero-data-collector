@@ -12,7 +12,7 @@
 // service_role nunca tiene que guardarse en la base de datos.
 //
 // Secrets de la función (Supabase → Edge Functions → Secrets):
-//   GMAIL_USER          = zerosplatoon22@gmail.com
+//   GMAIL_USER          = cuenta de Gmail de envío del proyecto
 //   GMAIL_APP_PASSWORD  = app password de Google (16 caracteres)
 //   SITE_URL            = https://eroplayerdata.pages.dev
 //   DISCORD_BOT_TOKEN   = token del bot de Discord (opcional: sin él no hay
@@ -655,9 +655,9 @@ async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: stri
 }
 
 // Aviso libre (kind = custom, migración 20260925_02): el asunto y el texto los
-// escribe Zero. Plantilla mínima (texto plano + HTML sencillo, sin imágenes)
+// escribe el propietario. Plantilla mínima (texto plano + HTML sencillo, sin imágenes)
 // para que parezca un correo normal y no un boletín. Sale de GMAIL_USER
-// (zerosplatoon22), NUNCA del correo personal. Si Gmail lo rechaza → Discord.
+// (cuenta del proyecto), nunca de un correo personal. Si Gmail lo rechaza → Discord.
 function customHtml(row: Outbox): string {
   const linkify = (t: string) => e(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
   const paras = (row.body ?? "").split(/\n{2,}/).map((p) =>

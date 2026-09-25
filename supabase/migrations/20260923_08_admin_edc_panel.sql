@@ -1,11 +1,11 @@
 -- ============================================================
--- Migración 20260923_08: RPCs del panel "WEB EDC" del plugin ero-dashboard
+-- Migración 20260923_08: RPCs del panel de administración externo
 --
--- El plugin de Obsidian gestiona desde el vault todo lo de la web (OC Data
+-- Una herramienta de administración gestiona todo lo de la web (OC Data
 -- Collector): cifras generales, reportes de ?feedback, cola de avisos a
 -- artistas y estado de la beta. Todo pasa por RPCs SECURITY DEFINER que
 -- validan las credenciales de admin con admin_check (migración 04 del repo
--- edc-discord-btn): el plugin solo tiene la anon key + usuario/clave admin.
+-- edc-discord-btn): la herramienta solo tiene la anon key + usuario/clave admin.
 --
 --  1) admin_edc_overview      → cifras del resumen (jugadores, artistas,
 --                               reportes, envíos fallidos, último registro)
@@ -14,8 +14,9 @@
 --  4) admin_email_log         → últimos avisos de artist_email_outbox
 --                               (NUNCA devuelve la columna key)
 --
--- Las cuentas de prueba de Zero (Caca y _ZeroSplat) no cuentan como
--- artistas aprobados, igual que en el roster de la beta.
+-- Las cuentas de prueba del equipo no cuentan como artistas aprobados, igual
+-- que en el roster de la beta. Sustituye <TEST_DISCORD_ID_1/2> por sus IDs de
+-- Discord al ejecutar esta migración (en el repo no se publican).
 --
 -- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
 -- ============================================================
@@ -29,7 +30,7 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 DECLARE
-  v_test_ids CONSTANT text[] := ARRAY['1305559314609602582', '575014104197234699']; -- Caca, _ZeroSplat
+  v_test_ids CONSTANT text[] := ARRAY['<TEST_DISCORD_ID_1>', '<TEST_DISCORD_ID_2>']; -- cuentas de prueba
 BEGIN
   IF NOT public.admin_check(p_user, p_pass) THEN
     RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';

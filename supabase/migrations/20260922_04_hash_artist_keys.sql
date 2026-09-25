@@ -4,7 +4,7 @@
 -- Problema: artist_group comparaba la clave en claro
 -- (access_key_hash = p_key) porque su search_path era solo `public` y
 -- crypt() vive en el schema `extensions` → alguien la cambió a
--- comparación directa y la clave de Caca se guardó sin cifrar.
+-- comparación directa y la clave de una cuenta de prueba se guardó sin cifrar.
 -- admin_approve / admin_reset_* / artist_change_password ya escriben bcrypt.
 --
 -- 1) Cifra con bcrypt las claves que estén en claro (la clave del artista

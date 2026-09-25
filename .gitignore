@@ -19,3 +19,9 @@ tmp-preview/
 test_savebar.html
 test_type.html
 test_gallery.html
+
+# Locales / temporales
+supabase/.temp/
+*.bak
+*.bak*
+*.log
