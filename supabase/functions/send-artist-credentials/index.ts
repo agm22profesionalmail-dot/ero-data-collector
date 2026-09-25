@@ -44,7 +44,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 type Outbox = {
   id: string; email: string; name: string | null; slug: string | null; key: string | null;
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
-  kind?: "credentials" | "rejected";   // migración 20260923_04
+  kind?: "credentials" | "rejected" | "custom";   // migración 20260923_04 (+ custom 20260925_02)
+  subject?: string | null;              // migración 20260925_02: solo kind = custom
+  body?: string | null;
   hero?: number | null;                 // migración 20260923_05 (portada fija, pruebas)
   channel?: string | null;              // migración 20260923_06: email | email_alt | discord
   delivered_to?: string | null;
@@ -568,6 +570,17 @@ type DiscordPayload = {
 // alsoEmailed (2026-09-25): el DM se manda SIEMPRE, no solo si falla el email,
 // porque Gmail mete muchos de estos correos en spam; el texto cambia según el caso.
 function discordMessage(row: Outbox, key: string | null, alsoEmailed = false): DiscordPayload {
+  if (row.kind === "custom") {
+    // Aviso libre (enviar_email.py / admin_send_email): texto plano tal cual.
+    const why = row.lang === "es"
+      ? "-# Te escribimos por aquí porque no hemos podido hacerte llegar el email."
+      : "-# We're messaging you here because we couldn't get the email to you.";
+    return {
+      allowed_mentions: { parse: [] },
+      content: `${why}\n**${row.subject ?? ""}**\n\n${row.body ?? ""}`.slice(0, 2000),
+      embeds: [], components: [],
+    };
+  }
   const lang: "en" | "es" = row.lang === "es" ? "es" : "en";
   const name = row.name || "artist";
   const panelLink = `${SITE_URL}/?panel`;
@@ -641,7 +654,35 @@ async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: stri
   return { error: `${reason} | ${dmErr}`.slice(0, 500), note: reason };
 }
 
+// Aviso libre (kind = custom, migración 20260925_02): el asunto y el texto los
+// escribe Zero. Plantilla mínima (texto plano + HTML sencillo, sin imágenes)
+// para que parezca un correo normal y no un boletín. Sale de GMAIL_USER
+// (zerosplatoon22), NUNCA del correo personal. Si Gmail lo rechaza → Discord.
+function customHtml(row: Outbox): string {
+  const linkify = (t: string) => e(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  const paras = (row.body ?? "").split(/\n{2,}/).map((p) =>
+    `<p style="margin:0 0 14px 0;">${linkify(p).replace(/\n/g, "<br>")}</p>`).join("");
+  return `<!doctype html><html lang="${row.lang === "es" ? "es" : "en"}"><body style="margin:0;padding:16px;` +
+    `font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#1f2330;">${paras}</body></html>`;
+}
+
+async function sendCustom(row: Outbox) {
+  const text = row.body ?? "";
+  const artist = await artistByEmail(row.email);
+  try {
+    await sendSmtp(row.email, row.subject ?? "OC Data Collector", text, customHtml(row));
+    await mark(row.id, { sent_at: new Date().toISOString(), error: null, channel: "email" });
+    return json({ ok: true, channel: "email" });
+  } catch (err) {
+    const reason = `smtp: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300);
+    const patch = await discordFallback(row, artist, null, reason);
+    await mark(row.id, patch);
+    return "channel" in patch ? json({ ok: true, channel: "discord" }) : json({ ok: false, error: patch.error }, 502);
+  }
+}
+
 async function sendRow(row: Outbox) {
+  if (row.kind === "custom") return await sendCustom(row);
   const id = row.id;
   const rejected = row.kind === "rejected";
   const language: "en" | "es" = row.lang === "es" ? "es" : "en";
@@ -799,7 +840,7 @@ async function checkBounces() {
     const reason = `bounced: ${diag.trim()}`.slice(0, 300);
     const artist = await artistByEmail(row.email);
     // Email de acceso y aún no ha elegido su clave → va la genérica vigente
-    const key = row.kind !== "rejected" && artist?.status === "approved" && artist.must_change_password
+    const key = row.kind === "credentials" && artist?.status === "approved" && artist.must_change_password
       ? await genericKey() : null;
     const patch = await discordFallback(row, artist, key, reason);
     await mark(row.id, { bounced_at: new Date(hit.at).toISOString(), ...patch });
@@ -831,10 +872,10 @@ Deno.serve(async (req) => {
   const r = await rest(`artist_email_outbox?id=eq.${id}&sent_at=is.null&select=*`);
   const rows: Outbox[] = r.ok ? await r.json() : [];
   const row = rows[0];
-  const rejected = row?.kind === "rejected";
+  const keyless = row?.kind === "rejected" || (row?.kind === "custom" && !!row.subject && !!row.body);
   // Respuesta neutra: no revela si el id existe. El de acceso necesita clave;
-  // el de rechazo no lleva ninguna.
-  if (!row || (!rejected && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
+  // el de rechazo y el aviso libre no llevan ninguna.
+  if (!row || (!keyless && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
     return json({ ok: false });
   }
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
