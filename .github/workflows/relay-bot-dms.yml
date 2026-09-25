@@ -1,6 +1,5 @@
-# Cada 5 min dispara la Edge Function relay-bot-dms, que reenvía a Zero por MD
-# las respuestas que la gente escribe al bot (Pelipper). Funciona con el PC de
-# Zero apagado. La función es idempotente y no necesita secrets aquí.
+# Cada 5 min dispara la Edge Function relay-bot-dms, que reenvía al propietario
+# por MD las respuestas que la gente escribe al bot. La función es idempotente y no necesita secrets aquí.
 # GitHub puede retrasar los cron unos minutos; no pasa nada (mira 72 h atrás).
 name: relay-bot-dms
 

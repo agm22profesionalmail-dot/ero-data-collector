@@ -1,7 +1,7 @@
 -- ============================================================
 -- Migración 20260925_03: baneo de usuarios (contenido inapropiado)
 --
--- Zero puede banear una cuenta desde el panel de admin (?admin → Registros
+-- El admin puede banear una cuenta desde el panel de admin (?admin → Registros
 -- de OC) por incumplir las normas de contenido (p. ej. Splashtags con
 -- símbolos de odio). Un usuario baneado que inicie sesión con Discord o X
 -- queda bloqueado: la web solo le muestra la pantalla "Cuenta baneada".

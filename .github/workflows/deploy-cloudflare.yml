@@ -23,7 +23,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_ACCOUNT_ID: REDACTED_ACCOUNT_ID
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CF_PROJECT: eroplayerdata
       # Acepta también el nombre con la errata con que se creó el secreto (CLOUDFARE_API_TOKEN)
       HAS_TOKEN: ${{ (secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN) != '' }}

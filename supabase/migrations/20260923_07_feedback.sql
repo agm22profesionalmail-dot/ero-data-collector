@@ -3,10 +3,10 @@
 --
 -- La web tiene un formulario público para avisar de un fallo o proponer una
 -- mejora, con contacto obligatorio (email comprobado por DNS, o cuenta de
--- Discord que esté en ZeroServer). Los envíos NO entran por PostgREST: los
+-- Discord que esté en el servidor de la comunidad). Los envíos NO entran por PostgREST: los
 -- recibe la Edge Function submit-feedback, que valida, aplica el anti-spam
 -- (5 por contacto y hora, 20 por IP y hora), inserta aquí con la service_role
--- y avisa a Zero por mensaje directo de Discord.
+-- y avisa al propietario por mensaje directo de Discord.
 --
 -- Seguridad: RLS activada y SIN políticas. anon/authenticated no tienen
 -- ningún privilegio sobre la tabla (REVOKE ALL); solo service_role. La IP se
