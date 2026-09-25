@@ -880,6 +880,17 @@ body {
 .edc-admin-vbadge { align-self: flex-start; margin-top: 4px; }
 .edc-admin-secret code { display: block; background: var(--bg-2); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font-size: .82rem; word-break: break-all; color: var(--accent-2); }
+/* Baneos: lista plegable en Registros de OC + resumen del modal de confirmación */
+.edc-admin-bans { border-left-color: var(--err); margin-bottom: 14px; }
+.edc-admin-bans > summary { cursor: pointer; list-style: revert; margin: 0; }
+.edc-admin-bans[open] > summary { margin-bottom: 8px; }
+.edc-admin-ban-row { align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.edc-admin-ban-row .edc-admin-v { flex: 1 1 auto; line-height: 1.45; }
+.edc-admin-ban-row .edc-btn { flex: none; }
+.edc-admin-ban-summary { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg-2); }
+.edc-admin-keycard .edc-input { margin: 0; }
+.edc-admin-keycard .edc-label { align-self: flex-start; margin: 0; }
+.edc-admin-keycard .edc-apply-intro { margin: 0; }
 
 /* Panel del artista (?panel) — galería del grupo + ficha de solo lectura */
 .edc-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; margin-top: 4px; }

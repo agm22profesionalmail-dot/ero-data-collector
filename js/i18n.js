@@ -245,6 +245,11 @@ const STRINGS = {
     artist_choice_custom_save: "Save for {name}",
     artist_choice_custom_saved: "Custom character saved for {name}.",
     artist_choice_back: "← Back",
+    // Cuenta baneada (pantalla fija tras iniciar sesión)
+    banned_title: "Account banned",
+    banned_desc: "This account has been banned from OC Data Collector for breaking the content rules.",
+    banned_reason: "Reason:",
+    banned_appeal: "If you think this is a mistake, contact us on Discord:",
   },
   es: {
     app_title: "OC Data Collector",
@@ -491,6 +496,11 @@ const STRINGS = {
     artist_choice_custom_save: "Guardar para {name}",
     artist_choice_custom_saved: "Personaje guardado para {name}.",
     artist_choice_back: "← Volver",
+    // Cuenta baneada (pantalla fija tras iniciar sesión)
+    banned_title: "Cuenta baneada",
+    banned_desc: "Esta cuenta ha sido baneada de OC Data Collector por incumplir las normas de contenido.",
+    banned_reason: "Motivo:",
+    banned_appeal: "Si crees que es un error, contacta con nosotros por Discord:",
   },
 };
 

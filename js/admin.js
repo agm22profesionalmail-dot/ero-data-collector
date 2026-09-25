@@ -29,6 +29,15 @@ const S = {
     back_list: "← Back to registrations", no_media: "Sign in on the site (Discord or X) and refresh to see renders and Splashtags.",
     d_discord: "Discord", d_x: "X", d_user: "User ID", d_created: "Registered", d_updated: "Last edit",
     d_artists: "Artists", d_consent: "consent", d_variant_edit: "Version edited", none: "—",
+    // Baneos
+    ban: "Ban", unban: "Lift ban", banned: "Banned", banned_list: "Banned accounts", no_bans: "No banned accounts.",
+    ban_title: "Ban account", ban_reason: "Reason (the user will see it)", ban_reason_ph: "E.g. hate symbols on the Splashtag",
+    ban_summary: "You are about to ban this account. It will lose its Splashtag and won't be able to use the site with this Discord/X.",
+    ban_step2: "Final confirmation: type the exact alias to enable the button.", ban_word: "BAN",
+    ban_type_word: "This account has no alias: type {w} to enable the button.",
+    ban_continue: "Continue", ban_final: "Ban this account", cancel: "Cancel",
+    ban_done: "Account banned.", unban_confirm: "Lift the ban on {a}? They will be able to sign in again.", unban_done: "Ban lifted.",
+    b_alias: "Alias", b_reason: "Reason", b_date: "Banned on",
   },
   es: {
     title: "Admin — artistas", intro: "Entra con tus credenciales de administrador.",
@@ -49,6 +58,15 @@ const S = {
     back_list: "← Volver a los registros", no_media: "Inicia sesión en la web (Discord o X) y pulsa Actualizar para ver renders y Splashtags.",
     d_discord: "Discord", d_x: "X", d_user: "ID de usuario", d_created: "Registrado", d_updated: "Última edición",
     d_artists: "Artistas", d_consent: "consentimiento", d_variant_edit: "Versión editada", none: "—",
+    // Baneos
+    ban: "Banear", unban: "Quitar baneo", banned: "Baneado", banned_list: "Cuentas baneadas", no_bans: "No hay cuentas baneadas.",
+    ban_title: "Banear cuenta", ban_reason: "Motivo (lo verá el usuario)", ban_reason_ph: "Ej.: símbolos de odio en el Splashtag",
+    ban_summary: "Vas a banear esta cuenta. Perderá su Splashtag y no podrá usar la web con este Discord/X.",
+    ban_step2: "Confirmación final: escribe el alias exacto para habilitar el botón.", ban_word: "BANEAR",
+    ban_type_word: "Esta cuenta no tiene alias: escribe {w} para habilitar el botón.",
+    ban_continue: "Continuar", ban_final: "Banear esta cuenta", cancel: "Cancelar",
+    ban_done: "Cuenta baneada.", unban_confirm: "¿Quitar el baneo a {a}? Podrá volver a entrar.", unban_done: "Baneo retirado.",
+    b_alias: "Alias", b_reason: "Motivo", b_date: "Baneado el",
   },
 };
 const ta = (k) => (S[getLang()] || S.en)[k] || k;
@@ -74,6 +92,13 @@ let rows = null;    // último listado de artistas
 let tab = "requests"; // "requests" | "players"
 let oc = null;      // { media, players } de admin_players
 let ocQuery = "", ocOnlyVariants = false;
+let bans = null;     // lista de admin_banned_list (null = no cargada)
+let bansOk = true;   // false si las RPC de baneo no existen aún (migración 20260925_03 sin aplicar)
+
+// La RPC no existe en el servidor (PostgREST) → se ocultan los controles sin romper la pestaña
+const isMissingRpc = (e) => !!e && (e.code === "PGRST202" || e.code === "42883" || /404|not find the function|does not exist/i.test(e.message || ""));
+const banOf = (p) => (bans || []).find((b) =>
+  (b.user_id && b.user_id === p.user_id) || (b.discord_id && b.discord_id === p.discord_id) || (b.x_id && b.x_id === p.x_id)) || null;
 
 const rpc = async (fn, args) => {
   const { data, error } = await supabase.rpc(fn, args);
@@ -117,7 +142,14 @@ export function renderAdminPanel(container, { onBack } = {}) {
   }
 
   async function reload() {
-    if (tab === "players") { await ensureData(); oc = await rpc("admin_players", { p_user: creds.user, p_pass: creds.pass }); }
+    if (tab === "players") {
+      await ensureData();
+      oc = await rpc("admin_players", { p_user: creds.user, p_pass: creds.pass });
+      if (bansOk) {
+        try { bans = await rpc("admin_banned_list", { p_user: creds.user, p_pass: creds.pass }); }
+        catch (e) { if (isMissingRpc(e)) { bansOk = false; bans = null; } else throw e; }
+      }
+    }
     else rows = await rpc("admin_list", { p_user: creds.user, p_pass: creds.pass });
   }
   const refresh = async () => {
@@ -136,7 +168,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
         el("div", { class: "edc-section-title" }, ta("title")),
         el("div", { class: "edc-apply-actions" },
           el("button", { class: "edc-btn edc-btn-sm", onClick: refresh }, ta("refresh")),
-          el("button", { class: "edc-btn edc-btn-sm", onClick: () => { oc = null; tab = "requests"; showLogin(); } }, ta("logout")),
+          el("button", { class: "edc-btn edc-btn-sm", onClick: () => { oc = null; bans = null; tab = "requests"; showLogin(); } }, ta("logout")),
           backBtn())),
       el("div", { class: "edc-apply-actions edc-admin-tabs" },
         tabBtn("requests", ta("tab_requests")), tabBtn("players", ta("tab_players") + count)),
@@ -213,8 +245,110 @@ export function renderAdminPanel(container, { onBack } = {}) {
     search.addEventListener("input", () => { ocQuery = search.value; paint(); });
     only.addEventListener("change", () => { ocOnlyVariants = only.checked; paint(); });
     wrap.append(el("div", { class: "edc-admin-filters" }, search,
-      el("label", { class: "edc-admin-check" }, only, el("span", {}, ta("only_variants")))), grid);
+      el("label", { class: "edc-admin-check" }, only, el("span", {}, ta("only_variants")))));
+    if (bansOk && bans) wrap.append(renderBannedList());
+    wrap.append(grid);
     paint();
+  }
+
+  // ── Baneos ──────────────────────────────────────────────────────
+  function renderBannedList() {
+    const box = el("details", { class: "edc-card edc-admin-card edc-admin-bans" },
+      el("summary", { class: "edc-section-title" }, `${ta("banned_list")} (${bans.length})`));
+    if (!bans.length) { box.append(el("p", { class: "edc-apply-intro" }, ta("no_bans"))); return box; }
+    for (const b of bans) {
+      const ids = [b.discord_id ? `Discord ${b.discord_id}` : null, b.x_id ? `X ${b.x_id}` : null].filter(Boolean).join(" · ");
+      box.append(el("div", { class: "edc-admin-row edc-admin-ban-row" },
+        el("div", { class: "edc-admin-v" },
+          el("div", {}, el("strong", {}, b.alias || ta("no_alias")), ids ? el("span", { class: "edc-admin-k" }, " · " + ids) : null),
+          el("div", {}, el("span", { class: "edc-admin-k" }, ta("b_reason") + ": "), b.reason || ta("none")),
+          el("div", { class: "edc-admin-k" }, ta("b_date") + ": " + fmtDate(b.banned_at))),
+        el("button", { class: "edc-btn edc-btn-sm", onClick: () => unban(b) }, ta("unban"))));
+    }
+    return box;
+  }
+
+  async function unban(b) {
+    if (!window.confirm(ta("unban_confirm").replace("{a}", b.alias || b.discord_id || b.x_id || "?"))) return;
+    try {
+      await rpc("admin_unban", { p_user: creds.user, p_pass: creds.pass, p_ban_id: b.id });
+      toast(ta("unban_done"), "ok");
+      await reload(); showList();
+    } catch (e) { if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err"); }
+  }
+
+  // Doble confirmación: 1) motivo obligatorio + resumen; 2) escribir el alias
+  // exacto (o la palabra BANEAR si no tiene alias). Cancelar no hace nada.
+  function banFlow(p) {
+    const summary = () => {
+      const c = el("div", { class: "edc-admin-secret edc-admin-ban-summary" });
+      const rows = [
+        [ta("b_alias"), p.alias || ta("no_alias")],
+        [ta("d_discord"), [p.discord_name, p.discord_id].filter(Boolean).join(" · ") || ta("none")],
+        [ta("d_x"), p.x_username ? "@" + p.x_username : ta("none")],
+      ];
+      for (const [k, v] of rows)
+        c.append(el("div", { class: "edc-admin-row" }, el("span", { class: "edc-admin-k" }, k), el("span", { class: "edc-admin-v" }, v)));
+      return c;
+    };
+    const overlay = (...content) => {
+      const ov = el("div", { class: "edc-submit-overlay" });
+      ov.append(el("div", { class: "edc-submit-card edc-admin-keycard" }, ...content));
+      document.body.append(ov);
+      return ov;
+    };
+
+    // Paso 1: motivo + resumen
+    const reason = el("textarea", { class: "edc-input edc-textarea", rows: "3", placeholder: ta("ban_reason_ph"), maxlength: "500" });
+    const next = el("button", { class: "edc-btn edc-btn-primary edc-btn-sm", disabled: true }, ta("ban_continue"));
+    reason.addEventListener("input", () => { next.disabled = !reason.value.trim(); });
+    const ov1 = overlay(
+      el("div", { class: "edc-section-title" }, ta("ban_title")),
+      el("p", { class: "edc-apply-intro" }, ta("ban_summary")),
+      summary(),
+      el("label", { class: "edc-label" }, ta("ban_reason")),
+      reason,
+      el("div", { class: "edc-apply-actions" },
+        el("button", { class: "edc-btn edc-btn-sm", onClick: () => ov1.remove() }, ta("cancel")),
+        next));
+    reason.focus();
+
+    next.addEventListener("click", () => {
+      const why = reason.value.trim();
+      if (!why) return;
+      ov1.remove();
+      // Paso 2: escribir el alias exacto (o BANEAR)
+      const expected = (p.alias || "").trim() || ta("ban_word");
+      const hint = p.alias ? ta("ban_step2") : ta("ban_type_word").replace("{w}", ta("ban_word"));
+      const typed = el("input", { class: "edc-input", type: "text", autocomplete: "off", spellcheck: "false", placeholder: expected });
+      const fin = el("button", { class: "edc-btn edc-btn-primary edc-btn-sm", disabled: true }, ta("ban_final"));
+      typed.addEventListener("input", () => { fin.disabled = typed.value !== expected; });
+      const ov2 = overlay(
+        el("div", { class: "edc-section-title" }, ta("ban_title")),
+        summary(),
+        el("div", { class: "edc-admin-row" }, el("span", { class: "edc-admin-k" }, ta("b_reason")), el("span", { class: "edc-admin-v" }, why)),
+        el("p", { class: "edc-apply-intro" }, hint, " ", el("code", {}, expected)),
+        typed,
+        el("div", { class: "edc-apply-actions" },
+          el("button", { class: "edc-btn edc-btn-sm", onClick: () => ov2.remove() }, ta("cancel")),
+          fin));
+      typed.focus();
+      fin.addEventListener("click", async () => {
+        if (typed.value !== expected) return;
+        fin.disabled = true;
+        try {
+          const r = await rpc("admin_ban", { p_user: creds.user, p_pass: creds.pass, p_player_id: p.id, p_reason: why });
+          ov2.remove();
+          // El PNG del bucket: se intenta borrar; si la sesión no tiene permiso, no pasa nada
+          if (r?.banner_path) { try { await supabase.storage.from("banners").remove([r.banner_path]); } catch { /* sin permiso */ } }
+          toast(ta("ban_done"), "ok");
+          await reload(); showList();
+        } catch (e) {
+          ov2.remove();
+          if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err");
+        }
+      });
+    });
   }
 
   function playerCard(p) {
@@ -230,16 +364,22 @@ export function renderAdminPanel(container, { onBack } = {}) {
           el("div", { class: "edc-panel-pcard-lines" },
             handle ? el("span", { class: "edc-panel-pcard-handle" }, handle) : null,
             p.discord_id ? el("span", { class: "edc-panel-pcard-did" }, p.discord_id) : null)),
-        nv ? el("span", { class: "edc-admin-badge edc-admin-badge-pending edc-admin-vbadge" }, `${nv} ${ta("n_versions")}`) : null));
+        nv ? el("span", { class: "edc-admin-badge edc-admin-badge-pending edc-admin-vbadge" }, `${nv} ${ta("n_versions")}`) : null,
+        banOf(p) ? el("span", { class: "edc-admin-badge edc-admin-badge-revoked edc-admin-vbadge" }, ta("banned")) : null));
   }
 
   // `artistId` null = ficha principal; si no, la versión exclusiva para ese artista
   function showPlayer(p, artistId) {
     clear(wrap);
     setMainWide(true);
+    const ban = bansOk && bans ? banOf(p) : null;
     wrap.append(el("div", { class: "edc-admin-head" },
       el("button", { class: "edc-btn edc-btn-sm", onClick: () => showList() }, ta("back_list")),
-      el("div", { class: "edc-apply-actions" }, backBtn())));
+      el("div", { class: "edc-apply-actions" },
+        ban ? el("span", { class: "edc-admin-badge edc-admin-badge-revoked" }, ta("banned")) : null,
+        ban ? el("button", { class: "edc-btn edc-btn-sm", onClick: () => unban(ban) }, ta("unban")) : null,
+        (bansOk && bans && !ban) ? el("button", { class: "edc-btn edc-btn-sm", onClick: () => banFlow(p) }, ta("ban")) : null,
+        backBtn())));
     const vars = variantsOf(p);
     if (vars.length) {
       const chip = (id, label) => el("button", {
