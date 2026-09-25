@@ -83,6 +83,8 @@ async function mark(id: string, patch: Record<string, unknown>) {
 // imágenes con URL absoluta (servidas por la web).
 
 const ASSETS = "https://eroplayerdata.pages.dev/assets";
+// Comunidad de Discord (ZeroServer): se invita en los emails de aprobación y rechazo (2026-09-25).
+const DISCORD_INVITE = "https://discord.gg/Hckay4PGNR";
 const C = {
   page: "#eef0f4",
   card: "#ffffff",
@@ -137,6 +139,7 @@ function copy(lang: "en" | "es", reset: boolean, name: string): Copy {
         "Escribe la clave temporal.",
         "Elige tu propia clave.",
         "Comparte tu enlace de artista.",
+        `Únete a nuestra comunidad de Discord para una comunicación más fluida (avisos, ayuda y sugerencias): ${DISCORD_INVITE}`,
       ],
       help: "¿Problemas para entrar? Escríbenos por Discord y volveremos a activar tu clave temporal.",
       auto: "Mensaje automático. Si no has solicitado acceso, puedes ignorar este correo.",
@@ -166,6 +169,7 @@ function copy(lang: "en" | "es", reset: boolean, name: string): Copy {
       "Enter the temporary key.",
       "Choose your own key.",
       "Share your artist link.",
+      `Join our Discord community for smoother communication (announcements, help and feedback): ${DISCORD_INVITE}`,
     ],
     help: "Trouble signing in? Message us on Discord and we'll re-enable your temporary key.",
     auto: "Automated message. If you didn't request access, you can ignore this email.",
@@ -331,7 +335,7 @@ function rejectCopy(lang: "en" | "es", name: string): RejectCopy {
         "El motivo es que no cumple los requisitos del programa o no incluye la información suficiente para considerarla una solicitud válida.",
       ],
       cta: "Ir a OC Data Collector",
-      help: "Si crees que se trata de un error o quieres aportar más información, escríbenos por Discord.",
+      help: `Si crees que se trata de un error o quieres aportar más información, escríbenos en nuestro Discord: ${DISCORD_INVITE}`,
       auto: "Mensaje automático. Si no has solicitado acceso, puedes ignorar este correo.",
       legal: "Proyecto fan sin afiliación con Nintendo. Splatoon es una marca registrada de Nintendo.",
     };
@@ -348,7 +352,7 @@ function rejectCopy(lang: "en" | "es", name: string): RejectCopy {
       "This is because it doesn't meet the program requirements or doesn't include enough information to be considered a valid application.",
     ],
     cta: "Go to OC Data Collector",
-    help: "If you think this is a mistake or want to share more information, message us on Discord.",
+    help: `If you think this is a mistake or want to share more information, message us on our Discord: ${DISCORD_INVITE}`,
     auto: "Automated message. If you didn't request access, you can ignore this email.",
     legal: "Fan project, not affiliated with Nintendo. Splatoon is a trademark of Nintendo.",
   };
@@ -561,15 +565,21 @@ type DiscordPayload = {
   allowed_mentions: { parse: string[] };
 };
 
-function discordMessage(row: Outbox, key: string | null): DiscordPayload {
+// alsoEmailed (2026-09-25): el DM se manda SIEMPRE, no solo si falla el email,
+// porque Gmail mete muchos de estos correos en spam; el texto cambia según el caso.
+function discordMessage(row: Outbox, key: string | null, alsoEmailed = false): DiscordPayload {
   const lang: "en" | "es" = row.lang === "es" ? "es" : "en";
   const name = row.name || "artist";
   const panelLink = `${SITE_URL}/?panel`;
   const siteLink = `${SITE_URL}/`;
   const icon = `${ASSETS}/apple-touch-icon.png`;
-  const why = lang === "es"
-    ? "-# Te escribimos por aquí porque no hemos podido hacerte llegar el email."
-    : "-# We're messaging you here because we couldn't get the email to you.";
+  const why = alsoEmailed
+    ? (lang === "es"
+      ? "-# También te lo hemos mandado por email. Si no lo ves, mira en spam y márcalo como «No es spam»."
+      : "-# We've also sent this to your email. If you can't find it, check your spam folder and mark it as \"Not spam\".")
+    : (lang === "es"
+      ? "-# Te escribimos por aquí porque no hemos podido hacerte llegar el email."
+      : "-# We're messaging you here because we couldn't get the email to you.");
   const button = (label: string, url: string) => ({ type: 2, style: 5, label, url });
   const base = { allowed_mentions: { parse: [] as string[] }, content: why };
 
@@ -669,10 +679,17 @@ async function sendRow(row: Outbox) {
   if (channel !== "discord") {
     try {
       await sendSmtp(target, subject, text, html);
+      // Copia por Discord aunque el email haya salido (muchos acaban en spam).
+      // Si el DM falla no pasa nada: el email ya se envió.
+      const dmErr = artist?.discord_id
+        ? await sendDiscordDm(artist.discord_id, discordMessage(row, rejected ? null : (row.key ?? null), true))
+        : "no discord id";
+      const dmNote = dmErr ? `discord dm: ${dmErr}` : "discord dm ok";
       // Enviado: se borra la clave de la cola (no se queda en claro en la BBDD)
       await mark(id, {
         sent_at: new Date().toISOString(), key: null, error: null, channel,
-        delivered_to: channel === "email_alt" ? target : null, note: reason || null,
+        delivered_to: channel === "email_alt" ? target : null,
+        note: [reason, dmNote].filter(Boolean).join(" | ").slice(0, 500),
       });
       return json({ ok: true, channel });
     } catch (err) {
