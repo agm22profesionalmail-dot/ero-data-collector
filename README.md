@@ -4,7 +4,7 @@
 
 🌐 **[eroplayerdata.pages.dev](https://eroplayerdata.pages.dev)** · 💬 [Discord](https://discord.gg/Hckay4PGNR) · ☕ [Ko-fi](https://ko-fi.com/zerosplatoon)
 
-OC Data Collector is a free fan-made web tool. Players sign in with **Discord** or **X**, rebuild their in-game character piece by piece and attach their **Splattag banner**. The result is a clean character sheet: species, skin and eye colour, hairstyle, every gear piece by name, weapon, exact ink colour and a 3D reference. Commission artists no longer have to hunt for gear names or guess shades.
+OC Data Collector is a free fan-made web tool. Players sign in with **Discord** or **X**, rebuild their in-game character piece by piece and attach their **Splattag banner**. The result is a character sheet with species, skin and eye colour, hairstyle, every gear piece by name, weapon, exact ink colour and a 3D reference, so commission artists don't have to ask.
 
 > Español: más abajo, en [Resumen en español](#resumen-en-español).
 
@@ -13,11 +13,11 @@ OC Data Collector is a free fan-made web tool. Players sign in with **Discord** 
 ## Features
 
 ### For players
-- **Character builder** — Inkling / Octoling, girl / boy, skin tone, eye colour, hairstyle, eyebrows, legs, head / clothes / shoes (with ALT variants), weapon and pose. Species-aware: only compatible hairstyles and eyebrows are offered.
-- **Exact ink colour** — pick your colour and anyone can copy it as **HEX**, **RGB** or **HSL**.
-- **Built-in Splattag creator** — banners (including layer-recolourable ones), name, titles in 13 languages with their original fonts, tag, up to 3 badges, or your own banner / badge image. Exported as a real 700×200 PNG and attached to your sheet on save. You can also upload your in-game banner instead.
-- **3D render (beta)** — a turntable of your character that artists can spin 360°, with top and bottom views for the tricky details.
-- **Edit anytime** — sign back in and update your sheet. Link **Discord and X** to the same sheet from the header so you never end up with two.
+- **Character builder**: Inkling / Octoling, girl / boy, skin tone, eye colour, hairstyle, eyebrows, legs, head / clothes / shoes (with ALT variants), weapon and pose. Species-aware: only compatible hairstyles and eyebrows are offered.
+- **Exact ink colour**: pick your colour and anyone can copy it as **HEX**, **RGB** or **HSL**.
+- **Built-in Splattag creator**: banners (including layer-recolourable ones), name, titles in 13 languages with their original fonts, tag, up to 3 badges, or your own banner / badge image. Exported as a real 700×200 PNG and attached to your sheet on save. You can also upload your in-game banner instead.
+- **3D render (beta)**: a turntable of your character that artists can spin 360°, with top and bottom views for the tricky details.
+- **Edit anytime**: sign back in and update your sheet. You can link **Discord and X** to the same sheet from the header.
 - **English / Español** interface.
 
 ### For artists (Artist Beta)
@@ -27,7 +27,7 @@ OC Data Collector is a free fan-made web tool. Players sign in with **Discord** 
 
 ### Community & safety
 - **Bug reports and suggestions** straight from the site at [`/?feedback`](https://eroplayerdata.pages.dev/?feedback).
-- **Content rules** — offensive content or hate symbols in names or uploaded images lead to an account ban.
+- **Content rules**: offensive content or hate symbols in names or uploaded images lead to an account ban.
 - Only **PNG** uploads (no SVG). Files are validated in the browser and scanned before they are used.
 - We only read your username, avatar and account ID. Nothing is ever posted on your behalf. Users must be 14+.
 
@@ -42,8 +42,8 @@ Browser (static SPA) ──sign in with Discord / X──►  Supabase Auth
  Cloudflare Pages (static hosting)                   Supabase Edge Functions (feedback, emails)
 ```
 
-- **No custom backend.** OAuth secrets live in Supabase; the site only ships the public *anon* key.
-- **Row-level security:** every user can only read and edit their own sheet and their own files. Artists only see the characters explicitly shared with them.
+- There is no custom backend. OAuth secrets live in Supabase; the site only ships the public *anon* key.
+- Row-level security: every user can only read and edit their own sheet and their own files. Artists only see the characters explicitly shared with them.
 - Game data (gear lists, icons) is loaded from [Flexlion](https://github.com/Flexlion/flexlion.github.io)'s public files; Splattag assets from [splashtags](https://github.com/SeymourSchlong/splashtags) via jsDelivr. This repository does not host them.
 
 ## Project structure
@@ -62,7 +62,6 @@ js/
   artists.js          Artist links and sharing
   artist_panel.js     Artist panel
   artist_terms.js     Artist Beta terms
-  admin.js            Moderation panel
   feedback.js         Bug reports and suggestions
   store.js            Save / load sheets and files
   i18n.js             English / Spanish strings
@@ -91,7 +90,7 @@ Supabase's free tier pauses inactive projects after 7 days; `.github/workflows/k
 
 ## Resumen en español
 
-**OC Data Collector** es una web gratuita hecha por fans. Entras con **Discord** o **X**, recreas tu personaje de Splatoon 3 pieza a pieza y adjuntas tu **banner Splattag**. El resultado es una ficha con especie, colores, peinado, el nombre de cada prenda, arma, el color de tinta exacto (HEX/RGB/HSL) y una referencia 3D que se puede girar 360°. Los artistas de comisiones tienen todo lo que necesitan sin preguntar.
+**OC Data Collector** es una web gratuita hecha por fans. Entras con **Discord** o **X**, recreas tu personaje de Splatoon 3 pieza a pieza y adjuntas tu **banner Splattag**. El resultado es una ficha con especie, colores, peinado, el nombre de cada prenda, arma, el color de tinta exacto (HEX/RGB/HSL) y una referencia 3D que se puede girar 360°.
 
 - Creador de Splattag integrado, o sube tu banner del juego.
 - Puedes editar tu ficha cuando quieras y vincular Discord y X a la misma ficha desde la cabecera.
@@ -107,7 +106,7 @@ Licensed under **GPL-3.0** (see [`LICENSE`](LICENSE)).
 
 The Splattag creator (`js/splattag.js`) is a port of the renderer from the open-source project **[SeymourSchlong/splashtags](https://github.com/SeymourSchlong/splashtags)** ([splashtagmaker.com](https://splashtagmaker.com/)), also GPL-3.0. Its banners, badges, fonts and data are served via **jsDelivr** from that repository; this project does not host or redistribute them.
 
-Full credit to its authors and contributors: **seymour** (@spaghettitron, original site), **LeanYoshi** (database), **Raven_The_Cute** (translations), **DeadLineSMB**, **ElectroDev**, **Lucyfer**, **mya** (banners), **Zeeto**, **Sharkinodraws** (badges). Full list on the [original credits page](https://splashtagmaker.com/credits/).
+Credits to its authors and contributors: **seymour** (@spaghettitron, original site), **LeanYoshi** (database), **Raven_The_Cute** (translations), **DeadLineSMB**, **ElectroDev**, **Lucyfer**, **mya** (banners), **Zeeto**, **Sharkinodraws** (badges). Full list on the [original credits page](https://splashtagmaker.com/credits/).
 
 Game data and icons come from the public files of **[Flexlion](https://github.com/Flexlion/flexlion.github.io)**.
 

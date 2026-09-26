@@ -857,8 +857,10 @@ async function init() {
       const go = () => { applyStaticI18n(); route(); };
       if (s?.user) enforceBan().then(go); else go();
     });
-    // Sesión ya iniciada al cargar: comprobar el baneo antes de pintar nada
-    if (session?.user && await enforceBan()) applyStaticI18n();
+    // Sesión ya iniciada al cargar: comprobar el baneo y repintar la cabecera
+    // (el primer applyStaticI18n corrió sin sesión y dejó vacío el chip de
+    // cuenta, con los botones de vincular Discord / X)
+    if (session?.user) { await enforceBan(); applyStaticI18n(); }
   }
   route();
   if (isConfigured() && X_LOGIN_ENABLED) finishPendingLink();
