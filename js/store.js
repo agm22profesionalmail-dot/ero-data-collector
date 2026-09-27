@@ -22,11 +22,12 @@ export async function loadPlayer(userId) {
 
 // URLs firmadas reutilizadas (2026-09-25, ahorro de egress de Supabase): cada
 // firma nueva es una URL distinta y el CDN/navegador la tratan como imagen
-// nueva. Se firma por 24 h y se reutiliza la misma URL durante 6 h (memoria +
+// nueva. Se firma por 7 h (auditoría 2026-09-27: antes 24 h; una URL filtrada
+// vale menos tiempo) y se reutiliza la misma URL durante 6 h (memoria +
 // localStorage), así las visitas repetidas salen de caché. En el bucket de
 // renders la URL guardada solo vale si el objeto no ha cambiado (updated_at):
 // tras un re-render se firma de nuevo y si el render se borró se olvida.
-const SIGN_EXPIRES_S = 24 * 3600;
+const SIGN_EXPIRES_S = 7 * 3600;
 const SIGN_REUSE_MS = 6 * 3600 * 1000;
 const SIGN_LS_KEY = "edc_signed_urls_v1";
 const signMem = new Map();
