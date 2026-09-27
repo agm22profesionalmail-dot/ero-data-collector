@@ -21,9 +21,12 @@
 // viene relleno se responde ok sin guardar nada.
 //
 // Secrets: DISCORD_BOT_TOKEN (sin él no hay aviso; el reporte se guarda igual
-// con notified=false). SUPABASE_URL, SUPABASE_ANON_KEY y
-// SUPABASE_SERVICE_ROLE_KEY los inyecta Supabase. FEEDBACK_IP_SALT es
-// opcional (sal del hash de IP; si falta se usa la service_role).
+// con notified=false), DISCORD_GUILD_ID (id del servidor de Discord de la
+// comunidad; sin él NO se puede comprobar la pertenencia y el contacto por
+// Discord se rechaza — fail-closed), OWNER_DISCORD_ID (destinatario del
+// aviso). SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY los
+// inyecta Supabase. FEEDBACK_IP_SALT es opcional (sal del hash de IP; si
+// falta se usa la service_role).
 //
 // Desplegar con verify_jwt = false: los envíos por email no llevan sesión y
 // el JWT se valida a mano contra /auth/v1/user cuando hace falta.
@@ -34,7 +37,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const IP_SALT = Deno.env.get("FEEDBACK_IP_SALT") || SERVICE_ROLE_KEY;
 
-const GUILD_ID = "REDACTED_GUILD_ID";        // ✨ZeroServer✨
+const GUILD_ID = (Deno.env.get("DISCORD_GUILD_ID") ?? "").trim();  // servidor de la comunidad (secret)
 const NOTIFY_USER_ID = Deno.env.get("OWNER_DISCORD_ID") ?? "";   // destinatario del aviso (secret)
 const SITE_URL = "https://eroplayerdata.pages.dev";
 const ICON_URL = `${SITE_URL}/assets/apple-touch-icon.png`;
@@ -50,8 +53,9 @@ const MAX_PER_IP = 20;
 
 // ── CORS ────────────────────────────────────────────────────────────────
 // Sin cookies: se refleja el origen si está en la lista (o localhost) y, si
-// no, el de producción. Vary: Origin para las cachés intermedias.
-const ALLOWED_ORIGINS = ["https://eroplayerdata.pages.dev", "https://agm22profesionalmail-dot.github.io"];
+// no, el de producción. Vary: Origin para las cachés intermedias. Solo el
+// dominio real de Cloudflare Pages (auditoría 2026-09-27: fuera github.io).
+const ALLOWED_ORIGINS = ["https://eroplayerdata.pages.dev"];
 const LOCAL_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 function corsHeaders(req: Request): Record<string, string> {
@@ -179,8 +183,10 @@ const discordApi = (path: string, init: RequestInit = {}) =>
     signal: AbortSignal.timeout(10000),
   });
 
-// true/false = respuesta clara de Discord; null = no se pudo saber
+// true/false = respuesta clara de Discord; null = no se pudo saber.
+// Sin DISCORD_GUILD_ID configurado nunca se da por miembro a nadie (false).
 async function isGuildMember(discordId: string): Promise<boolean | null> {
+  if (!/^\d{5,25}$/.test(GUILD_ID)) { console.error("DISCORD_GUILD_ID not configured"); return false; }
   if (!DISCORD_BOT_TOKEN) return null;
   try {
     const r = await discordApi(`/guilds/${GUILD_ID}/members/${discordId}`);

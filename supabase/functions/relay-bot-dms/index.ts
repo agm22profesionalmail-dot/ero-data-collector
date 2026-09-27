@@ -16,8 +16,13 @@
 // mano, separados por comas). Los bots no pueden listar sus MD por REST, por eso se abre el canal
 // por destinatario (POST /users/@me/channels devuelve siempre el mismo).
 //
-// Secrets: DISCORD_BOT_TOKEN, OWNER_DISCORD_ID y EXTRA_RECIPIENTS (opcional). SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los
+// Secrets: EDC_INTERNAL_SECRET (obligatorio: toda llamada trae la cabecera
+// x-edc-secret y sin secret configurado se rechaza todo, ver
+// _shared/internal_secret.ts), DISCORD_BOT_TOKEN, OWNER_DISCORD_ID y
+// EXTRA_RECIPIENTS (opcional). SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los
 // inyecta Supabase. Desplegada con verify_jwt = false.
+
+import { requireInternalSecret } from "../_shared/internal_secret.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -116,6 +121,8 @@ function forwardPayload(m: Msg, label: string) {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { ok: false });
+  const denied = await requireInternalSecret(req);
+  if (denied) return denied;
   if (!DISCORD_BOT_TOKEN || !SERVICE_ROLE_KEY) return json(500, { ok: false, error: "not configured" });
 
   const after = snowflakeFrom(Date.now() - LOOKBACK_MS);

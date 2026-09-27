@@ -10,8 +10,13 @@
 // (SUPABASE_SERVICE_ROLE_KEY), solo si está sin enviar y tiene < 15 min, y al
 // terminar borra la clave de la fila. Un id inventado no hace nada. Así la
 // service_role nunca tiene que guardarse en la base de datos.
+// Además (auditoría 2026-09-27) TODA llamada tiene que traer la cabecera
+// x-edc-secret con el valor de EDC_INTERNAL_SECRET (_shared/internal_secret.ts):
+// sin secret configurado o sin cabecera correcta se rechaza (fail-closed).
+// pg_net la manda desde public.edc_internal_headers() (Supabase Vault).
 //
 // Secrets de la función (Supabase → Edge Functions → Secrets):
+//   EDC_INTERNAL_SECRET = secreto compartido con la base de datos (Vault)
 //   GMAIL_USER          = cuenta de Gmail de envío del proyecto
 //   GMAIL_APP_PASSWORD  = app password de Google (16 caracteres)
 //   SITE_URL            = https://eroplayerdata.pages.dev
@@ -28,8 +33,10 @@
 //     rebotes de mailer-daemon del buzón de envío, marca bounced_at en la
 //     cola y reenvía el aviso por Discord.
 //
-// Desplegar con verify_jwt = false (pg_net no manda JWT de usuario).
+// Desplegar con verify_jwt = false (pg_net no manda JWT de usuario): la
+// autenticación es la cabecera x-edc-secret.
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { requireInternalSecret } from "../_shared/internal_secret.ts";
 
 const GMAIL_USER = Deno.env.get("GMAIL_USER") ?? "";
 const GMAIL_APP_PASSWORD = (Deno.env.get("GMAIL_APP_PASSWORD") ?? "").replace(/\s+/g, "");
@@ -487,10 +494,10 @@ async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> 
   return a || aaaa ? "dead" : "unknown";
 }
 
-type ArtistInfo = { discord_id: string | null; status: string; must_change_password: boolean | null };
+type ArtistInfo = { id: string; discord_id: string | null; status: string; must_change_password: boolean | null };
 
 async function artistByEmail(email: string): Promise<ArtistInfo | null> {
-  const r = await rest(`artists?email=eq.${encodeURIComponent(email)}&select=discord_id,status,must_change_password&order=created_at.desc&limit=1`);
+  const r = await rest(`artists?email=eq.${encodeURIComponent(email)}&select=id,discord_id,status,must_change_password&order=created_at.desc&limit=1`);
   const rows = r.ok ? await r.json() : [];
   return rows[0] ?? null;
 }
@@ -503,11 +510,16 @@ async function discordAccountEmail(discordId: string): Promise<string | null> {
   return typeof v === "string" && v.includes("@") ? v : null;
 }
 
-// Clave genérica vigente (la misma que ponen admin_approve / admin_reset_generic)
-async function genericKey(): Promise<string | null> {
-  const r = await rest("app_secrets?k=eq.generic_artist_key&select=v");
-  const rows = r.ok ? await r.json() : [];
-  return rows[0]?.v ?? null;
+// Ya no hay clave genérica compartida (migración 20260927_01): cada artista
+// recibe una clave temporal aleatoria cuyo bcrypt es lo único que queda en la
+// BBDD. Si el aviso rebotó y hay que reenviarlo, se pide OTRA clave temporal
+// (RPC artist_issue_temp_key, solo service_role; solo mientras el artista no
+// haya elegido la suya).
+async function issueTempKey(artistId: string): Promise<string | null> {
+  const r = await rest("rpc/artist_issue_temp_key", { method: "POST", body: JSON.stringify({ p_artist_id: artistId }) });
+  if (!r.ok) return null;
+  const v = await r.json();
+  return typeof v === "string" && v.length >= 8 ? v : null;
 }
 
 async function sendSmtp(to: string, subject: string, text: string, html: string) {
@@ -841,7 +853,7 @@ async function checkBounces() {
     const artist = await artistByEmail(row.email);
     // Email de acceso y aún no ha elegido su clave → va la genérica vigente
     const key = row.kind === "credentials" && artist?.status === "approved" && artist.must_change_password
-      ? await genericKey() : null;
+      ? await issueTempKey(artist.id) : null;
     const patch = await discordFallback(row, artist, key, reason);
     await mark(row.id, { bounced_at: new Date(hit.at).toISOString(), ...patch });
   }
@@ -850,6 +862,8 @@ async function checkBounces() {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  const denied = await requireInternalSecret(req);
+  if (denied) return denied;
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return new Response("Server not configured", { status: 500 });
 
   let body: { id?: unknown; action?: unknown } = {};
