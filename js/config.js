@@ -49,12 +49,17 @@ export const SPLATTAG_URL = "https://splashtagmaker.com/";
 // open-source (GPL-3.0) de SeymourSchlong/splashtags (= splashtagmaker.com).
 // Créditos completos en el aviso legal. jsDelivr envía cabeceras CORS, necesario
 // para exportar el canvas (crossOrigin="anonymous") sin "tainted canvas".
-export const SPLATTAG_CDN = "https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@main";
+// Fijado a un commit concreto (no a @main): el contenido servido no puede
+// cambiar sin tocar este fichero. Para actualizar: `git ls-remote
+// https://github.com/SeymourSchlong/splashtags refs/heads/main` y sustituir
+// el SHA aquí y en css/styles.css y 404.html (fuentes).
+export const SPLATTAG_CDN = "https://cdn.jsdelivr.net/gh/SeymourSchlong/splashtags@93e794dd46c75c4b4af3770513a2877715cda900";
 // Fuente secundaria de imágenes de badge (niveles altos de arma y otras oficiales que
 // SeymourSchlong no incluye). Datos del juego de Leanny/splat3, servidos por jsDelivr
 // (envía CORS *, igual que el CDN principal). Solo .png, naming Badge_<Name>.png.
-export const LEANNY_BADGE_CDN = "https://cdn.jsdelivr.net/gh/Leanny/splat3@main/images/badge";
-export const LEANNY_NPL_CDN = "https://cdn.jsdelivr.net/gh/Leanny/splat3@main/images/npl";
+// También fijado a un commit (`git ls-remote https://github.com/Leanny/splat3 refs/heads/main`).
+export const LEANNY_BADGE_CDN = "https://cdn.jsdelivr.net/gh/Leanny/splat3@7280ff9cde8bb1c5dcef46c700c326471584d2e6/images/badge";
+export const LEANNY_NPL_CDN = "https://cdn.jsdelivr.net/gh/Leanny/splat3@7280ff9cde8bb1c5dcef46c700c326471584d2e6/images/npl";
 export const BANNER_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const BANNER_MAX_DIM = 4096;              // px por lado
 export const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];

@@ -1,7 +1,23 @@
 # Cabeceras para Cloudflare Pages — https://developers.cloudflare.com/pages/configuration/headers/
+#
+# CSP (auditoría 2026-09-27): scripts SOLO del propio origen (supabase-js va
+# vendorizado en /vendor; no hay scripts inline). Orígenes externos permitidos:
+#  - Supabase (REST/Auth/Storage/Edge Functions + realtime por wss)
+#  - raw.githubusercontent.com (RSDB e imágenes de Flexlion)
+#  - cdn.jsdelivr.net (assets del generador de Splashtag y badges, fijados a commit)
+#  - fonts.googleapis.com / fonts.gstatic.com (Space Grotesk)
+#  - cloudflare-dns.com / dns.google (comprobación DoH del email en ?apply y ?feedback)
+#  - cdn.discordapp.com / pbs.twimg.com (avatares de Discord y X)
+# style-src lleva 'unsafe-inline' solo por los atributos style de los SVG
+# inline y el @import de Google Fonts; no hay <style> ni handlers inline.
 /*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://raw.githubusercontent.com https://cdn.jsdelivr.net https://xwyauyjeteztlevvtydb.supabase.co https://cdn.discordapp.com https://pbs.twimg.com https://abs.twimg.com; connect-src 'self' https://xwyauyjeteztlevvtydb.supabase.co wss://xwyauyjeteztlevvtydb.supabase.co https://raw.githubusercontent.com https://cdn.jsdelivr.net https://cloudflare-dns.com https://dns.google; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
-  X-Frame-Options: SAMEORIGIN
+  X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
