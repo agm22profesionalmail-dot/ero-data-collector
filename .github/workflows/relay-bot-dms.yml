@@ -1,6 +1,10 @@
 # Cada 5 min dispara la Edge Function relay-bot-dms, que reenvía al propietario
-# por MD las respuestas que la gente escribe al bot. La función es idempotente y no necesita secrets aquí.
+# por MD las respuestas que la gente escribe al bot. La función es idempotente.
 # GitHub puede retrasar los cron unos minutos; no pasa nada (mira 72 h atrás).
+#
+# Requiere el secreto del repo EDC_INTERNAL_SECRET (mismo valor que el secret
+# EDC_INTERNAL_SECRET de las Edge Functions): la función rechaza cualquier
+# llamada sin la cabecera x-edc-secret correcta. Sin el secreto no se llama.
 name: relay-bot-dms
 
 on:
@@ -21,8 +25,15 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Llamar a relay-bot-dms
+        env:
+          EDC_INTERNAL_SECRET: ${{ secrets.EDC_INTERNAL_SECRET }}
         run: |
           set -euo pipefail
+          if [ -z "${EDC_INTERNAL_SECRET:-}" ]; then
+            echo "::error::Falta el secreto EDC_INTERNAL_SECRET del repositorio"; exit 1
+          fi
           curl -sS --fail-with-body --max-time 90 -X POST \
-            -H "Content-Type: application/json" -d '{}' \
+            -H "Content-Type: application/json" \
+            -H "x-edc-secret: ${EDC_INTERNAL_SECRET}" \
+            -d '{}' \
             https://xwyauyjeteztlevvtydb.supabase.co/functions/v1/relay-bot-dms
