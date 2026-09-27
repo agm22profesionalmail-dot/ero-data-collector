@@ -1,23 +1,12 @@
-// Edge Function: kofi-webhook
+// Ko-fi Webhook → Supabase Edge Function
+// Recibe el POST de Ko-fi cuando llega una comisión y la inserta en public.orders
 //
-// Recibe el POST de Ko-fi cuando llega una comisión y la inserta en
-// public.orders (upsert por kofi_transaction_id; los duplicados se ignoran).
-//
-// Seguridad (auditoría 2026-09-27):
-//  - KOFI_TOKEN es OBLIGATORIO: sin él se rechaza todo (503). Antes, si
-//    faltaba, se aceptaba cualquier payload.
-//  - El verification_token se compara en tiempo constante.
-//  - Ko-fi no manda cabeceras de firma: el token en el cuerpo es la única
-//    autenticación, por eso es fail-closed.
-//
-// Variables de entorno (Supabase → Edge Functions → Secrets):
-//   KOFI_TOKEN                — token de verificación (Ko-fi → API → Webhook Token)
-//   SUPABASE_URL              — inyectada por Supabase
-//   SUPABASE_SERVICE_ROLE_KEY — inyectada por Supabase
-// Desplegar con verify_jwt = false (Ko-fi no manda JWT).
+// Variables de entorno necesarias (Supabase Dashboard → Settings → Edge Functions → Secrets):
+//   KOFI_TOKEN        — token de verificación de Ko-fi (Ko-fi Dashboard → API → Webhook Token)
+//   SUPABASE_URL      — inyectada automáticamente por Supabase
+//   SUPABASE_SERVICE_ROLE_KEY — inyectada automáticamente por Supabase
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
-import { timingSafeEqual } from "../_shared/internal_secret.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const COMMISSION_TYPE_MAP: Record<string, string> = {
   // Fotos (orden importa: frases más específicas primero)
@@ -85,22 +74,27 @@ function firstText(obj: Record<string, unknown>, keys: string[]): string | null 
   return null;
 }
 
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const va = new Uint8Array(ha), vb = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
+  // Solo acepta POST
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Fail-closed: sin token configurado no se acepta nada
-  const kofiToken = (Deno.env.get("KOFI_TOKEN") ?? "").trim();
-  if (kofiToken.length < 8) {
-    console.error("[kofi-webhook] KOFI_TOKEN not configured: rejecting request");
-    return new Response("Not configured", { status: 503 });
-  }
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !serviceKey) {
-    return new Response("Server not configured", { status: 500 });
-  }
+  const kofiToken = Deno.env.get("KOFI_TOKEN");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   // Parsear payload Ko-fi (application/x-www-form-urlencoded con campo "data" JSON)
   let kofi: Record<string, unknown>;
@@ -110,21 +104,23 @@ Deno.serve(async (req: Request) => {
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const form = await req.formData();
-      raw = String(form.get("data") ?? "");
+      raw = form.get("data") as string;
     } else {
       // Algunos planes Ko-fi envían JSON directamente
       raw = await req.text();
     }
 
     kofi = JSON.parse(raw);
-    if (!kofi || typeof kofi !== "object") throw new Error("not an object");
   } catch {
     return new Response("Bad payload", { status: 400 });
   }
 
-  // Verificar el token de Ko-fi (tiempo constante)
-  const sent = typeof kofi.verification_token === "string" ? kofi.verification_token : "";
-  if (!(await timingSafeEqual(sent, kofiToken))) {
+  // Verificar token Ko-fi. Sin KOFI_TOKEN configurado se rechaza todo (fail-closed)
+  // y la comparación es en tiempo constante sobre SHA-256 de longitud fija.
+  if (!kofiToken) {
+    return new Response("Webhook not configured", { status: 503 });
+  }
+  if (!(await safeEqual(String(kofi.verification_token ?? ""), kofiToken))) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -136,13 +132,13 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Logs (Edge Functions → Logs) sin datos personales: ni nombre, ni mensaje,
-  // ni usuario de Discord, ni email. Solo tipo, id de transacción y qué claves
-  // trae el payload, para depurar el formato que manda Ko-fi.
+  // Payload sin token ni email en los logs (Edge Functions → Logs) para depurar
+  // qué campos manda Ko-fi en cada pedido.
+  // Solo metadatos: nada de nombres, mensajes, emails ni usuarios de Discord.
   console.log("[kofi-webhook] payload:", JSON.stringify({
     type: kofi.type,
-    kofi_transaction_id: kofi.kofi_transaction_id ?? null,
-    keys: Object.keys(kofi).sort(),
+    kofi_transaction_id: kofi.kofi_transaction_id,
+    keys: Object.keys(kofi),
     shop_items: Array.isArray(kofi.shop_items) ? kofi.shop_items.length : 0,
   }));
 
@@ -175,7 +171,7 @@ Deno.serve(async (req: Request) => {
       discord_username: discordUsername,
       status: "pending",
     },
-    { onConflict: "kofi_transaction_id", ignoreDuplicates: true },
+    { onConflict: "kofi_transaction_id", ignoreDuplicates: true }
   );
 
   if (error) {
