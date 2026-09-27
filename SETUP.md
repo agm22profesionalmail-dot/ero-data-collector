@@ -85,12 +85,24 @@ Las fichas y los banners quedan en Supabase (tabla `players` y bucket `banners`)
 ## 9b. Secrets de las Edge Functions
 
 Supabase → **Edge Functions → Secrets**:
+- `EDC_INTERNAL_SECRET` — secreto interno (≥ 32 caracteres aleatorios). Las funciones `send-artist-credentials` y `relay-bot-dms` rechazan cualquier llamada sin la cabecera `x-edc-secret` con este valor; sin el secret configurado rechazan todo. El mismo valor va en Supabase Vault (`select vault.create_secret('<valor>', 'edc_internal_secret')`, lo usan las RPC vía pg_net) y en el secret `EDC_INTERNAL_SECRET` del repo (workflow `relay-bot-dms`).
 - `DISCORD_BOT_TOKEN` — token del bot de Discord (avisos y DMs).
+- `DISCORD_GUILD_ID` — ID del servidor de Discord de la comunidad (`submit-feedback` comprueba ahí la pertenencia; sin él, nadie cuenta como miembro).
 - `OWNER_DISCORD_ID` — ID de Discord de quien recibe los avisos de reportes y las respuestas al bot.
 - `EXTRA_RECIPIENTS` — (opcional) IDs de Discord extra, separados por comas, cuyas respuestas al bot se reenvían.
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `SITE_URL` — envío de emails a artistas.
+- `KOFI_TOKEN` — token de verificación del webhook de Ko-fi (`kofi-webhook`; sin él la función rechaza todo).
 
-Para el despliegue en Cloudflare Pages: secret `CLOUDFLARE_API_TOKEN` y variable `CLOUDFLARE_ACCOUNT_ID` en el repo (Settings → Secrets and variables → Actions).
+Para el despliegue en Cloudflare Pages: secrets `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID` en el repo (Settings → Secrets and variables → Actions).
+
+## 9c. Panel de administración (`?admin`)
+
+Desde la migración `20260927_01`:
+1. El administrador inicia sesión en la web (Discord o X) y su `auth.users.id` tiene que estar en `public.admin_identities` (INSERT del final de la migración).
+2. En `?admin` introduce usuario y clave (`app_secrets`: `admin_user` / `admin_pass`, bcrypt). `admin_login` devuelve un token de sesión de 12 h (solo su SHA-256 queda en `admin_sessions`); 5 fallos en 15 minutos bloquean el usuario y la cuenta.
+3. Las RPC `admin_*` solo aceptan ese token (o la `service_role`, para herramientas locales). Nunca son ejecutables por `anon`.
+
+La web se sirve con una CSP estricta (`_headers`): los scripts solo pueden venir del propio origen, por eso `supabase-js` está en `vendor/` (ver `vendor/supabase-js/README.md`) y los assets de jsDelivr van fijados a un commit.
 
 ---
 

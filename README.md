@@ -43,7 +43,8 @@ Browser (static SPA) ──sign in with Discord / X──►  Supabase Auth
 ```
 
 - There is no custom backend. OAuth secrets live in Supabase; the site only ships the public *anon* key.
-- Row-level security: every user can only read and edit their own sheet and their own files. Artists only see the characters explicitly shared with them.
+- Row-level security: every user can only read and edit their own sheet and their own files. Artists only see the characters explicitly shared with them, and the artist panel only receives what it draws (resolved images and names), never the raw character configuration.
+- Strict Content Security Policy: scripts are served only from this site (`supabase-js` is vendored, third-party assets are pinned to a commit).
 - Game data (gear lists, icons) is loaded from [Flexlion](https://github.com/Flexlion/flexlion.github.io)'s public files; Splattag assets from [splashtags](https://github.com/SeymourSchlong/splashtags) via jsDelivr. This repository does not host them.
 
 ## Project structure
