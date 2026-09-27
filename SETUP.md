@@ -91,7 +91,7 @@ Supabase → **Edge Functions → Secrets**:
 - `OWNER_DISCORD_ID` — ID de Discord de quien recibe los avisos de reportes y las respuestas al bot.
 - `EXTRA_RECIPIENTS` — (opcional) IDs de Discord extra, separados por comas, cuyas respuestas al bot se reenvían.
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `SITE_URL` — envío de emails a artistas.
-- `KOFI_TOKEN` — token de verificación del webhook de Ko-fi (`kofi-webhook`; sin él la función rechaza todo).
+- `KOFI_TOKEN` — token de verificación del webhook de Ko-fi (`receive-kofi-order`; sin él la función rechaza todo).
 
 Para el despliegue en Cloudflare Pages: secrets `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID` en el repo (Settings → Secrets and variables → Actions).
 
