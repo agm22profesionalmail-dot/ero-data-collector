@@ -16,7 +16,9 @@
 --     admin. Sin sesión de la web (Discord/X) en esa lista no hay login.
 --  2) admin_login(usuario, clave) → token de sesión aleatorio (12 h). En la
 --     base de datos solo se guarda su SHA-256 (admin_sessions); revocable con
---     admin_logout. Bloqueo: 5 fallos en 15 min por usuario y por uid.
+--     admin_logout. Bloqueo: 5 fallos en 15 min por uid; el contador por
+--     usuario solo lo alimentan uids de la lista blanca (un tercero con
+--     sesión no puede bloquear al admin). Serializado con advisory locks.
 --     bcrypt SIEMPRE (contra un hash de relleno si falta el real) y
 --     comparaciones en tiempo constante.
 --  3) El resto de admin_* reciben p_token (primer parámetro) en vez de
@@ -26,6 +28,10 @@
 --     generan una clave temporal aleatoria por artista (solo el bcrypt queda
 --     en artists.access_key_hash; en la cola de avisos hasta enviarla). La
 --     Edge Function, ante un rebote, pide otra con artist_issue_temp_key.
+--     A los artistas aprobados que aún tenían la genérica
+--     (must_change_password = true) se les rota la clave a una temporal
+--     propia y se les reencola el aviso (bloque 8b): la genérica deja de
+--     servir en el mismo instante en que se aplica esta migración.
 --  5) Llamadas SQL → Edge Functions con la cabecera x-edc-secret, leída de
 --     Supabase Vault (secreto `edc_internal_secret`). Sin secreto, el aviso
 --     queda en la cola con error (nunca se llama sin cabecera).
@@ -125,6 +131,13 @@ ON CONFLICT (k) DO NOTHING;
 --    registra el fallo y devuelve false, para que el intento quede grabado
 --    aunque quien la llame lance después una excepción.
 --    Motivos: 'ok' | 'locked' | 'no_session' | 'bad_credentials'.
+--    Bloqueo: el contador 'uid:<uid>' cuenta siempre; el contador
+--    'user:<usuario>' SOLO lo alimentan (y solo bloquea a) uids que estén en
+--    admin_identities. Así un usuario cualquiera con sesión no puede dejar
+--    fuera al admin a base de fallar con su nombre: solo se bloquea a sí
+--    mismo. Los dos contadores se leen y escriben bajo advisory locks de
+--    transacción (en orden estable por el valor del hash) para que dos
+--    intentos concurrentes no cuenten de menos.
 -- ------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_check(text, text);
 CREATE FUNCTION public.admin_check(p_user text, p_pass text)
@@ -148,13 +161,28 @@ DECLARE
   v_ok_user boolean;
   v_ok_pass boolean;
   v_ok_uid  boolean;
+  v_lock_a  int := hashtext(v_subj_u);
+  v_lock_b  int := hashtext(v_subj_id);
 BEGIN
+  -- Serializar por sujeto (usuario y uid), siempre en el mismo orden
+  -- (menor hash primero) para que dos sesiones no se crucen en deadlock.
+  PERFORM pg_advisory_xact_lock(least(v_lock_a, v_lock_b));
+  PERFORM pg_advisory_xact_lock(greatest(v_lock_a, v_lock_b));
+
   DELETE FROM public.admin_login_attempts WHERE attempted_at < now() - interval '1 day';
 
-  SELECT count(*) INTO v_fails_u FROM public.admin_login_attempts
-   WHERE subject = v_subj_u AND attempted_at > now() - interval '15 minutes';
+  -- ¿Puede este uid ser admin? (service_role: panel local, sin uid)
+  v_ok_uid  := (v_role = 'service_role')
+               OR (v_uid IS NOT NULL AND EXISTS (SELECT 1 FROM public.admin_identities WHERE user_id = v_uid));
+
   SELECT count(*) INTO v_fails_i FROM public.admin_login_attempts
    WHERE subject = v_subj_id AND attempted_at > now() - interval '15 minutes';
+  IF v_ok_uid THEN
+    SELECT count(*) INTO v_fails_u FROM public.admin_login_attempts
+     WHERE subject = v_subj_u AND attempted_at > now() - interval '15 minutes';
+  ELSE
+    v_fails_u := 0;
+  END IF;
   IF v_fails_u >= 5 OR v_fails_i >= 5 THEN
     RETURN 'locked';
   END IF;
@@ -168,14 +196,19 @@ BEGIN
   v_cmp     := coalesce(v_hash, v_dummy);
   v_ok_user := public.ct_equal(coalesce(p_user, ''), coalesce(v_user, ''));
   v_ok_pass := public.ct_equal(crypt(coalesce(p_pass, ''), v_cmp), v_cmp);
-  v_ok_uid  := (v_role = 'service_role')
-               OR (v_uid IS NOT NULL AND EXISTS (SELECT 1 FROM public.admin_identities WHERE user_id = v_uid));
   v_ok_user := v_ok_user AND (v_user IS NOT NULL);
   v_ok_pass := v_ok_pass AND (v_hash IS NOT NULL);
 
   IF v_ok_user AND v_ok_pass AND v_ok_uid THEN
     DELETE FROM public.admin_login_attempts WHERE subject IN (v_subj_u, v_subj_id);
     RETURN 'ok';
+  END IF;
+
+  -- uid fuera de la lista blanca: solo cuenta contra sí mismo, nunca
+  -- contra el usuario (evita el bloqueo del admin por terceros).
+  IF NOT v_ok_uid THEN
+    INSERT INTO public.admin_login_attempts (subject) VALUES (v_subj_id);
+    RETURN 'bad_credentials';
   END IF;
 
   INSERT INTO public.admin_login_attempts (subject) VALUES (v_subj_u), (v_subj_id);
@@ -348,8 +381,10 @@ REVOKE EXECUTE ON FUNCTION public.edc_internal_headers() FROM PUBLIC, anon, auth
 
 -- ------------------------------------------------------------
 -- 7) Clave temporal por artista (sustituye a generic_artist_key)
+--    La fila generic_artist_key de app_secrets se borra en el bloque 8b,
+--    junto con la rotación de los artistas que aún la tenían (necesita
+--    queue_artist_email ya redefinida con la cabecera secreta).
 -- ------------------------------------------------------------
-DELETE FROM public.app_secrets WHERE k = 'generic_artist_key';
 
 CREATE OR REPLACE FUNCTION public.artist_new_temp_key()
 RETURNS text
@@ -482,6 +517,51 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.queue_artist_notice(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 
+-- 8b) Retirar la clave genérica: borrar el secreto y, en el mismo bloque,
+--     rotar la clave de TODOS los artistas aprobados que aún la tenían
+--     (must_change_password = true) a una temporal aleatoria propia, con
+--     su aviso reencolado (misma cola/Edge Function; variante "reset").
+--     Idempotente: si el secreto ya no existe (segunda ejecución) no se
+--     rota nada, para no reenviar avisos.
+--     Si el aviso no puede encolarse (send_email_url o Vault sin
+--     configurar) la fila queda en artist_email_outbox con error y la
+--     clave ya rotada: se reenvía con admin_reset_generic desde el panel.
+DO $do$
+DECLARE
+  r     record;
+  v_key text;
+  v_n   int := 0;
+  v_q   int := 0;
+BEGIN
+  DELETE FROM public.app_secrets WHERE k = 'generic_artist_key';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'generic_artist_key ya no existía: no se rota ninguna clave';
+    RETURN;
+  END IF;
+
+  FOR r IN
+    SELECT id, email, name, slug, coalesce(preferred_lang, 'en') AS lang
+      FROM public.artists
+     WHERE status = 'approved'
+       AND coalesce(must_change_password, false)
+     ORDER BY created_at
+  LOOP
+    v_key := public.artist_new_temp_key();
+    UPDATE public.artists
+       SET access_key_hash = crypt(v_key, gen_salt('bf', 12)),
+           must_change_password = true
+     WHERE id = r.id;
+    v_n := v_n + 1;
+    IF r.email IS NOT NULL THEN
+      IF public.queue_artist_email(r.email, r.name, r.slug, v_key, r.lang, true) THEN
+        v_q := v_q + 1;
+      END IF;
+    END IF;
+  END LOOP;
+  RAISE NOTICE 'generic_artist_key retirada: % artistas con clave temporal nueva, % avisos encolados', v_n, v_q;
+END
+$do$;
+
 -- Revisión de rebotes (pg_cron): misma cabecera. Solo se programa si el
 -- secreto existe en el momento de la llamada (WHERE ... IS NOT NULL).
 CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -509,23 +589,36 @@ SELECT cron.schedule(
 -- ------------------------------------------------------------
 -- 9) RPC de administración: firmas nuevas (p_token) y fuera las antiguas
 -- ------------------------------------------------------------
-DROP FUNCTION IF EXISTS public.admin_list(text, text);
-DROP FUNCTION IF EXISTS public.admin_pending_count(text, text);
-DROP FUNCTION IF EXISTS public.admin_approve(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_set_status(text, text, uuid, text);
-DROP FUNCTION IF EXISTS public.admin_reset_key(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_reset_generic(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_reject(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_email_status(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_players(text, text);
-DROP FUNCTION IF EXISTS public.admin_edc_overview(text, text);
-DROP FUNCTION IF EXISTS public.admin_feedback_list(text, text, text, int);
-DROP FUNCTION IF EXISTS public.admin_feedback_set_status(text, text, uuid, text);
-DROP FUNCTION IF EXISTS public.admin_email_log(text, text, int);
-DROP FUNCTION IF EXISTS public.admin_send_email(text, text, text, text, text, text, text);
-DROP FUNCTION IF EXISTS public.admin_ban(text, text, uuid, text);
-DROP FUNCTION IF EXISTS public.admin_unban(text, text, uuid);
-DROP FUNCTION IF EXISTS public.admin_banned_list(text, text);
+-- Todas las admin_* del schema public cuya lista de argumentos empiece por
+-- (p_user text, p_pass text ...) son firmas antiguas: se borran una a una,
+-- sin CASCADE. admin_check y admin_login (nuevas, con esa misma cabecera)
+-- se excluyen. Si alguna tuviera dependencias (vista, política, trigger),
+-- el DROP falla con un mensaje claro: revisar pg_depend (ver DEPLOY) antes
+-- de volver a ejecutar.
+DO $do$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig, p.proname
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname LIKE 'admin\_%' ESCAPE '\'
+       AND p.proname NOT IN ('admin_check', 'admin_login')
+       AND pg_get_function_identity_arguments(p.oid) LIKE 'p_user text, p_pass text%'
+     ORDER BY p.proname
+  LOOP
+    BEGIN
+      EXECUTE format('DROP FUNCTION %s', r.sig);
+      RAISE NOTICE 'firma antigua eliminada: %', r.sig;
+    EXCEPTION WHEN dependent_objects_still_exist THEN
+      RAISE EXCEPTION 'No se puede borrar % (firma antigua usuario/clave): tiene dependencias. Revisar pg_depend (DEPLOY_20260927.md, paso 1 de backup) y decidir a mano.', r.sig
+        USING DETAIL = SQLERRM;
+    END;
+  END LOOP;
+END
+$do$;
 
 -- 9a) Solicitudes de artistas (pending primero) + nº de jugadores asociados
 CREATE OR REPLACE FUNCTION public.admin_list(p_token text DEFAULT NULL)
