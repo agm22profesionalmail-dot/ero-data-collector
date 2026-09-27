@@ -136,10 +136,15 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Payload sin token ni email en los logs (Edge Functions → Logs) para depurar
-  // qué campos manda Ko-fi en cada pedido.
-  const { verification_token: _t, email: _e, ...logged } = kofi;
-  console.log("[kofi-webhook] payload:", JSON.stringify(logged));
+  // Logs (Edge Functions → Logs) sin datos personales: ni nombre, ni mensaje,
+  // ni usuario de Discord, ni email. Solo tipo, id de transacción y qué claves
+  // trae el payload, para depurar el formato que manda Ko-fi.
+  console.log("[kofi-webhook] payload:", JSON.stringify({
+    type: kofi.type,
+    kofi_transaction_id: kofi.kofi_transaction_id ?? null,
+    keys: Object.keys(kofi).sort(),
+    shop_items: Array.isArray(kofi.shop_items) ? kofi.shop_items.length : 0,
+  }));
 
   const shopItems = (Array.isArray(kofi.shop_items) ? kofi.shop_items : []) as ShopItem[];
   const message = firstText(kofi, ["message", "buyer_description", "commission_description", "description"]) || "";

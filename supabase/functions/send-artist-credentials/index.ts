@@ -840,6 +840,14 @@ async function checkBounces() {
   }
 
   let bounced = 0;
+  // Una sola clave temporal nueva por artista y pasada: si varias filas del
+  // mismo artista rebotan a la vez, todas van con la misma clave (cada
+  // artist_issue_temp_key invalida la anterior).
+  const tempKeys = new Map<string, string | null>();
+  const tempKeyFor = async (artistId: string) => {
+    if (!tempKeys.has(artistId)) tempKeys.set(artistId, await issueTempKey(artistId));
+    return tempKeys.get(artistId) ?? null;
+  };
   for (const row of rows) {
     const addr = (row.delivered_to || row.email).toLowerCase();
     const sentAt = Date.parse(row.sent_at as string);
@@ -851,9 +859,10 @@ async function checkBounces() {
       ?? hit.text.match(/\b5\d\d[ -][^\r\n]{0,160}/)?.[0] ?? "bounced";
     const reason = `bounced: ${diag.trim()}`.slice(0, 300);
     const artist = await artistByEmail(row.email);
-    // Email de acceso y aún no ha elegido su clave → va la genérica vigente
+    // Email de acceso y aún no ha elegido su clave → clave temporal nueva
+    // (una por artista en esta pasada)
     const key = row.kind === "credentials" && artist?.status === "approved" && artist.must_change_password
-      ? await issueTempKey(artist.id) : null;
+      ? await tempKeyFor(artist.id) : null;
     const patch = await discordFallback(row, artist, key, reason);
     await mark(row.id, { bounced_at: new Date(hit.at).toISOString(), ...patch });
   }
