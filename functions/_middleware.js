@@ -12,6 +12,7 @@ const SITE = "https://eroplayerdata.pages.dev";
 
 const BETA_EMBEDS = {
   absinthe: { image: "/assets/og/beta/absinthe.jpg?v=1", width: 1150, height: 630 },
+  isidraws: { image: "/assets/og/beta/isidraws.jpg?v=1", width: 1200, height: 630 },
 };
 
 export async function onRequest(context) {
