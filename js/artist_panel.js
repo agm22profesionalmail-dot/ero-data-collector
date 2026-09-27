@@ -1,24 +1,25 @@
 // Panel del artista — SOLO se activa por ?panel (enlace privado, análogo a
 // ?admin). El artista ya aprobado entra con SU sesión de Discord + la clave
 // que le dio el admin (doble factor). La RPC artist_group (SECURITY DEFINER,
-// supabase/migrations/20260916_05_artist_group.sql) devuelve SOLO su propio
-// grupo de jugadores, sin JSON de Calico ni nada exportable.
+// supabase/migrations/20260927_03_artist_group_v3.sql) devuelve SOLO su
+// propio grupo de jugadores y, de cada personaje, únicamente lo que se pinta
+// (`sheet`: imágenes y nombres ya resueltos en el servidor), nunca la
+// configuración cruda ni nada exportable.
 //
 // RESTRICCIÓN DURA: esto es SOLO material de referencia visual. No hay botón
 // de exportar/descargar ni de copiar la config — únicamente ver la ficha.
 //
-// La clave vive en memoria mientras la pestaña esté abierta; nunca se guarda
-// en disco. Textos propios (herramienta interna), como admin.js.
+// La clave vive en memoria + sessionStorage (solo mientras la pestaña esté
+// abierta); nunca en localStorage. Textos propios (herramienta interna).
 import { supabase } from "./supabase.js";
 import { getLang } from "./i18n.js";
 import { el, clear, toast, imgWithFallback } from "./ui.js";
 import {
-  loadData, data, getById, colorToHex,
+  loadData, data, getById, colorToHex, hexToColor,
   headNames, clothNames, shoesNames, curName, altName,
-  skinUrl, eyeUrl, typeUrl, hairUrl, eyebrowUrl, pantsVarUrl, pantsVarLocalUrl, gearUrl,
   eyebrowsFor,
 } from "./data.js";
-import { SPECIES, SKIN_TONES, EYE_COLORS } from "./config.js";
+import { SPECIES, SKIN_TONES, EYE_COLORS, IMG } from "./config.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
 import { getBannerSignedUrl, getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, renderCandidates } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
@@ -124,13 +125,15 @@ export function leavePanel() {
   return true;
 }
 
-// Clave en memoria + localStorage: la sesión del panel no se cierra sola
-// (cambiar de pestaña, recargar, cerrar el navegador). Solo se borra con
-// "Cambiar clave", al cerrar sesión arriba a la derecha o si deja de valer.
+// Clave en memoria + sessionStorage: sobrevive a una recarga, pero muere con
+// la pestaña (no queda en disco). Se borra con "Cambiar clave", al cerrar
+// sesión arriba a la derecha o si deja de valer. La entrada antigua de
+// localStorage (versiones anteriores) se elimina al cargar.
 const KEY_STORE = "edc_panel_key";
+try { localStorage.removeItem(KEY_STORE); } catch { /* sin storage */ }
 const keyStore = {
-  get() { try { return localStorage.getItem(KEY_STORE); } catch { return null; } },
-  set(v) { try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch { /* sin storage */ } },
+  get() { try { return sessionStorage.getItem(KEY_STORE); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem(KEY_STORE, v) : sessionStorage.removeItem(KEY_STORE); } catch { /* sin storage */ } },
 };
 export function forgetPanelKey() { artistKey = null; rows = null; mustChange = false; termsOk = false; keyStore.set(null); }
 let artistKey = null;
@@ -141,9 +144,9 @@ let dataReady = false; // RSDB (data.js) cargada — hace falta para pintar la f
 
 async function ensureData() { if (!dataReady) { await loadData(); dataReady = true; } }
 
-// artist_group v2 (migración 09) devuelve {must_change_password, players}.
-// Se acepta también el formato viejo (array de players) por si un cliente
-// llega antes de aplicar la migración: se toma como must_change_password=false.
+// artist_group v3 (migración 20260927_03) devuelve {must_change_password,
+// players}; cada jugador trae `sheet` (imágenes y nombres ya resueltos). Con
+// must_change_password=true el servidor no manda jugadores.
 const rpcGroup = async (key) => {
   const { data: d, error } = await supabase.rpc("artist_group", { p_key: key });
   if (error) throw error;
@@ -337,14 +340,15 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 
   function renderPlayerCard(p) {
     const open = () => showDetail(p);
-    const sp = SPECIES[p.player_type] || SPECIES[0];
+    const sheet = sheetView(p);
+    const sp = speciesOf(sheet.species_key);
     const speciesLabel = `${ta(sp.species)} ${sp.male ? ta("boy") : ta("girl")}`;
     const handle = p.x_username ? ("@" + p.x_username) : (p.discord_name || "");
     const body = el("div", { class: "edc-panel-pcard-body" },
       el("div", { class: "edc-panel-pcard-alias" }, p.alias || ta("no_alias")),
       el("div", { class: "edc-panel-pcard-meta" }, speciesLabel),
       el("div", { class: "edc-panel-pcard-contact" },
-        el("span", { class: "edc-panel-pcard-dot", style: `background:${colorToHex(p.color)}` }),
+        el("span", { class: "edc-panel-pcard-dot", style: `background:${sheet.ink_hex}` }),
         el("div", { class: "edc-panel-pcard-lines" },
           handle ? el("span", { class: "edc-panel-pcard-handle" }, handle) : null,
           p.discord_id ? el("span", { class: "edc-panel-pcard-did" }, p.discord_id) : null)));
@@ -516,6 +520,55 @@ function renderSlot(player, onLoaded) {
   });
 }
 
+// ── Vista "sheet": lo que se pinta de un personaje ───────────────────
+// El panel del artista la recibe YA RESUELTA del servidor (artist_group v3,
+// campo `sheet`: rutas de imagen relativas a la raíz de Flexlion o a la web,
+// nombres [en, es] y marca ALT). El panel de admin recibe la ficha cruda
+// (admin_players) y la convierte aquí con el RSDB (sheetFromRaw). Las dos
+// rutas producen la misma forma:
+//   { species_key, skin_img, eye_img, ink_hex, hair_img, brows_img,
+//     legs: {img, img_var, img_local, variant} | null,
+//     head/cloth/shoes: {img, name: [en, es], alt} | null }
+const relRow = (e) => (e ? e.__RowId : null);
+export function sheetFromRaw(p) {
+  const d = data();
+  const sp = SPECIES[p.player_type] || SPECIES[0];
+  const hair = getById(d.hair, p.hair);
+  const brows = getById(d.eyebrows, p.eye_brows);
+  const bot = getById(d.bottoms, p.bottom);
+  const gear = (entry, namesFn, variation) => entry ? {
+    img: `player/gear/${entry.__RowId}.png`,
+    name: namesFn(entry),
+    alt: !!(entry.VariationNum && Number(variation) === 1),
+  } : null;
+  const bv = Number(p.bottom_variation) || 0;
+  return {
+    species_key: sp.key,
+    skin_img: `player/skin_color/${Math.max(0, Number(p.skin_tone) || 0)}.png`,
+    eye_img: `player/eye_color/${Math.max(0, Number(p.eye_color) || 0)}.png`,
+    ink_hex: colorToHex(p.color || { r: 1, g: 1, b: 1 }),
+    hair_img: hair ? `player/hair/${relRow(hair)}.png` : null,
+    brows_img: brows ? `player/eyebrow/${relRow(brows)}_${sp.male ? "M" : "F"}.png` : null,
+    legs: bot ? {
+      img: `player/pants/${bot.__RowId}.png`,
+      img_var: bv > 0 ? `player/pants/${bot.__RowId}.${bv}.png` : null,
+      img_local: bv > 0 ? `assets/pants/${bot.__RowId}.v${bv}.png` : null,
+      variant: bv,
+    } : null,
+    head: gear(getById(d.headgear, p.gear_head), headNames, p.gear_head_variation),
+    cloth: gear(getById(d.clothes, p.gear_cloth), clothNames, p.gear_cloth_variation),
+    shoes: gear(getById(d.shoes, p.gear_shoes), shoesNames, p.gear_shoes_variation),
+  };
+}
+// `sheet` del servidor si viene; si no, se calcula de la ficha cruda (admin).
+function sheetView(p) {
+  if (p && p.sheet && typeof p.sheet === "object") return p.sheet;
+  return sheetFromRaw(p || {});
+}
+const speciesOf = (key) => SPECIES.find((s) => s.key === key) || SPECIES[0];
+// Ruta relativa → URL: `assets/...` es de la web; el resto, de Flexlion.
+const imgUrl = (rel) => !rel ? "" : rel.startsWith("assets/") ? `./${rel}` : `${IMG}/${rel}`;
+
 // ── Plantilla de personaje, READ-ONLY (panel amarillo de la ficha) ───
 function swatchWrap(imgNode) { return el("div", { class: "edc-pcard-swatch" }, imgNode); }
 function fieldRow(label, valueNode) {
@@ -526,23 +579,28 @@ function fieldRow(label, valueNode) {
 function plainSwatchRow(src, alt) {
   return el("div", { class: "edc-pcard-field-value" }, swatchWrap(imgWithFallback(src, alt || "")));
 }
-function legsRow(bot, v) {
+// Piernas: variante de Flexlion → copia local → base
+function legsRow(legs) {
   const img = el("img", { alt: "", loading: "lazy" });
-  img.src = pantsVarUrl(bot, v);
-  img.onerror = () => { img.onerror = () => { img.src = pantsVarUrl(bot, 0); }; img.src = pantsVarLocalUrl(bot, v); };
-  const label = Number(v) === 0 ? ta("base") : "V" + v;
+  const base = imgUrl(legs.img);
+  if (legs.img_var) {
+    img.src = imgUrl(legs.img_var);
+    img.onerror = () => { img.onerror = () => { img.src = base; }; img.src = legs.img_local ? imgUrl(legs.img_local) : base; };
+  } else img.src = base;
+  const v = Number(legs.variant) || 0;
+  const label = v === 0 ? ta("base") : "V" + v;
   return el("div", { class: "edc-pcard-field-value" }, swatchWrap(img), el("span", {}, label));
 }
-// namesFn(e) → [en, es]: nombre oficial en el idioma de la web y, debajo, en
-// el otro (el artista puede buscar la prenda con cualquiera de los dos).
-function gearRow(entry, urlFn, namesFn, variation) {
-  const pair = entry ? namesFn(entry) : null;
+// name = [en, es]: nombre oficial en el idioma de la web y, debajo, en el
+// otro (el artista puede buscar la prenda con cualquiera de los dos).
+function gearRow(g) {
+  const pair = g?.name && Array.isArray(g.name) ? g.name : null;
   const alt = altName(pair);
   return el("div", { class: "edc-pcard-field-value" },
-    swatchWrap(imgWithFallback(entry ? urlFn(entry) : "", pair ? curName(pair) : "")),
+    swatchWrap(imgWithFallback(g ? imgUrl(g.img) : "", pair ? curName(pair) : "")),
     el("span", {}, pair ? curName(pair) : "—",
       alt ? el("span", { class: "edc-pcard-name-alt" }, alt) : null),
-    (entry?.VariationNum && Number(variation) === 1) ? el("span", { class: "edc-pcard-alt" }, ta("alt")) : null);
+    g?.alt ? el("span", { class: "edc-pcard-alt" }, ta("alt")) : null);
 }
 
 // Tira con TODAS las opciones de un pool cerrado (piel, ojos, cejas) y la
@@ -552,8 +610,8 @@ function gearRow(entry, urlFn, namesFn, variation) {
 // demás en la misma línea (o en varias, si son muchas — el CSS envuelve).
 // Color de tinta: colapsado muestra la muestra + HEX; el toggle "+" abre el
 // mismo popover que piel/ojos con el color en HEX, RGB y HSL, cada uno copiable.
-function inkFormats(color) {
-  const c = color || { r: 1, g: 1, b: 1 };
+function inkFormats(hex) {
+  const c = /^#[0-9a-f]{6}$/i.test(hex || "") ? hexToColor(hex) : { r: 1, g: 1, b: 1 };
   const [r, g, b] = [c.r, c.g, c.b].map((v) => Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 255));
   const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255, l = (max + min) / 2, d = max - min;
   let h = 0, s = 0;
@@ -569,8 +627,8 @@ function inkFormats(color) {
     ["HSL", `hsl(${h}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`],
   ];
 }
-function inkRow(color) {
-  const formats = inkFormats(color);
+function inkRow(hex) {
+  const formats = inkFormats(hex);
   const hex = formats[0][1];
   const strip = el("div", { class: "edc-pcard-strip edc-pcard-ink-strip" });
   strip.dataset.expanded = "false";
@@ -650,38 +708,36 @@ function ensureStripOutsideCloser() {
   });
 }
 
+// Los pools cerrados (tonos de piel, colores de ojos, cejas de la especie)
+// son datos públicos del juego, no del jugador: se montan en el cliente y la
+// opción elegida se marca comparando la imagen que manda el servidor.
 function renderSheet(p) {
-  const d = data();
-  const sp = SPECIES[p.player_type] || SPECIES[0];
-  const hair = getById(d.hair, p.hair);
-  const brows = eyebrowsFor(p.player_type);
-  const browIdx = brows.findIndex((e) => e.Id === p.eye_brows);
-  const bot = getById(d.bottoms, p.bottom);
-  const head = getById(d.headgear, p.gear_head);
-  const cloth = getById(d.clothes, p.gear_cloth);
-  const shoes = getById(d.shoes, p.gear_shoes);
+  const s = sheetView(p);
+  const sp = speciesOf(s.species_key);
+  const brows = eyebrowsFor(sp.idx);
 
   const speciesValue = el("div", { class: "edc-pcard-field-value" },
-    swatchWrap(imgWithFallback(typeUrl(sp.key), "")),
+    swatchWrap(imgWithFallback(imgUrl(`player/playertype/${sp.key}.png`), "")),
     el("span", {}, `${ta(sp.species)} · ${sp.male ? ta("boy") : ta("girl")}`));
 
-  const skinOpts = Array.from({ length: SKIN_TONES }, (_, i) => ({ src: skinUrl(i), title: `${i + 1}/${SKIN_TONES}` }));
-  const eyeOpts  = Array.from({ length: EYE_COLORS }, (_, i) => ({ src: eyeUrl(i),  title: `${i + 1}/${EYE_COLORS}` }));
-  const browOpts = brows.map((e) => ({ src: eyebrowUrl(e, p.player_type) }));
+  const pick = (opts, rel) => opts.findIndex((o) => o.rel === rel);
+  const skinOpts = Array.from({ length: SKIN_TONES }, (_, i) => ({ rel: `player/skin_color/${i}.png`, src: imgUrl(`player/skin_color/${i}.png`), title: `${i + 1}/${SKIN_TONES}` }));
+  const eyeOpts  = Array.from({ length: EYE_COLORS }, (_, i) => ({ rel: `player/eye_color/${i}.png`, src: imgUrl(`player/eye_color/${i}.png`), title: `${i + 1}/${EYE_COLORS}` }));
+  const browOpts = brows.map((e) => { const rel = `player/eyebrow/${e.__RowId}_${sp.male ? "M" : "F"}.png`; return { rel, src: imgUrl(rel) }; });
 
   const sheet = el("div", { class: "edc-pcard-sheet" });
   sheet.append(
     fieldRow(ta("f_species"), speciesValue),
-    fieldRow(ta("f_skin"), choiceStrip(skinOpts, p.skin_tone)),
-    fieldRow(ta("f_eye"), choiceStrip(eyeOpts, p.eye_color)),
-    fieldRow(ta("f_ink"), inkRow(p.color)),
-    fieldRow(ta("f_hair"), hair ? plainSwatchRow(hairUrl(hair)) : plainSwatchRow("")),
-    fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, browIdx) : plainSwatchRow("")),
-    fieldRow(ta("f_legs"), bot ? legsRow(bot, p.bottom_variation) : plainSwatchRow("")),
+    fieldRow(ta("f_skin"), choiceStrip(skinOpts, pick(skinOpts, s.skin_img))),
+    fieldRow(ta("f_eye"), choiceStrip(eyeOpts, pick(eyeOpts, s.eye_img))),
+    fieldRow(ta("f_ink"), inkRow(s.ink_hex)),
+    fieldRow(ta("f_hair"), plainSwatchRow(imgUrl(s.hair_img))),
+    fieldRow(ta("f_brows"), browOpts.length ? choiceStrip(browOpts, pick(browOpts, s.brows_img)) : plainSwatchRow(imgUrl(s.brows_img))),
+    fieldRow(ta("f_legs"), s.legs ? legsRow(s.legs) : plainSwatchRow("")),
     el("div", { class: "edc-pcard-section-sep" }, ta("g_gear")),
-    fieldRow(ta("f_head"), gearRow(head, gearUrl, headNames, p.gear_head_variation)),
-    fieldRow(ta("f_cloth"), gearRow(cloth, gearUrl, clothNames, p.gear_cloth_variation)),
-    fieldRow(ta("f_shoes"), gearRow(shoes, gearUrl, shoesNames, p.gear_shoes_variation)),
+    fieldRow(ta("f_head"), gearRow(s.head)),
+    fieldRow(ta("f_cloth"), gearRow(s.cloth)),
+    fieldRow(ta("f_shoes"), gearRow(s.shoes)),
   );
   return sheet;
 }

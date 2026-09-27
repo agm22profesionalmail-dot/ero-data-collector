@@ -1,19 +1,24 @@
-// Panel de admin — SOLO se activa por ?admin (enlace privado). La seguridad la
-// dan las credenciales, validadas en el servidor por las funciones RPC admin_*
-// (SECURITY DEFINER). Las credenciales viven en memoria mientras la pestaña
-// esté abierta; nunca se guardan en disco. Textos propios (herramienta interna).
+// Panel de admin — SOLO se activa por ?admin (enlace privado). Seguridad
+// (migración 20260927_01): hace falta una sesión de la web (Discord/X) cuyo
+// usuario esté en la lista blanca del servidor + usuario y clave de admin.
+// admin_login devuelve un token de sesión (12 h, revocable) y el resto de RPC
+// admin_* lo reciben en vez de las credenciales. El token vive en memoria +
+// sessionStorage (muere con la pestaña); usuario y clave nunca se guardan.
+// Textos propios (herramienta interna).
 import { supabase } from "./supabase.js";
 import { getLang } from "./i18n.js";
 import { el, clear, toast } from "./ui.js";
-import { colorToHex } from "./data.js";
 import { SPECIES } from "./config.js";
-import { ensureData, renderSlot, renderBanner, renderSheet, setMainWide } from "./artist_panel.js";
+import { ensureData, renderSlot, renderBanner, renderSheet, sheetFromRaw, setMainWide } from "./artist_panel.js";
 
 const S = {
   en: {
     title: "Admin — artists", intro: "Sign in with your admin credentials.",
     user: "User", pass: "Password", login: "Sign in",
     bad_creds: "Wrong user or password.", refresh: "Refresh", logout: "Sign out",
+    locked: "Too many failed attempts. Try again in 15 minutes.",
+    need_session: "Sign in on the site (Discord or X) with your admin account before opening this panel.",
+    expired: "Admin session expired. Sign in again.",
     back: "← Back to site", empty: "No requests yet.",
     render_beta: "*3D renders are in beta, expect errors.",
     st_pending: "Pending", st_approved: "Approved", st_rejected: "Rejected", st_revoked: "Revoked",
@@ -43,6 +48,9 @@ const S = {
     title: "Admin — artistas", intro: "Entra con tus credenciales de administrador.",
     user: "Usuario", pass: "Clave", login: "Entrar",
     bad_creds: "Usuario o clave incorrectos.", refresh: "Actualizar", logout: "Salir",
+    locked: "Demasiados intentos fallidos. Vuelve a intentarlo en 15 minutos.",
+    need_session: "Inicia sesión en la web (Discord o X) con tu cuenta de administrador antes de abrir este panel.",
+    expired: "La sesión de administrador ha caducado. Vuelve a entrar.",
     back: "← Volver a la web", empty: "Aún no hay solicitudes.",
     render_beta: "*Renderizados 3D en fase beta, espera errores.",
     st_pending: "Pendiente", st_approved: "Aprobado", st_rejected: "Rechazado", st_revoked: "Revocado",
@@ -78,16 +86,22 @@ export function leaveAdmin() {
   return true;
 }
 
-// { user, pass }: en memoria + localStorage, para que la sesión no se cierre
-// sola (cambiar de pestaña, recargar, cerrar el navegador). Solo se borra al
-// pulsar "Salir" (aquí o arriba a la derecha) o si dejan de ser válidas.
-const CREDS_KEY = "edc_admin_creds";
+// Token de sesión de admin: memoria + sessionStorage (sobrevive a recargar,
+// muere con la pestaña). Se revoca en el servidor al pulsar "Salir" (aquí o
+// arriba a la derecha) y se olvida si deja de valer. Versiones anteriores
+// guardaban usuario y clave en localStorage: esa entrada se borra al cargar.
+const TOKEN_KEY = "edc_admin_token";
+try { localStorage.removeItem("edc_admin_creds"); } catch { /* sin storage */ }
 const store = {
-  get() { try { return JSON.parse(localStorage.getItem(CREDS_KEY) || "null"); } catch { return null; } },
-  set(v) { try { v ? localStorage.setItem(CREDS_KEY, JSON.stringify(v)) : localStorage.removeItem(CREDS_KEY); } catch { /* sin storage */ } },
+  get() { try { return sessionStorage.getItem(TOKEN_KEY) || null; } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch { /* sin storage */ } },
 };
-export function forgetAdmin() { creds = null; rows = null; store.set(null); }
-let creds = store.get();
+let token = store.get();
+export function forgetAdmin() {
+  const t = token;
+  token = null; rows = null; oc = null; bans = null; store.set(null);
+  if (t) supabase.rpc("admin_logout", { p_token: t }).then(() => {}, () => {});
+}
 let rows = null;    // último listado de artistas
 let tab = "requests"; // "requests" | "players"
 let oc = null;      // { media, players } de admin_players
@@ -100,13 +114,15 @@ const isMissingRpc = (e) => !!e && (e.code === "PGRST202" || e.code === "42883" 
 const banOf = (p) => (bans || []).find((b) =>
   (b.user_id && b.user_id === p.user_id) || (b.discord_id && b.discord_id === p.discord_id) || (b.x_id && b.x_id === p.x_id)) || null;
 
+// Todas las RPC admin_* llevan el token de sesión como primer argumento
 const rpc = async (fn, args) => {
-  const { data, error } = await supabase.rpc(fn, args);
+  const { data, error } = await supabase.rpc(fn, { p_token: token, ...(args || {}) });
   if (error) throw error;
   return data;
 };
 const refLink = (slug) => `${location.origin}${location.pathname}?ref=${encodeURIComponent(slug)}`;
 const isUnauthorized = (e) => !!e && (e.code === "28000" || /unauthorized/i.test(e.message || ""));
+const hasSession = async () => { try { return !!(await supabase.auth.getSession()).data?.session?.user; } catch { return false; } };
 
 export function renderAdminPanel(container, { onBack } = {}) {
   clear(container);
@@ -114,22 +130,35 @@ export function renderAdminPanel(container, { onBack } = {}) {
   container.append(wrap);
   const backBtn = () => el("button", { class: "edc-btn-link", onClick: onBack }, ta("back"));
 
-  if (!creds) showLogin();
+  if (!token) showLogin();
   else if (rows) showList();
-  else reload().then(showList).catch((e) => showLogin(isUnauthorized(e) ? ta("bad_creds") : ta("err") + (e?.message || "")));
+  else reload().then(showList).catch((e) => showLogin(isUnauthorized(e) ? ta("expired") : ta("err") + (e?.message || "")));
 
   function showLogin(errMsg) {
-    creds = null; rows = null; store.set(null);
+    token = null; rows = null; store.set(null);
     clear(wrap);
     const user = el("input", { class: "edc-input", type: "text", placeholder: ta("user"), autocomplete: "username" });
     const pass = el("input", { class: "edc-input", type: "password", placeholder: ta("pass"), autocomplete: "current-password" });
     const err = el("div", { class: "edc-banner-err" }); err.hidden = !errMsg; err.textContent = errMsg || "";
     const btn = el("button", { class: "edc-btn edc-btn-primary" }, ta("login"));
+    hasSession().then((ok) => { if (!ok) { err.hidden = false; err.textContent = ta("need_session"); } });
     const submit = async () => {
       const u = user.value.trim(), p = pass.value;
       if (!u || !p) return;
       btn.disabled = true;
-      try { creds = { user: u, pass: p }; rows = await rpc("admin_list", { p_user: u, p_pass: p }); store.set(creds); showList(); }
+      pass.value = "";
+      try {
+        if (!(await hasSession())) return showLogin(ta("need_session"));
+        const { data: r, error } = await supabase.rpc("admin_login", { p_user: u, p_pass: p });
+        if (error) throw error;
+        if (!r?.ok || !r.token) {
+          const reason = r?.reason === "locked" ? "locked" : r?.reason === "no_session" ? "need_session" : "bad_creds";
+          return showLogin(ta(reason));
+        }
+        token = r.token; store.set(token);
+        rows = await rpc("admin_list");
+        showList();
+      }
       catch (e) { showLogin(isUnauthorized(e) ? ta("bad_creds") : ta("err") + (e?.message || "")); }
     };
     btn.addEventListener("click", submit);
@@ -144,17 +173,17 @@ export function renderAdminPanel(container, { onBack } = {}) {
   async function reload() {
     if (tab === "players") {
       await ensureData();
-      oc = await rpc("admin_players", { p_user: creds.user, p_pass: creds.pass });
+      oc = await rpc("admin_players");
       if (bansOk) {
-        try { bans = await rpc("admin_banned_list", { p_user: creds.user, p_pass: creds.pass }); }
+        try { bans = await rpc("admin_banned_list"); }
         catch (e) { if (isMissingRpc(e)) { bansOk = false; bans = null; } else throw e; }
       }
     }
-    else rows = await rpc("admin_list", { p_user: creds.user, p_pass: creds.pass });
+    else rows = await rpc("admin_list");
   }
   const refresh = async () => {
     try { await reload(); showList(); }
-    catch (e) { if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err"); }
+    catch (e) { if (isUnauthorized(e)) showLogin(ta("expired")); else toast(ta("err") + (e?.message || ""), "err"); }
   };
 
   function head() {
@@ -168,7 +197,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
         el("div", { class: "edc-section-title" }, ta("title")),
         el("div", { class: "edc-apply-actions" },
           el("button", { class: "edc-btn edc-btn-sm", onClick: refresh }, ta("refresh")),
-          el("button", { class: "edc-btn edc-btn-sm", onClick: () => { oc = null; bans = null; tab = "requests"; showLogin(); } }, ta("logout")),
+          el("button", { class: "edc-btn edc-btn-sm", onClick: () => { forgetAdmin(); tab = "requests"; showLogin(); } }, ta("logout")),
           backBtn())),
       el("div", { class: "edc-apply-actions edc-admin-tabs" },
         tabBtn("requests", ta("tab_requests")), tabBtn("players", ta("tab_players") + count)),
@@ -204,8 +233,8 @@ export function renderAdminPanel(container, { onBack } = {}) {
   function renderActions(a) {
     const bar = el("div", { class: "edc-apply-actions" });
     const run = async (fn, args, after) => {
-      try { const r = await rpc(fn, { p_user: creds.user, p_pass: creds.pass, ...args }); await reload(); showList(); if (after) after(r); }
-      catch (e) { if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err"); }
+      try { const r = await rpc(fn, { ...args }); await reload(); showList(); if (after) after(r); }
+      catch (e) { if (isUnauthorized(e)) showLogin(ta("expired")); else toast(ta("err") + (e?.message || ""), "err"); }
     };
     if (a.status === "pending")
       bar.append(
@@ -271,10 +300,10 @@ export function renderAdminPanel(container, { onBack } = {}) {
   async function unban(b) {
     if (!window.confirm(ta("unban_confirm").replace("{a}", b.alias || b.discord_id || b.x_id || "?"))) return;
     try {
-      await rpc("admin_unban", { p_user: creds.user, p_pass: creds.pass, p_ban_id: b.id });
+      await rpc("admin_unban", { p_ban_id: b.id });
       toast(ta("unban_done"), "ok");
       await reload(); showList();
-    } catch (e) { if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err"); }
+    } catch (e) { if (isUnauthorized(e)) showLogin(ta("expired")); else toast(ta("err") + (e?.message || ""), "err"); }
   }
 
   // Doble confirmación: 1) motivo obligatorio + resumen; 2) escribir el alias
@@ -337,7 +366,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
         if (typed.value !== expected) return;
         fin.disabled = true;
         try {
-          const r = await rpc("admin_ban", { p_user: creds.user, p_pass: creds.pass, p_player_id: p.id, p_reason: why });
+          const r = await rpc("admin_ban", { p_player_id: p.id, p_reason: why });
           ov2.remove();
           // El PNG del bucket: se intenta borrar; si la sesión no tiene permiso, no pasa nada
           if (r?.banner_path) { try { await supabase.storage.from("banners").remove([r.banner_path]); } catch { /* sin permiso */ } }
@@ -345,7 +374,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
           await reload(); showList();
         } catch (e) {
           ov2.remove();
-          if (isUnauthorized(e)) showLogin(ta("bad_creds")); else toast(ta("err") + (e?.message || ""), "err");
+          if (isUnauthorized(e)) showLogin(ta("expired")); else toast(ta("err") + (e?.message || ""), "err");
         }
       });
     });
@@ -360,7 +389,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
         el("div", { class: "edc-panel-pcard-alias" }, p.alias || ta("no_alias")),
         el("div", { class: "edc-panel-pcard-meta" }, speciesLabel(p.player_type)),
         el("div", { class: "edc-panel-pcard-contact" },
-          el("span", { class: "edc-panel-pcard-dot", style: `background:${colorToHex(p.color)}` }),
+          el("span", { class: "edc-panel-pcard-dot", style: `background:${sheetFromRaw(p).ink_hex}` }),
           el("div", { class: "edc-panel-pcard-lines" },
             handle ? el("span", { class: "edc-panel-pcard-handle" }, handle) : null,
             p.discord_id ? el("span", { class: "edc-panel-pcard-did" }, p.discord_id) : null)),
