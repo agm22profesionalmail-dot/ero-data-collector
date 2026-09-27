@@ -4,8 +4,9 @@
 -- Una herramienta de administración gestiona todo lo de la web (OC Data
 -- Collector): cifras generales, reportes de ?feedback, cola de avisos a
 -- artistas y estado de la beta. Todo pasa por RPCs SECURITY DEFINER que
--- validan las credenciales de admin con admin_check (migración 04 del repo
--- edc-discord-btn): la herramienta solo tiene la anon key + usuario/clave admin.
+-- validan las credenciales de admin con admin_check (migración 20260916_04):
+-- la herramienta solo tiene la anon key + usuario/clave admin.
+-- NOTA: sustituida por 20260927_01 (las RPC reciben un token de sesión).
 --
 --  1) admin_edc_overview      → cifras del resumen (jugadores, artistas,
 --                               reportes, envíos fallidos, último registro)
