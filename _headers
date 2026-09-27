@@ -8,8 +8,9 @@
 #  - fonts.googleapis.com / fonts.gstatic.com (Space Grotesk)
 #  - cloudflare-dns.com / dns.google (comprobación DoH del email en ?apply y ?feedback)
 #  - cdn.discordapp.com / pbs.twimg.com (avatares de Discord y X)
-# style-src lleva 'unsafe-inline' solo por los atributos style de los SVG
-# inline y el @import de Google Fonts; no hay <style> ni handlers inline.
+# style-src lleva 'unsafe-inline' por los atributos style de los SVG inline,
+# el @import de Google Fonts y el bloque <style> de 404.html; no hay scripts
+# inline ni handlers inline (script-src es solo 'self').
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://raw.githubusercontent.com https://cdn.jsdelivr.net https://xwyauyjeteztlevvtydb.supabase.co https://cdn.discordapp.com https://pbs.twimg.com https://abs.twimg.com; connect-src 'self' https://xwyauyjeteztlevvtydb.supabase.co wss://xwyauyjeteztlevvtydb.supabase.co https://raw.githubusercontent.com https://cdn.jsdelivr.net https://cloudflare-dns.com https://dns.google; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff

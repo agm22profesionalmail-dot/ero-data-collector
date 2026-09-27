@@ -4,7 +4,9 @@
 // supabase/migrations/20260927_03_artist_group_v3.sql) devuelve SOLO su
 // propio grupo de jugadores y, de cada personaje, únicamente lo que se pinta
 // (`sheet`: imágenes y nombres ya resueltos en el servidor), nunca la
-// configuración cruda ni nada exportable.
+// configuración cruda ni nada exportable. Las opciones elegidas sí se ven en
+// la ficha (es su función): riesgo residual A3, aceptado y documentado en
+// DEPLOY_20260927.md.
 //
 // RESTRICCIÓN DURA: esto es SOLO material de referencia visual. No hay botón
 // de exportar/descargar ni de copiar la config — únicamente ver la ficha.
