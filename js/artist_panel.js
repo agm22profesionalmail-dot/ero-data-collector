@@ -627,8 +627,8 @@ function inkFormats(hex) {
     ["HSL", `hsl(${h}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`],
   ];
 }
-function inkRow(hex) {
-  const formats = inkFormats(hex);
+function inkRow(inkHex) {
+  const formats = inkFormats(inkHex);
   const hex = formats[0][1];
   const strip = el("div", { class: "edc-pcard-strip edc-pcard-ink-strip" });
   strip.dataset.expanded = "false";
