@@ -10,7 +10,7 @@ import {
 import { loadData, colorToHex, data, getById, headNames, clothNames, shoesNames, curName } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerSignedUrl, getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, syncIdentityFields } from "./store.js";
+import { loadPlayer, savePlayer, getBannerUrl, getRenderUrl, getRenderUrlFirst, renderPaths, syncIdentityFields } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
 import {
@@ -335,7 +335,7 @@ async function renderApp() {
       const defaultAlias = profile?.discord_name || profile?.x_name || profile?.x_username || "";
       if (!state.alias && defaultAlias) state.alias = defaultAlias;
       ensureValid(state);
-      if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
+      if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path);
       // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
       // consentimiento pendiente se entra directo al editor para que lo vea.
       refArtist = await resolveRefArtist();
@@ -450,7 +450,7 @@ function renderPreviewScreen() {
   clear(appEl());
   const card = el("div", { class: "edc-card" });
   card.append(el("div", { class: "edc-section-title" }, t("saved_title")));
-  if (state.banner_signed_url) card.append(el("img", { class: "edc-preview-banner", src: state.banner_signed_url, alt: "banner" }));
+  if (state.banner_url) card.append(el("img", { class: "edc-preview-banner", src: state.banner_url, alt: "banner" }));
   card.append(summaryRow());
   card.append(el("div", { class: "edc-save-bar" },
     el("button", { class: "edc-btn edc-btn-primary", onClick: () => { mode = "edit"; renderModeView(); } }, t("edit_player"))));
@@ -477,8 +477,8 @@ function renderMyRenderCard() {
     el("span", {}, t("my_render_pending")));
   const view = createRenderSpin({
     placeholder: ph,
-    pngUrl: png ? getRenderSignedUrlFirst(png) : null,
-    spinUrl: spin ? getRenderSignedUrl(spin) : null,
+    pngUrl: png ? getRenderUrlFirst(png) : null,
+    spinUrl: spin ? getRenderUrl(spin) : null,
   });
   return el("div", { class: "edc-card edc-myrender" },
     el("div", { class: "edc-section-title" }, t("my_render_title")),
@@ -509,13 +509,13 @@ function summaryRow() {
     gearBadge("shoes", shoes ? shoesNames(shoes) : null),
     el("span", { class: "edc-preview-badge" },
       el("span", { class: "edc-badge-ico", html: preIcon("banner") }), " ",
-      el("span", { class: "edc-badge-ico", html: preIcon((state.banner_signed_url || state.bannerFile) ? "ok" : "none") })),
+      el("span", { class: "edc-badge-ico", html: preIcon((state.banner_url || state.bannerFile) ? "ok" : "none") })),
   );
 }
 
 // ¿Habrá banner adjunto? (banner guardado, ya capturado, o generador activo que se capturará al guardar)
 function willHaveBanner() {
-  return !!(state.bannerFile || state.banner_signed_url || state._captureSplattag);
+  return !!(state.bannerFile || state.banner_url || state._captureSplattag);
 }
 
 // Editor completo (configurador + banner + guardar/actualizar)
@@ -717,7 +717,7 @@ async function doSave(btn, status) {
     await savePlayer(state, session.user, profile);
     if (consenting) await linkArtist(refArtist.id, state);
     await ov.phase(P.reg, 88);
-    if (state.banner_path) state.banner_signed_url = await getBannerSignedUrl(state.banner_path);
+    if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path);
     hasRecord = true;
     await ov.phase(P.done, 100, 620);
     ov.close();
@@ -741,7 +741,7 @@ async function doSave(btn, status) {
 
 function stateFromRow(row) {
   const s = structuredClone(DEFAULT_PLAYER);
-  s.bannerFile = null; s.banner_path = null; s.banner_signed_url = null;
+  s.bannerFile = null; s.banner_path = null; s.banner_url = null;
   if (!row) return s;
   const keys = ["alias", "player_type", "hair", "bottom", "bottom_variation", "skin_tone",
     "eye_brows", "eye_color", "gear_head", "gear_head_variation", "gear_cloth", "gear_cloth_variation",

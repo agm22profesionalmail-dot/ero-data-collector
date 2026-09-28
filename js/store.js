@@ -1,6 +1,6 @@
 // Carga / guardado de la ficha en Supabase (BBDD + Storage)
 import { supabase } from "./supabase.js";
-import { X_LOGIN_ENABLED } from "./config.js";
+import { X_LOGIN_ENABLED, R2_PUBLIC_URL } from "./config.js";
 
 const FIELDS = [
   "player_type", "hair", "bottom", "bottom_variation", "skin_tone", "eye_brows", "eye_color",
@@ -20,97 +20,24 @@ export async function loadPlayer(userId) {
   return data;
 }
 
-// URLs firmadas reutilizadas (2026-09-25, ahorro de egress de Supabase): cada
-// firma nueva es una URL distinta y el CDN/navegador la tratan como imagen
-// nueva. Se firma por 7 h (auditoría 2026-09-27: antes 24 h; una URL filtrada
-// vale menos tiempo) y se reutiliza la misma URL durante 6 h (memoria +
-// localStorage), así las visitas repetidas salen de caché. En el bucket de
-// renders la URL guardada solo vale si el objeto no ha cambiado (updated_at):
-// tras un re-render se firma de nuevo y si el render se borró se olvida.
-const SIGN_EXPIRES_S = 7 * 3600;
-const SIGN_REUSE_MS = 6 * 3600 * 1000;
-const SIGN_LS_KEY = "edc_signed_urls_v1";
-const signMem = new Map();
-function signCacheRead() {
-  try { return JSON.parse(localStorage.getItem(SIGN_LS_KEY) || "{}") || {}; } catch { return {}; }
-}
-function signCacheWrite(all) {
-  try { localStorage.setItem(SIGN_LS_KEY, JSON.stringify(all)); } catch { /* sin storage: solo memoria */ }
-}
-function signCacheDrop(key) {
-  signMem.delete(key);
-  const all = signCacheRead();
-  if (key in all) { delete all[key]; signCacheWrite(all); }
-}
-async function signedUrlCached(bucket, path, version) {
-  const key = `${bucket}/${path}`;
-  const now = Date.now();
-  if (version === null) { signCacheDrop(key); return null; }   // ya no existe: fuera de la caché
-  const hit = signMem.get(key) || signCacheRead()[key];
-  if (hit && now - hit.at < SIGN_REUSE_MS && (version === undefined || hit.v === version)) {
-    signMem.set(key, hit); return hit.url;
-  }
-  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, SIGN_EXPIRES_S);
-  const url = data?.signedUrl ?? null;
-  if (!url) { signCacheDrop(key); return null; }
-  const entry = { url, at: now, v: version };
-  signMem.set(key, entry);
-  const all = signCacheRead();
-  for (const k of Object.keys(all)) if (now - (all[k]?.at || 0) >= SIGN_REUSE_MS) delete all[k];
-  all[key] = entry;
-  signCacheWrite(all);
-  return url;
-}
-
-export async function getBannerSignedUrl(path) {
+// URLs públicas en Cloudflare R2 (zero egress, sin signed URLs).
+export function getBannerUrl(path) {
   if (!path) return null;
-  try { return await signedUrlCached("banners", path); } catch { return null; }
+  return `${R2_PUBLIC_URL}/banners/${path}`;
 }
 
-// Bucket privado `renders` (render.webp / spin.webp del worker de Blender).
-// Devuelve null si no hay path, el bucket no existe o falla la firma: el que
-// llama lo trata como "aún sin render".
-// Versión de un render = updated_at del objeto (listar la carpeta no descarga
-// la imagen). undefined = no se pudo listar (se reutiliza la URL como antes);
-// null = el objeto ya no existe.
-const listMem = new Map();
-const LIST_TTL_MS = 60 * 1000;
-async function renderVersion(path) {
-  const i = path.lastIndexOf("/");
-  const folder = path.slice(0, i), name = path.slice(i + 1);
-  let hit = listMem.get(folder);
-  if (!hit || Date.now() - hit.at > LIST_TTL_MS) {
-    try {
-      const { data, error } = await supabase.storage.from("renders").list(folder, { limit: 1000 });
-      if (error || !Array.isArray(data)) return undefined;
-      hit = { at: Date.now(), items: new Map(data.filter((o) => o.id).map((o) => [o.name, o.updated_at || o.created_at || ""])) };
-      listMem.set(folder, hit);
-    } catch { return undefined; }
-  }
-  if (!hit.items.size) return undefined;       // sin permiso de listado: no se sabe
-  return hit.items.has(name) ? hit.items.get(name) : null;
-}
-
-export async function getRenderSignedUrl(path) {
+export function getRenderUrl(path) {
   if (!path) return null;
-  try {
-    return await signedUrlCached("renders", path, await renderVersion(path));
-  } catch { return null; }
+  return `${R2_PUBLIC_URL}/renders/${path}`;
 }
-// Firma la primera ruta que exista de una lista de candidatos (firmar un
-// objeto inexistente falla → se prueba el siguiente). Sirve para el cambio de
-// formato de 2026-09-24: primero `render.webp` y, si aún no está, el
-// `render.png` antiguo.
-export async function getRenderSignedUrlFirst(paths) {
+export function getRenderUrlFirst(paths) {
   for (const path of paths || []) {
-    const url = await getRenderSignedUrl(path);
+    const url = getRenderUrl(path);
     if (url) return url;
   }
   return null;
 }
-// Candidatos del render principal, por orden de preferencia (WebP, luego PNG).
 export const renderCandidates = (base) => [`${base}.webp`, `${base}.png`];
-// Rutas del render principal (lista de candidatos) y del sprite de giro de un usuario.
 export const renderPaths = (userId) => userId
   ? { png: renderCandidates(`${userId}/render`), spin: `${userId}/spin.webp` }
   : { png: null, spin: null };

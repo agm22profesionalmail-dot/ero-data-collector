@@ -16,12 +16,12 @@ export function renderBanner(container, state, onChange) {
 
   // "Legacy": tiene un banner guardado pero ninguna config del generador y aún
   // no ha decidido crear una nueva en esta sesión → conservar su PNG antiguo.
-  const legacy = !!state.banner_signed_url && !hasStoredSplattag(state) && !state._splattagReplace;
+  const legacy = !!state.banner_url && !hasStoredSplattag(state) && !state._splattagReplace;
 
   if (legacy) {
     state._captureSplattag = null; // doSave no regenerará → se conserva el PNG antiguo
     card.append(el("p", { class: "edc-label", style: "margin-top:0" }, t("banner_have_current")));
-    card.append(el("img", { class: "edc-banner-preview", src: state.banner_signed_url, alt: "splattag" }));
+    card.append(el("img", { class: "edc-banner-preview", src: state.banner_url, alt: "splattag" }));
     card.append(el("p", { class: "edc-banner-keep" }, t("banner_keep_note")));
     card.append(el("button", { class: "edc-btn", onClick: () => {
       state._splattagReplace = true;
@@ -36,7 +36,7 @@ export function renderBanner(container, state, onChange) {
   card.append(el("p", { class: "edc-label", style: "margin-top:0" }, t("banner_desc_gen")));
 
   // Permitir volver atrás (mantener la antigua) si llegó aquí desde "Crear una nueva"
-  if (state._splattagReplace && state.banner_signed_url) {
+  if (state._splattagReplace && state.banner_url) {
     card.append(el("button", { class: "edc-banner-link edc-btn-link", onClick: () => {
       state._splattagReplace = false;
       state._splattagDirty = false;

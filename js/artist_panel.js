@@ -23,7 +23,7 @@ import {
 } from "./data.js";
 import { SPECIES, SKIN_TONES, EYE_COLORS, IMG } from "./config.js";
 import { ARTIST_TERMS_VERSION, artistTermsHtml } from "./artist_terms.js";
-import { getBannerSignedUrl, getRenderSignedUrl, getRenderSignedUrlFirst, renderPaths, renderCandidates } from "./store.js";
+import { getBannerUrl, getRenderUrl, getRenderUrlFirst, renderPaths, renderCandidates } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 
 const S = {
@@ -382,7 +382,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
 
 // ── Banner Splashtag ─────────────────────────────────────────────────
 // Reutilizado por la tarjeta del listado y por la ficha del jugador.
-// - Bucket `banners` es privado: cargamos vía createSignedUrl.
+// - Banners servidos desde Cloudflare R2 (URL pública, sin signed URLs).
 // - Modo "card" (listado): siempre visible. Con banner_path carga la imagen;
 //   sin banner_path o si falla, se queda el placeholder (fondo neutral +
 //   alias en display font). Sin overlay ni botón de descarga.
@@ -424,10 +424,10 @@ function renderBanner(player, opts = {}) {
       e.stopPropagation();
       dl.disabled = true;
       try {
-        const { data: d } = await supabase.storage.from("banners").createSignedUrl(player.banner_path, 60);
-        if (d?.signedUrl) {
+        const bannerHref = getBannerUrl(player.banner_path);
+        if (bannerHref) {
           const a = document.createElement("a");
-          a.href = d.signedUrl;
+          a.href = bannerHref;
           a.download = `${player.alias || player.discord_name || "player"}_splattag.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }
@@ -446,8 +446,8 @@ function renderBanner(player, opts = {}) {
 
 async function loadBannerInto(container, ph, player, cb = {}) {
   try {
-    const signedUrl = await getBannerSignedUrl(player.banner_path);
-    if (!signedUrl) { cb.onFail?.(); return; }
+    const bannerSrc = getBannerUrl(player.banner_path);
+    if (!bannerSrc) { cb.onFail?.(); return; }
     const img = document.createElement("img");
     img.className = "edc-banner-img";
     img.alt = "";
@@ -461,7 +461,7 @@ async function loadBannerInto(container, ph, player, cb = {}) {
       cb.onLoad?.();
     };
     img.onerror = () => { cb.onFail?.(); };
-    img.src = signedUrl;
+    img.src = bannerSrc;
   } catch { cb.onFail?.(); }
 }
 
@@ -492,12 +492,6 @@ function tag(k) {
 }
 
 // ── Hueco de RENDER del jugador ──────────────────────────────────────
-// Muestra el render del bucket privado `renders` (mismo patrón que
-// getBannerSignedUrl en store.js). Mientras no exista el archivo se queda el
-// placeholder "Render en preparación"; la carga es asíncrona y defensiva
-// (bucket o archivo ausentes → placeholder, sin romper la ficha).
-// Con el PNG cargado, si además existe el sprite de giro (spin.webp), el
-// componente render_spin.js habilita el turntable (arrastre/teclado/botones).
 function renderSlot(player, onLoaded) {
   const phIco = el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true" });
   phIco.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
@@ -516,8 +510,8 @@ function renderSlot(player, onLoaded) {
   } else if (player?.user_id) ({ png, spin } = renderPaths(player.user_id));
   return createRenderSpin({
     placeholder: ph,
-    pngUrl: png ? getRenderSignedUrlFirst(png) : null,
-    spinUrl: spin ? getRenderSignedUrl(spin) : null,
+    pngUrl: png ? getRenderUrlFirst(png) : null,
+    spinUrl: spin ? getRenderUrl(spin) : null,
     onLoaded,
   });
 }

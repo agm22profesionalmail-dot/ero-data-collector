@@ -3,6 +3,9 @@
 export const SUPABASE_URL = "https://xwyauyjeteztlevvtydb.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eWF1eWpldGV6dGxldnZ0eWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMDc0NDEsImV4cCI6MjA5NzU4MzQ0MX0.vYsgBJdbL8pak-LYPuj5jjefZH46YxPzAuAaVAvkaHw";
 
+// ── Assets (banners, renders) servidos desde Cloudflare R2 (público, sin egress) ──
+export const R2_PUBLIC_URL = "https://pub-5e28d3ea68944786851f5d81e47de75c.r2.dev";
+
 // ── Login con X (Twitter) ─────────────────────────────────────────────
 // Ponlo a true SOLO cuando el proveedor "X / Twitter (OAuth 2.0)" esté activado
 // en Supabase y las migraciones supabase/migrations/20260915_01_x_identity.sql y
