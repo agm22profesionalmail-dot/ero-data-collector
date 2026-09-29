@@ -187,7 +187,10 @@ export async function saveArtistVariant(artistId, state) {
 
 // ── 2) Solicitud de acceso (?apply) ───────────────────────────────────
 
-export const isApplyRoute = () => new URLSearchParams(window.location.search).has("apply");
+// Beta cerrada: true muestra el aviso "beta completa" sobre el formulario.
+const BETA_FULL = true;
+
+export const isApplyRoute =() => new URLSearchParams(window.location.search).has("apply");
 
 // Navegación: ?apply ↔ inicio. Devuelven true si cambió la URL.
 export function goApply() {
@@ -286,6 +289,15 @@ export function renderArtistApply(container, { session, profile, actions }) {
 
   const card = el("div", { class: "edc-card" });
   wrap.append(card);
+  // Aviso de beta completa: imagen (la misma del email de rechazo) + mensaje,
+  // antes del formulario. Las solicitudes se siguen pudiendo enviar.
+  if (BETA_FULL && !sent) {
+    card.append(el("div", { class: "edc-beta-full", role: "note" },
+      el("img", { class: "edc-beta-full-img", src: "assets/email-hero-rejected.jpg", alt: "", width: "1200", height: "500" }),
+      el("div", { class: "edc-beta-full-text" },
+        el("strong", {}, t("apply_full_title")),
+        el("span", {}, t("apply_full_desc")))));
+  }
   card.append(el("div", { class: "edc-section-title" }, t("apply_title")));
   card.append(el("p", { class: "edc-apply-intro" }, t("apply_intro")));
 
