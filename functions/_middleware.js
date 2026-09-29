@@ -14,6 +14,7 @@ const BETA_EMBEDS = {
   absinthe: { image: "/assets/og/beta/absinthe.jpg?v=1", width: 1150, height: 630 },
   isidraws: { image: "/assets/og/beta/isidraws.jpg?v=1", width: 1200, height: 630 },
   colorvalue: { image: "/assets/og/beta/colorvalue.jpg?v=1", width: 1200, height: 630 },
+  madi: { image: "/assets/og/beta/madi.jpg?v=1", width: 1200, height: 675 },
 };
 
 export async function onRequest(context) {
