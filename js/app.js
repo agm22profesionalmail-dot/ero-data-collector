@@ -335,7 +335,7 @@ async function renderApp() {
       const defaultAlias = profile?.discord_name || profile?.x_name || profile?.x_username || "";
       if (!state.alias && defaultAlias) state.alias = defaultAlias;
       ensureValid(state);
-      if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path);
+      if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path, state.banner_sha256);
       // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
       // consentimiento pendiente se entra directo al editor para que lo vea.
       refArtist = await resolveRefArtist();
@@ -717,7 +717,7 @@ async function doSave(btn, status) {
     await savePlayer(state, session.user, profile);
     if (consenting) await linkArtist(refArtist.id, state);
     await ov.phase(P.reg, 88);
-    if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path);
+    if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path, state.banner_sha256);
     hasRecord = true;
     await ov.phase(P.done, 100, 620);
     ov.close();

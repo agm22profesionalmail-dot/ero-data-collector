@@ -21,9 +21,11 @@ export async function loadPlayer(userId) {
 }
 
 // URLs públicas en Cloudflare R2 (zero egress, sin signed URLs).
-export function getBannerUrl(path) {
+// `version` (el sha del banner) rompe la caché del navegador al cambiar de banner.
+export function getBannerUrl(path, version) {
   if (!path) return null;
-  return `${R2_PUBLIC_URL}/banners/${path}`;
+  const v = version ? `?v=${encodeURIComponent(String(version).slice(0, 12))}` : "";
+  return `${R2_PUBLIC_URL}/banners/${path}${v}`;
 }
 
 export function getRenderUrl(path) {
@@ -42,6 +44,17 @@ export const renderPaths = (userId) => userId
   ? { png: renderCandidates(`${userId}/render`), spin: `${userId}/spin.webp` }
   : { png: null, spin: null };
 
+// El banner se sube a Supabase pero la web lo lee de R2: esta llamada lo copia
+// al momento. No es fatal: si falla, el sync del vault lo copia en unos minutos.
+async function mirrorBannerToR2() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) return;
+    await fetch("/api/sync-banner", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  } catch (e) { console.warn("sync-banner:", e); }
+}
+
 export async function savePlayer(state, user, profile) {
   let banner_path = state.banner_path || null;
   let banner_sha256 = state.banner_sha256 || null;
@@ -52,6 +65,7 @@ export async function savePlayer(state, user, profile) {
     const { error: upErr } = await supabase.storage.from("banners")
       .upload(banner_path, state.bannerFile, { upsert: true, contentType: "image/png" });
     if (upErr) throw upErr;
+    await mirrorBannerToR2();
   }
 
   const row = {
