@@ -11,13 +11,15 @@
 //  - {"action":"submit", kind, message, contact_method, email?, page?, lang, website?}
 //      → {ok:true} | {ok:false, error:<código>}. Con contact_method="discord"
 //      hace falta el JWT del usuario: el id y el nombre de Discord se sacan de
-//      ahí, NUNCA del cuerpo.
+//      ahí, NUNCA del cuerpo. Con contact_method="none" no se guarda ningún
+//      contacto (el usuario acepta que no se le podrá avisar del resultado).
 //
 // Códigos de error (la web los traduce): bad_request, email_dead, not_member,
 // not_logged, rate_limited, server.
 //
-// Anti-spam: máximo 5 envíos por contacto y hora, 20 por IP y hora (contados
-// en la tabla; la IP se guarda solo como hash), y un honeypot (`website`): si
+// Anti-spam: máximo 5 envíos por contacto y hora, 20 por IP y hora (5 por IP y
+// hora si no dejan contacto; contados en la tabla; la IP se guarda solo como
+// hash), y un honeypot (`website`): si
 // viene relleno se responde ok sin guardar nada.
 //
 // Secrets: DISCORD_BOT_TOKEN (sin él no hay aviso; el reporte se guarda igual
@@ -50,6 +52,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const MAX_PER_CONTACT = 5;
 const MAX_PER_IP = 20;
+const MAX_NONE_PER_IP = 5; // sin contacto no hay otra barrera: límite más estricto
 
 // ── CORS ────────────────────────────────────────────────────────────────
 // Sin cookies: se refleja el origen si está en la lista (o localhost) y, si
@@ -217,7 +220,7 @@ async function sendDiscordDm(discordId: string, payload: unknown): Promise<strin
 
 type Row = {
   id: string; created_at: string; kind: Kind; message: string;
-  contact_method: "email" | "discord"; contact_email: string | null;
+  contact_method: "email" | "discord" | "none"; contact_email: string | null;
   contact_discord_id: string | null; contact_discord_name: string | null;
   page: string | null; lang: string;
 };
@@ -234,7 +237,9 @@ function notifyPayload(row: Row) {
   const title = `${meta.label} · ${firstWords.length < 70 ? firstWords : firstWords.slice(0, 67) + "…"}`;
   const contact = row.contact_method === "email"
     ? `✉️ ${row.contact_email}`
-    : `<@${row.contact_discord_id}> · ${row.contact_discord_name ?? "?"} (\`${row.contact_discord_id}\`)`;
+    : row.contact_method === "none"
+      ? "🚫 Sin contacto (no se le puede avisar)"
+      : `<@${row.contact_discord_id}> · ${row.contact_discord_name ?? "?"} (\`${row.contact_discord_id}\`)`;
   const page = row.page ? `${SITE_URL}${row.page.startsWith("/") ? "" : "/"}${row.page}` : "—";
   return {
     allowed_mentions: { parse: [] as string[] },
@@ -300,7 +305,7 @@ async function submit(req: Request, body: SubmitBody) {
   const message = cleanText(body.message, MSG_MAX + 1);
   if (message.length < MSG_MIN || message.length > MSG_MAX) return fail(req, "bad_request");
   const method = body.contact_method;
-  if (method !== "email" && method !== "discord") return fail(req, "bad_request");
+  if (method !== "email" && method !== "discord" && method !== "none") return fail(req, "bad_request");
   const lang = body.lang === "es" ? "es" : "en";
   const page = cleanText(body.page, 300).replace(/[\r\n\t]/g, "") || null;
   if (page && !page.startsWith("/")) return fail(req, "bad_request");
@@ -312,7 +317,7 @@ async function submit(req: Request, body: SubmitBody) {
     email = cleanText(body.email, 254).toLowerCase();
     if (!EMAIL_RE.test(email) || email.length < 5) return fail(req, "bad_request");
     if (await domainAccepts(email) === "dead") return fail(req, "email_dead");
-  } else {
+  } else if (method === "discord") {
     const u = await userFromRequest(req);
     discord = u && discordIdentity(u);
     if (!discord) return fail(req, "not_logged", 401);
@@ -326,12 +331,20 @@ async function submit(req: Request, body: SubmitBody) {
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip")
     || (req.headers.get("x-forwarded-for") ?? "").split(",").pop()?.trim() || "";
   const ipHash = ip ? await sha256Hex(`${IP_SALT}|${ip}`) : null;
-  const contactFilter = method === "email"
-    ? `contact_email=eq.${encodeURIComponent(email as string)}`
-    : `contact_discord_id=eq.${encodeURIComponent((discord as DiscordIdentity).discordId)}`;
-  const byContact = await countRecent(contactFilter, MAX_PER_CONTACT);
-  if (byContact === null) return fail(req, "server", 500);
-  if (byContact >= MAX_PER_CONTACT) return fail(req, "rate_limited", 429);
+  if (method !== "none") {
+    const contactFilter = method === "email"
+      ? `contact_email=eq.${encodeURIComponent(email as string)}`
+      : `contact_discord_id=eq.${encodeURIComponent((discord as DiscordIdentity).discordId)}`;
+    const byContact = await countRecent(contactFilter, MAX_PER_CONTACT);
+    if (byContact === null) return fail(req, "server", 500);
+    if (byContact >= MAX_PER_CONTACT) return fail(req, "rate_limited", 429);
+  } else {
+    // Sin contacto: sin IP no hay forma de limitar, así que se rechaza
+    if (!ipHash) return fail(req, "rate_limited", 429);
+    const noneByIp = await countRecent(`ip_hash=eq.${ipHash}&contact_method=eq.none`, MAX_NONE_PER_IP);
+    if (noneByIp === null) return fail(req, "server", 500);
+    if (noneByIp >= MAX_NONE_PER_IP) return fail(req, "rate_limited", 429);
+  }
   if (ipHash) {
     const byIp = await countRecent(`ip_hash=eq.${ipHash}`, MAX_PER_IP);
     if (byIp === null) return fail(req, "server", 500);

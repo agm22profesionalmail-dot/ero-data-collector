@@ -856,6 +856,8 @@ body:has(.edc-save-bar) { padding-bottom: calc(96px + env(safe-area-inset-bottom
 .edc-fb-counter.is-short { color: var(--warn); }
 .edc-fb-hint { font-size: .78rem; line-height: 1.5; color: var(--muted); margin: 0 0 6px; }
 .edc-fb-ok { color: var(--ok); }
+.edc-fb-warn { margin: 4px 0 0; padding: 10px 12px; border-left: 3px solid var(--warn); border-radius: 0 8px 8px 0;
+  background: rgba(251,191,36,.1); color: var(--text); font-size: .85rem; line-height: 1.5; }
 .edc-fb-method { margin-top: 4px; }
 .edc-fb-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 

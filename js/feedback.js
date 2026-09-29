@@ -1,10 +1,11 @@
 // Reportes y sugerencias (?feedback)
 //
-// Formulario público para avisar de un fallo o proponer una mejora. Se pide
-// un contacto obligatorio para poder responder, a elegir:
+// Formulario público para avisar de un fallo o proponer una mejora. El
+// contacto es opcional, a elegir:
 //  - Email: formato + errata en dominios comunes + DNS (MX/A) como en ?apply.
 //  - Discord: sesión con Discord Y ser miembro de ZeroServer (el bot solo
 //    puede escribir por mensaje directo a quien comparte servidor con él).
+//  - Nada: sin contacto; la web avisa de que no se podrá notificar al usuario.
 //
 // Todo lo valida también la Edge Function submit-feedback (anti-spam, DNS,
 // pertenencia al servidor, identidad de Discord sacada del JWT). Esta vista
@@ -62,6 +63,7 @@ const markPending = () => ss.set(PENDING_KEY, "1");
 const emptyDraft = () => ({ kind: "bug", message: "", method: "email", email: "" });
 let draft = loadDraft();
 let sent = false;           // enviado en esta carga → pantalla de "gracias"
+let sentNone = false;       // ese envío fue sin contacto → aviso de que no habrá respuesta
 let memberCache = null;     // { userId, member } de la última comprobación
 
 function loadDraft() {
@@ -71,7 +73,7 @@ function loadDraft() {
     return {
       kind: KINDS.includes(d.kind) ? d.kind : "bug",
       message: typeof d.message === "string" ? d.message.slice(0, MSG_MAX) : "",
-      method: d.method === "discord" ? "discord" : "email",
+      method: ["discord", "none"].includes(d.method) ? d.method : "email",
       email: typeof d.email === "string" ? d.email.slice(0, 254) : "",
     };
   } catch { return emptyDraft(); }
@@ -127,7 +129,7 @@ export function renderFeedback(container, { session, profile, actions }) {
   if (sent) {
     card.append(el("div", { class: "edc-apply-done", role: "status" },
       el("div", { class: "edc-apply-done-title" }, t("fb_done_title")),
-      el("p", { class: "edc-apply-intro" }, t("fb_done")),
+      el("p", { class: "edc-apply-intro" }, t(sentNone ? "fb_done_none" : "fb_done")),
       backLink()));
     return;
   }
@@ -189,7 +191,7 @@ export function renderFeedback(container, { session, profile, actions }) {
     showErr("");
     renderMethod();
   };
-  for (const m of ["email", "discord"]) {
+  for (const m of ["email", "discord", "none"]) {
     const b = el("button", { class: "edc-btn edc-btn-sm edc-seg-btn", type: "button", "aria-pressed": String(draft.method === m) },
       m === "discord" ? el("span", { class: "edc-seg-ico", html: svg }) : null, t("fb_method_" + m));
     b.addEventListener("click", () => setMethod(m));
@@ -235,6 +237,10 @@ export function renderFeedback(container, { session, profile, actions }) {
       return;
     }
     emailInput = null;
+    if (draft.method === "none") {
+      methodBody.append(el("p", { class: "edc-fb-warn", role: "note" }, t("fb_none_warn")));
+      return;
+    }
     if (!hasDiscord) {
       const needsLink = !!session?.user;
       methodBody.append(el("p", { class: "edc-apply-intro edc-apply-need" }, t(needsLink ? "fb_link_discord" : "fb_need_discord")));
@@ -297,7 +303,7 @@ export function renderFeedback(container, { session, profile, actions }) {
         showErr(t("apply_email_suggest").replace("{email}", fix) + " ", use, el("br"), t("fb_email_suggest_keep"));
         return;
       }
-    } else {
+    } else if (draft.method === "discord") {
       if (!hasDiscord) { showErr(t("fb_err_not_logged")); return; }
       if (memberState !== "member") { showErr(t("fb_err_not_member")); return; }
     }
@@ -322,7 +328,7 @@ export function renderFeedback(container, { session, profile, actions }) {
       if (draft.method === "email") body.email = em;
       const res = await callFn(body, draft.method === "discord" ? await accessToken() : null);
       if (!res.ok) throw Object.assign(new Error(res.error || "server"), { code: res.error || "server" });
-      sent = true;
+      sent = true; sentNone = draft.method === "none";
       resetDraft();
       toast(t("fb_done_title"), "ok");
       renderFeedback(container, { session, profile, actions });
