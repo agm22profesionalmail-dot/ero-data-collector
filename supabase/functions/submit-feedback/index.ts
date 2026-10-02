@@ -33,9 +33,11 @@
 // Desplegar con verify_jwt = false: los envíos por email no llevan sesión y
 // el JWT se valida a mano contra /auth/v1/user cuando hace falta.
 
+import { isPublicKey, publishableKey, serviceKey } from "../_shared/keys.ts";
+
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON_KEY = publishableKey();
+const SERVICE_ROLE_KEY = serviceKey();
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 const IP_SALT = Deno.env.get("FEEDBACK_IP_SALT") || SERVICE_ROLE_KEY;
 
@@ -138,7 +140,7 @@ type DiscordIdentity = { userId: string; discordId: string; discordName: string 
 async function userFromRequest(req: Request): Promise<AuthUser | null> {
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  if (!token || token === ANON_KEY) return null;
+  if (!token || isPublicKey(token)) return null;
   try {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },

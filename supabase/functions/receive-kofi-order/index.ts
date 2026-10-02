@@ -7,6 +7,7 @@
 //   SUPABASE_SERVICE_ROLE_KEY — inyectada automáticamente por Supabase
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serviceKey as getServiceKey } from "../_shared/keys.ts";
 
 const COMMISSION_TYPE_MAP: Record<string, string> = {
   // Fotos (orden importa: frases más específicas primero)
@@ -94,7 +95,7 @@ Deno.serve(async (req: Request) => {
 
   const kofiToken = Deno.env.get("KOFI_TOKEN");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const serviceKey = getServiceKey();
 
   // Parsear payload Ko-fi (application/x-www-form-urlencoded con campo "data" JSON)
   let kofi: Record<string, unknown>;
