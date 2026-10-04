@@ -1,16 +1,16 @@
 // Orquestador de la SPA
 import { artistTermsHtml } from "./artist_terms.js";
-import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED, SHOW_OWN_RENDER } from "./config.js";
+import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured, supabase } from "./supabase.js";
 import {
   signInWithDiscord, signInWithX, linkX, linkDiscord, unlinkX, refreshSessionUser,
   signOut, getSession, onAuthChange, identityProfile, consumeAuthError,
 } from "./auth.js";
-import { loadData, colorToHex, data, getById, headNames, clothNames, shoesNames, curName } from "./data.js";
+import { loadData, colorToHex, data } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerUrl, getRenderUrl, getRenderUrlFirst, renderPaths, syncIdentityFields } from "./store.js";
+import { loadPlayer, savePlayer, getBannerUrl, getRenderUrl, renderPaths, syncIdentityFields } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
 import {
@@ -19,7 +19,10 @@ import {
   loadLinkedArtists, linkArtist, loadArtistVariant, CHAR_FIELDS,
 } from "./artists.js";
 import { isAdminRoute, renderAdminPanel, leaveAdmin, forgetAdmin } from "./admin.js";
-import { isPanelRoute, renderArtistPanel, leavePanel, forgetPanelKey } from "./artist_panel.js";
+import {
+  isPanelRoute, renderArtistPanel, leavePanel, forgetPanelKey,
+  renderBanner as renderPlayerBanner, renderSheet as renderPlayerSheet, setMainWide,
+} from "./artist_panel.js";
 import { isFeedbackRoute, goFeedback, leaveFeedback, restoreFeedbackRoute, renderFeedback } from "./feedback.js";
 
 const $ = (id) => document.getElementById(id);
@@ -30,7 +33,9 @@ let dataReady = false;
 let state = null;        // ficha en edición
 let profile = null;
 let hasRecord = false;   // ¿el usuario ya tenía ficha guardada?
-let mode = "edit";        // "preview" | "edit"
+let mode = "edit";        // "preview" (lista de personajes) | "sheet" (ficha) | "edit" | "artist_choice" | "artist_custom"
+let activeCharId = null;  // personaje abierto en la ficha (modo "sheet")
+let editSnapshot = null;  // aspecto del personaje al entrar a editar: decide si el render queda pendiente
 let refArtist = null;     // artista del enlace ?ref resuelto ({id, name}) o null
 let banned = null;        // { reason } si la cuenta está baneada → pantalla fija (memoria)
 const banCache = new Map(); // user id → false | { reason }: una consulta por sesión
@@ -354,7 +359,10 @@ async function renderApp() {
 }
 
 function renderModeView() {
+  // Solo la ficha del personaje usa el ancho amplio (render + hoja de datos)
+  setMainWide(mode === "sheet");
   if (mode === "preview") renderPreviewScreen();
+  else if (mode === "sheet") renderCharacterSheet();
   else if (mode === "artist_choice") renderArtistChoiceScreen();
   else if (mode === "artist_custom") renderEditor();   // editor pre-cargado para variante
   else renderEditor();
@@ -445,72 +453,219 @@ function renderArtistChoiceScreen() {
   appEl().append(card);
 }
 
-// Pantalla de bienvenida para quien ya tiene ficha: preview de 1 línea + Editar
+// ── Personajes: lista + ficha ─────────────────────────────────────────
+// La pantalla del jugador es una LISTA de personajes (mode "preview") y una
+// FICHA por personaje (mode "sheet"), con el mismo diseño que la ficha del
+// panel de artistas pero editable desde un botón bajo el render.
+//
+// FASE 1: hay SIEMPRE un único personaje real (la fila `players` del usuario).
+// FASE 2 (1 personaje para todos, hasta 3 para verificados/mecenas de Ko-fi):
+// la UI ya está construida para N personajes, así que solo cambian los datos:
+//   1. getCharacters() devuelve la lista real (id, fila de datos y rutas de render
+//      de cada personaje) en lugar de [ficha principal].
+//   2. characterLimit() devuelve el tope según el perfil (1 o 3).
+//   3. renderPaths() recibe el id del personaje (hoy solo usa el user_id).
+//   4. startEdit() / doSave() trabajan sobre el personaje abierto, no solo el principal.
+const MAIN_CHAR_ID = "main";
+const characterLimit = () => 1;   // gancho fase 2: tope de personajes del perfil
+
+function getCharacters() {
+  if (!state || !session?.user) return [];
+  return [{ id: MAIN_CHAR_ID, userId: session.user.id, data: state }];
+}
+
+// Objeto con la forma que esperan renderBanner / renderSheet del panel de artistas
+const charPlayer = (ch) => ({ ...ch.data, user_id: ch.userId });
+const charName = (ch) => ch.data.alias || t("your_char");
+const charSpecies = (ch) => {
+  const sp = SPECIES[ch.data.player_type] || SPECIES[0];
+  return `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`;
+};
+
+// Personajes cuyo render quedó pendiente de actualizar tras guardar (sesión actual)
+const renderStale = new Set();
+
+// Primer render que carga (render.webp, o render.png si es anterior). Se memoriza
+// por jugador: la tarjeta de la lista y la ficha comparten la comprobación.
+const renderProbeCache = new Map();
+const canLoad = (url) => new Promise((resolve) => {
+  const im = new Image();
+  im.onload = () => resolve(true);
+  im.onerror = () => resolve(false);
+  im.src = url;
+});
+function probeRender(userId) {
+  if (!userId) return Promise.resolve(null);
+  if (!renderProbeCache.has(userId)) {
+    renderProbeCache.set(userId, (async () => {
+      for (const path of renderPaths(userId).png || []) {
+        const url = getRenderUrl(path);
+        if (url && await canLoad(url)) return url;
+      }
+      return null;
+    })());
+  }
+  return renderProbeCache.get(userId);
+}
+
+const PLACEHOLDER_ICON = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
+
+// Mueve el foco a un elemento tras repintar (navegación por teclado y lectores)
+function focusAfterPaint(selector) {
+  requestAnimationFrame(() => document.querySelector(selector)?.focus({ preventScroll: true }));
+}
+
+function openCharacter(id) {
+  activeCharId = id;
+  mode = "sheet";
+  renderModeView();
+  window.scrollTo({ top: 0 });
+  focusAfterPaint("#char-name");
+}
+function closeCharacter() {
+  const id = activeCharId;
+  mode = "preview";
+  renderModeView();
+  window.scrollTo({ top: 0 });
+  focusAfterPaint(`[data-char-id="${id}"]`);
+}
+function startEdit() {
+  editSnapshot = JSON.stringify(pickChar(state));
+  mode = "edit";
+  renderModeView();
+  window.scrollTo({ top: 0 });
+}
+
+// Lista "Personajes": una tarjeta por personaje (hoy una)
 function renderPreviewScreen() {
   clear(appEl());
-  const card = el("div", { class: "edc-card" });
-  card.append(el("div", { class: "edc-section-title" }, t("saved_title")));
-  if (state.banner_url) card.append(el("img", { class: "edc-preview-banner", src: state.banner_url, alt: "banner" }));
-  card.append(summaryRow());
-  card.append(el("div", { class: "edc-save-bar" },
-    el("button", { class: "edc-btn edc-btn-primary", onClick: () => { mode = "edit"; renderModeView(); } }, t("edit_player"))));
-  appEl().append(card);
-  // Renders en beta: solo si SHOW_OWN_RENDER (config.js). Con false no se
-  // firma ninguna URL ni se monta la sección.
-  if (SHOW_OWN_RENDER) appEl().append(renderMyRenderCard());
+  const chars = getCharacters();
+  const list = el("ul", { class: "edc-chars-list" });
+  chars.forEach((ch, i) => list.append(el("li", { style: `--i:${i}` }, renderCharacterCard(ch))));
+  // Gancho fase 2: con el tope sin agotar, aquí va la tarjeta final de espacio libre.
+  // Hoy characterLimit() = 1 y siempre hay 1 personaje, así que no se muestra.
+  if (chars.length && chars.length < characterLimit())
+    list.append(el("li", { style: `--i:${chars.length}` }, renderAddCharacterSlot()));
+
+  const head = el("header", { class: "edc-chars-head" },
+    el("h2", { class: "edc-section-title", id: "chars-title", tabindex: "-1" }, t("chars_title")),
+    chars.length ? el("p", { class: "edc-chars-intro" }, t("chars_intro")) : null);
+
+  const body = chars.length ? list : el("div", { class: "edc-chars-empty" },
+    el("p", {}, t("chars_empty")),
+    el("button", { class: "edc-btn edc-btn-primary", type: "button", onClick: startEdit }, t("chars_create")));
+
+  appEl().append(el("section", { class: "edc-chars", "aria-labelledby": "chars-title" }, head, body));
 
   const help = el("div");
   appEl().append(help);
   renderHelp(help);
 }
 
-// "Tu render 3D": el render PRINCIPAL del propio jugador (<user_id>/render.webp,
-// o render.png si es anterior a la migración, + spin.webp del bucket privado
-// `renders`). Nunca las versiones por artista.
-// Sin render todavía → placeholder con el aviso de que se genera en unas horas.
-// Solo se llama con SHOW_OWN_RENDER = true (renders fuera de beta).
-function renderMyRenderCard() {
-  const { png, spin } = renderPaths(session?.user?.id);
-  const ph = el("div", { class: "edc-pcard-render-ph" },
-    el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true",
-      html: '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>' }),
-    el("span", {}, t("my_render_pending")));
-  const view = createRenderSpin({
-    placeholder: ph,
-    pngUrl: png ? getRenderUrlFirst(png) : null,
-    spinUrl: spin ? getRenderUrl(spin) : null,
+function renderCharacterCard(ch) {
+  const d = ch.data;
+  const hex = colorToHex(d.color).toUpperCase();
+  const thumb = el("span", { class: "edc-char-thumb is-loading", "aria-hidden": "true" });
+  const status = el("span", { class: "edc-char-status", "data-state": "loading" }, t("render_loading"));
+  const setStatus = (kind) => { status.dataset.state = kind; status.textContent = t("render_" + kind); };
+
+  // Miniatura del render; sin render, marcador de "en preparación"
+  probeRender(ch.userId).then((url) => {
+    if (!thumb.isConnected) return;   // la pantalla se repintó mientras tanto
+    thumb.classList.remove("is-loading");
+    if (url) {
+      thumb.append(el("img", { src: url, alt: "", decoding: "async" }));
+      setStatus(renderStale.has(ch.id) ? "stale" : "ready");
+    } else {
+      thumb.append(el("span", { class: "edc-char-thumb-ph", html: PLACEHOLDER_ICON }));
+      setStatus("pending");
+    }
   });
-  return el("div", { class: "edc-card edc-myrender" },
-    el("div", { class: "edc-section-title" }, t("my_render_title")),
-    el("div", { class: "edc-myrender-slot" }, view),
-    el("p", { class: "edc-pcard-beta" }, t("my_render_beta")));
+
+  // Splashtag a la derecha (solo si carga; se oculta en móvil por CSS)
+  let banner = null;
+  if (d.banner_path) {
+    banner = el("span", { class: "edc-char-banner", hidden: "", "aria-hidden": "true" });
+    const img = el("img", { alt: "", decoding: "async" });
+    img.addEventListener("load", () => { banner.hidden = false; });
+    img.src = getBannerUrl(d.banner_path, d.banner_sha256);
+    banner.append(img);
+  }
+
+  return el("button", { class: "edc-char-card", type: "button", "data-char-id": ch.id, onClick: () => openCharacter(ch.id) },
+    thumb,
+    el("span", { class: "edc-char-body" },
+      el("span", { class: "edc-char-alias" }, charName(ch)),
+      el("span", { class: "edc-char-meta" }, charSpecies(ch)),
+      el("span", { class: "edc-char-ink" },
+        el("span", { class: "edc-char-ink-sw", style: `background:${hex}` }), hex),
+      status),
+    banner,
+    el("span", { class: "edc-char-go", "aria-hidden": "true" }));
 }
 
-// Resumen de 1 línea con las opciones seleccionadas
-// Chip de gear de la vista previa: nombre oficial en el idioma de la web; el
-// del otro idioma va en el tooltip.
-function gearBadge(icon, pair) {
-  return el("span", { class: "edc-preview-badge", title: pair ? pair.join(" / ") : "" },
-    el("span", { class: "edc-badge-ico", html: preIcon(icon) }), " " + (pair ? curName(pair) : "—"));
+// Gancho fase 2: tarjeta de espacio libre. Sin acción hasta que exista el alta
+// de un segundo personaje; ahora mismo no se llega a montar (ver renderPreviewScreen).
+function renderAddCharacterSlot() {
+  return el("button", { class: "edc-char-card edc-char-card--add", type: "button", "aria-disabled": "true" },
+    el("span", { class: "edc-char-body" },
+      el("span", { class: "edc-char-alias" }, t("chars_add")),
+      el("span", { class: "edc-char-meta" }, t("chars_add_hint"))));
 }
 
-function summaryRow() {
-  const sp = SPECIES[state.player_type] || SPECIES[0];
-  const d = data();
-  const head = getById(d.headgear, state.gear_head);
-  const cloth = getById(d.clothes, state.gear_cloth);
-  const shoes = getById(d.shoes, state.gear_shoes);
-  return el("div", { class: "edc-preview" },
-    el("div", { class: "edc-color-preview", style: `background:${colorToHex(state.color)}` }),
-    el("strong", {}, state.alias || t("your_char")),
-    el("span", { class: "edc-preview-badge" }, `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`),
-    gearBadge("head", head ? headNames(head) : null),
-    gearBadge("cloth", cloth ? clothNames(cloth) : null),
-    gearBadge("shoes", shoes ? shoesNames(shoes) : null),
-    el("span", { class: "edc-preview-badge" },
-      el("span", { class: "edc-badge-ico", html: preIcon("banner") }), " ",
-      el("span", { class: "edc-badge-ico", html: preIcon((state.banner_url || state.bannerFile) ? "ok" : "none") })),
-  );
+// Ficha del personaje: misma composición que la del panel de artistas (render a
+// la izquierda, alias + Splashtag + hoja de datos a la derecha), con el botón
+// "Editar personaje" justo debajo del render.
+function renderCharacterSheet() {
+  const ch = getCharacters().find((c) => c.id === activeCharId);
+  if (!ch) { mode = "preview"; renderModeView(); return; }
+  clear(appEl());
+  const p = charPlayer(ch);
+
+  const note = el("p", { class: "edc-pcard-note", hidden: "" });
+  const side = el("div", { class: "edc-pcard-side edc-char-side" },
+    renderCharacterRender(ch, note),
+    el("button", { class: "edc-btn edc-btn-primary edc-char-edit", type: "button", onClick: startEdit }, t("chars_edit")),
+    note);
+
+  const main = el("div", { class: "edc-pcard-main" },
+    el("h2", { class: "edc-pcard-name", id: "char-name", tabindex: "-1" }, charName(ch)),
+    renderPlayerBanner(p, { size: "detail", interactive: true }),
+    renderPlayerSheet(p));
+
+  appEl().append(el("section", { class: "edc-chars edc-chars--sheet", "aria-labelledby": "char-name" },
+    el("div", { class: "edc-chars-nav" },
+      el("button", { class: "edc-btn edc-btn-sm", type: "button", onClick: closeCharacter },
+        el("span", { "aria-hidden": "true" }, "←"), " " + t("chars_back"))),
+    el("div", { class: "edc-pcard" }, side, main)));
+}
+
+// Render 3D giratorio del personaje (<user_id>/render.webp o .png + spin.webp).
+// Mientras comprueba, esqueleto; si no hay render, aviso de que se genera solo.
+function renderCharacterRender(ch, note) {
+  const ph = el("div", { class: "edc-pcard-render-ph", role: "status" });
+  const paint = (kind) => {
+    clear(ph);
+    ph.classList.toggle("is-loading", kind === "loading");
+    if (kind === "loading") { ph.append(el("span", { class: "edc-sr-only" }, t("render_loading"))); return; }
+    ph.append(
+      el("span", { class: "edc-pcard-render-ico", "aria-hidden": "true", html: PLACEHOLDER_ICON }),
+      el("span", {}, t("my_render_pending")));
+  };
+  paint("loading");
+  const { spin } = renderPaths(ch.userId);
+  return createRenderSpin({
+    placeholder: ph,
+    pngUrl: probeRender(ch.userId),
+    spinUrl: spin ? getRenderUrl(spin) : null,
+    onLoaded: () => {
+      const stale = renderStale.has(ch.id);
+      note.dataset.state = stale ? "stale" : "info";
+      note.textContent = t(stale ? "render_note_stale" : "render_note");
+      note.hidden = false;
+    },
+    onFail: () => paint("pending"),
+  });
 }
 
 // ¿Habrá banner adjunto? (banner guardado, ya capturado, o generador activo que se capturará al guardar)
@@ -729,8 +884,12 @@ async function doSave(btn, status) {
     } else {
       toast(t("saved"), "ok");
     }
-    mode = "preview";
-    renderModeView();
+    // Si cambió algo que afecta al render (o es el primer guardado), queda
+    // pendiente de actualizar; la imagen anterior sigue visible mientras tanto.
+    if (!editSnapshot || editSnapshot !== JSON.stringify(pickChar(state))) renderStale.add(MAIN_CHAR_ID);
+    editSnapshot = null;
+    // Vuelve a la ficha del personaje editado
+    openCharacter(MAIN_CHAR_ID);
   } catch (e) {
     ov.close();
     status.className = "edc-save-status err"; status.textContent = t("save_err") + e.message;
@@ -760,6 +919,7 @@ function updateNavLinks() {
 }
 
 function route() {
+  setMainWide(false);   // la ficha del personaje ensancha <main>; el resto de pantallas no
   updateNavLinks();
   if (!isConfigured()) {
     clear(appEl());
@@ -854,6 +1014,7 @@ async function init() {
       const nextId = s?.user?.id || null;
       if (nextId === prevId) return;
       state = null; hasRecord = false; mode = "edit";
+      activeCharId = null; editSnapshot = null; renderStale.clear(); renderProbeCache.clear();
       const go = () => { applyStaticI18n(); route(); };
       if (s?.user) enforceBan().then(go); else go();
     });

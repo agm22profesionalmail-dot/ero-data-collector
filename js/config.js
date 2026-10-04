@@ -14,12 +14,9 @@ export const R2_PUBLIC_URL = "https://pub-5e28d3ea68944786851f5d81e47de75c.r2.de
 export const X_LOGIN_ENABLED = true;
 
 // ── Render 3D propio del jugador ──────────────────────────────────────
-// Sección "Tu render 3D" en la pantalla del personaje guardado (app.js →
-// renderMyRenderCard). Los renders están en BETA: mientras no salgan de beta
-// los jugadores NO ven su propio render. Con false no se pide ninguna URL
-// firmada ni aparece nada en la pantalla del jugador. Ponlo a true cuando los
-// renders estén disponibles. El visor del panel de artistas no depende de esto.
-export const SHOW_OWN_RENDER = false;
+// Obsoleta: el jugador ve SIEMPRE su render en la ficha de su personaje (app.js).
+// Ya no se consulta; se mantiene exportada solo por compatibilidad.
+export const SHOW_OWN_RENDER = true;
 
 // ── Fuentes de assets Splatoon (Flexlion, públicas) ───────────────────
 export const GITHUB_RAW = "https://raw.githubusercontent.com/Flexlion/flexlion.github.io/master";

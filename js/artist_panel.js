@@ -424,7 +424,7 @@ function renderBanner(player, opts = {}) {
       e.stopPropagation();
       dl.disabled = true;
       try {
-        const bannerHref = getBannerUrl(player.banner_path);
+        const bannerHref = getBannerUrl(player.banner_path, player.banner_sha256);
         if (bannerHref) {
           const a = document.createElement("a");
           a.href = bannerHref;
@@ -446,7 +446,7 @@ function renderBanner(player, opts = {}) {
 
 async function loadBannerInto(container, ph, player, cb = {}) {
   try {
-    const bannerSrc = getBannerUrl(player.banner_path);
+    const bannerSrc = getBannerUrl(player.banner_path, player.banner_sha256);
     if (!bannerSrc) { cb.onFail?.(); return; }
     const img = document.createElement("img");
     img.className = "edc-banner-img";
