@@ -953,6 +953,7 @@ ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de
   <li><b>Sharkinodraws</b> — badges de huevos de Salmon Run</li>
 </ul>
 <p>Los datos e imágenes del juego (configurador de personaje) se cargan desde <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
+<p>Los renders 3D de los personajes se generan con <a href="https://github.com/nvnprogram/HoianViewer" target="_blank" rel="noopener">HoianViewer</a>, de <b>nvnprogram</b>.</p>
 <p>Lista completa en la <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">página de créditos original</a>. Fuentes, imágenes y datos de Splatoon son propiedad intelectual de Nintendo Co., Ltd.</p>`;
   return `
 <p><b>Disclaimer:</b> This is a fan project made to organize community content. Any donations received go exclusively toward hosting and infrastructure costs. <b>It is not affiliated with, associated with, authorized, endorsed by, or in any way sponsored by Nintendo</b> or any of its subsidiaries.</p>
@@ -987,6 +988,7 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
   <li><b>Sharkinodraws</b> — Salmon Run egg badges</li>
 </ul>
 <p>Game data and images (character configurator) are loaded from <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
+<p>The 3D character renders are generated with <a href="https://github.com/nvnprogram/HoianViewer" target="_blank" rel="noopener">HoianViewer</a>, by <b>nvnprogram</b>.</p>
 <p>Full list on the <a href="https://splashtagmaker.com/credits/" target="_blank" rel="noopener">original credits page</a>. Splatoon fonts, images and data are the intellectual property of Nintendo Co., Ltd.</p>`;
 }
 
