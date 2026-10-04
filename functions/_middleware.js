@@ -17,6 +17,7 @@ const BETA_EMBEDS = {
   madi: { image: "/assets/og/beta/madi.jpg?v=1", width: 1200, height: 675 },
   squibblekibble: { image: "/assets/og/beta/squibblekibble.jpg?v=1", width: 1200, height: 630 },
   reverie: { image: "/assets/og/beta/reverie.jpg?v=1", width: 1200, height: 675 },
+  "luna-lechuza": { image: "/assets/og/beta/luna-lechuza.jpg?v=1", width: 1200, height: 630 },
 };
 
 export async function onRequest(context) {
