@@ -7,7 +7,7 @@
 // puede tocar el banner de otro. Los secretos (R2_*, SUPABASE_*) viven en el
 // entorno del proyecto de Pages, no en el repo.
 
-import { putR2 } from "../_lib/r2.js";
+import { putR2, deleteR2 } from "../_lib/r2.js";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -27,8 +27,40 @@ export async function onRequestPost({ request, env }) {
   const user = await who.json();
   if (!user?.id || !/^[0-9a-f-]{36}$/.test(user.id)) return json(401, { error: "bad_user" });
 
-  const key = `banners/${user.id}/banner.png`;
-  const src = await fetch(`${base}/storage/v1/object/authenticated/banners/${user.id}/banner.png`, {
+  // Personaje (slot 0..2). Slot 0 = banner.png (como siempre); extras = banner_c<n>.png.
+  // El slot sale del cuerpo pero solo como entero validado; el uid, siempre del token.
+  let slot = 0, action = "";
+  try {
+    const body = await request.json();
+    if (body && body.slot !== undefined && body.slot !== null) slot = body.slot;
+    if (body && typeof body.action === "string") action = body.action;
+  } catch (_) { /* sin cuerpo: slot 0 */ }
+  if (!Number.isInteger(slot) || slot < 0 || slot > 2) return json(400, { error: "bad_slot" });
+  const name = slot === 0 ? "banner.png" : `banner_c${slot}.png`;
+
+  // Acción "delete": borra el banner de un personaje EXTRA (slot 1..2, nunca el principal)
+  // en R2 y en el bucket de Supabase. El uid sale solo del token.
+  if (action === "delete") {
+    if (slot < 1) return json(400, { error: "bad_slot" });
+    try {
+      await deleteR2(env, `banners/${user.id}/${name}`);
+    } catch (e) {
+      return json(502, { error: "r2_failed" });
+    }
+    // Con la sesión del propio jugador; si el bucket no permite borrar al propietario, no es fatal
+    let storage = "ok";
+    try {
+      const del = await fetch(`${base}/storage/v1/object/banners/${user.id}/${name}`, {
+        method: "DELETE",
+        headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth },
+      });
+      if (!del.ok) storage = "failed";
+    } catch (_) { storage = "failed"; }
+    return json(200, { ok: true, storage });
+  }
+
+  const key = `banners/${user.id}/${name}`;
+  const src = await fetch(`${base}/storage/v1/object/authenticated/banners/${user.id}/${name}`, {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth },
   });
   if (!src.ok) return json(404, { error: "no_banner" });

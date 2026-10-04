@@ -10,7 +10,11 @@ import {
 import { loadData, colorToHex, data } from "./data.js";
 import { renderConfigurator, ensureValid } from "./configurator.js";
 import { renderBanner } from "./banner.js";
-import { loadPlayer, savePlayer, getBannerUrl, getRenderUrl, renderPaths, syncIdentityFields } from "./store.js";
+import { forgetSplattagCfg } from "./splattag.js";
+import {
+  loadPlayers, savePlayer, deletePlayer, getCharacterLimit, resetCharacterLimit,
+  getBannerUrl, getRenderUrl, renderPaths, syncIdentityFields,
+} from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
 import {
@@ -30,11 +34,12 @@ const appEl = () => $("app");
 
 let session = null;
 let dataReady = false;
-let state = null;        // ficha en edición
+let state = null;        // ficha (datos) del personaje ACTIVO; null = aún sin cargar
+let chars = [];          // personajes del usuario: {id, slot, userId, data, isNew, locked}
+let charLimit = 1;       // tope de personajes de la cuenta (RPC my_character_limit)
 let profile = null;
-let hasRecord = false;   // ¿el usuario ya tenía ficha guardada?
 let mode = "edit";        // "preview" (lista de personajes) | "sheet" (ficha) | "edit" | "artist_choice" | "artist_custom"
-let activeCharId = null;  // personaje abierto en la ficha (modo "sheet")
+let activeCharId = null;  // personaje activo: players.id (o "new-<slot>" si aún no se guardó)
 let editSnapshot = null;  // aspecto del personaje al entrar a editar: decide si el render queda pendiente
 let refArtist = null;     // artista del enlace ?ref resuelto ({id, name}) o null
 let banned = null;        // { reason } si la cuenta está baneada → pantalla fija (memoria)
@@ -62,7 +67,7 @@ async function enforceBan() {
   const b = await checkBanned(session?.user);
   if (!b) return false;
   banned = b;
-  session = null; state = null; hasRecord = false; mode = "edit";
+  session = null; state = null; chars = []; mode = "edit";
   forgetPanelKey();
   try { await signOut(); } catch { /* ya sin sesión */ }
   return true;
@@ -332,23 +337,21 @@ async function renderApp() {
     if (!dataReady) { await loadData(); dataReady = true; }
     profile = identityProfile(session.user);
     if (state === null) {
-      const row = await loadPlayer(session.user.id);
-      hasRecord = !!row;
-      state = stateFromRow(row);
-      state._userId = session.user.id; // clave de persistencia del generador de splattag
-      // Alias por defecto: nombre de Discord; si no hay, nombre o @handle de X
-      const defaultAlias = profile?.discord_name || profile?.x_name || profile?.x_username || "";
-      if (!state.alias && defaultAlias) state.alias = defaultAlias;
-      ensureValid(state);
-      if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path, state.banner_sha256);
+      const [rows, limit] = await Promise.all([loadPlayers(session.user.id), getCharacterLimit()]);
+      charLimit = limit;
+      chars = rows.map(charFromRow);
+      if (!chars.length) chars = [newChar(0)];   // alta: primer personaje (principal)
+      const main = chars[0];
+      activeCharId = main.id;
+      state = main.data;
       // Enlace de artista (?ref): se resuelve una vez (cacheado). Si hay
       // consentimiento pendiente se entra directo al editor para que lo vea.
       refArtist = await resolveRefArtist();
-      // Artistas con los que ya está (puede ser más de uno)
-      state._linkedArtists = hasRecord && refArtist ? await loadLinkedArtists() : [];
+      // Artistas con los que ya está el personaje (puede ser más de uno)
+      await loadCharLinks(main);
       // Usuario ya registrado con enlace de artista: muestra pantalla de elección
-      if (hasRecord && refArtist) mode = "artist_choice";
-      else mode = hasRecord && !needsRefConsent(refArtist, state) ? "preview" : "edit";
+      if (hasRecord() && refArtist) mode = "artist_choice";
+      else mode = hasRecord() && !needsRefConsent(refArtist, state) ? "preview" : "edit";
     }
   } catch (e) {
     clear(appEl());
@@ -381,6 +384,25 @@ function renderArtistChoiceScreen() {
   card.append(el("div", { class: "edc-section-title" }, withName(t("artist_choice_title"), name)));
   card.append(el("p", { class: "edc-apply-intro" }, withName(t("artist_choice_intro"), name)));
 
+  // Con más de un personaje, elegir cuál se comparte / se personaliza
+  const pickable = usableChars().filter(isSaved);
+  if (pickable.length > 1) {
+    const pick = el("div", { class: "edc-char-pick", role: "group", "aria-label": t("artist_char_pick") });
+    pick.append(el("span", { class: "edc-char-pick-label" }, t("artist_char_pick")));
+    for (const c of pickable) {
+      pick.append(el("button", {
+        class: "edc-char-pick-btn", type: "button", "aria-pressed": String(c.id === activeCharId),
+        onClick: async () => {
+          if (c.id === activeCharId) return;
+          activeCharId = c.id; state = c.data;
+          await loadCharLinks(c);
+          renderArtistChoiceScreen();
+        },
+      }, c.data.alias || t("your_char")));
+    }
+    card.append(pick);
+  }
+
   const errBox = el("div", { class: "edc-banner-err", hidden: "" });
 
   // Opción A — compartir personaje guardado
@@ -401,7 +423,7 @@ function renderArtistChoiceScreen() {
     try {
       const ov = renderSubmitOverlay();
       await ov.phase(t("artist_choice_confirming"), 50, 300);
-      await linkArtist(refArtist.id, state);
+      await linkArtist(refArtist.id, state, rpcPlayerId(activeChar()));
       await ov.phase(withName(t("artist_choice_shared"), name), 100, 700);
       ov.close();
       clearRef();
@@ -435,7 +457,7 @@ function renderArtistChoiceScreen() {
     // ficha principal y se restaura al salir/guardar, para que nunca se
     // muestre ni se guarde la versión como si fuera la ficha principal.
     state._mainChar = pickChar(state);
-    const saved = await loadArtistVariant(refArtist.id);
+    const saved = await loadArtistVariant(refArtist.id, readPlayerId(activeChar()));
     if (saved) applyChar(state, saved);   // continuar la versión que ya existía
     state._artistVariantFor = refArtist.id;
     mode = "artist_custom";
@@ -458,20 +480,72 @@ function renderArtistChoiceScreen() {
 // FICHA por personaje (mode "sheet"), con el mismo diseño que la ficha del
 // panel de artistas pero editable desde un botón bajo el render.
 //
-// FASE 1: hay SIEMPRE un único personaje real (la fila `players` del usuario).
-// FASE 2 (1 personaje para todos, hasta 3 para verificados/mecenas de Ko-fi):
-// la UI ya está construida para N personajes, así que solo cambian los datos:
-//   1. getCharacters() devuelve la lista real (id, fila de datos y rutas de render
-//      de cada personaje) en lugar de [ficha principal].
-//   2. characterLimit() devuelve el tope según el perfil (1 o 3).
-//   3. renderPaths() recibe el id del personaje (hoy solo usa el user_id).
-//   4. startEdit() / doSave() trabajan sobre el personaje abierto, no solo el principal.
-const MAIN_CHAR_ID = "main";
-const characterLimit = () => 1;   // gancho fase 2: tope de personajes del perfil
+// FASE 2: cada personaje es una fila `players` (slot 0 = principal, extras con
+// slot 1..2, cada uno con su propio players.id). 1 personaje para todos y hasta
+// 3 con el permiso que da la BD (RPC my_character_limit). `state` apunta a los
+// datos del personaje ACTIVO: editor, guardado y generador de splattag siempre
+// trabajan sobre él, así que cambiar de personaje nunca mezcla datos.
+// Los extras con slot >= tope se conservan pero quedan "bloqueados": visibles,
+// no editables y sin borrarse.
+const characterLimit = () => charLimit;
+const activeChar = () => chars.find((c) => c.id === activeCharId) || null;
+const hasRecord = () => chars.some((c) => !c.isNew);   // ¿tiene algún personaje guardado?
+const isSaved = (c) => !!c && !c.isNew;
+const usableChars = () => chars.filter((c) => !c.locked);
+
+// Alias por defecto: nombre de Discord; si no hay, nombre o @handle de X
+const baseAlias = () => profile?.discord_name || profile?.x_name || profile?.x_username || "";
+
+function charFromRow(row) {
+  const s = stateFromRow(row);
+  const slot = Number.isInteger(row.slot) ? row.slot : 0;
+  s._userId = session.user.id;   // con _charId/_slot, clave de persistencia del generador de splattag
+  s._charId = row.id;
+  s._slot = slot;
+  if (!s.alias && baseAlias()) s.alias = baseAlias();
+  ensureValid(s);
+  if (s.banner_path) s.banner_url = getBannerUrl(s.banner_path, s.banner_sha256);
+  s._linkedArtists = [];
+  return { id: row.id, slot, userId: session.user.id, data: s, isNew: false, locked: slot >= charLimit };
+}
+
+function newChar(slot) {
+  const s = stateFromRow(null);
+  s._userId = session.user.id;
+  s._slot = slot;
+  // Alias por defecto distinto del resto: «Nombre 2», «Nombre 3»…
+  const base = baseAlias() || t("your_char");
+  let alias = slot === 0 ? baseAlias() : `${base} ${slot + 1}`;
+  for (let n = slot + 2; alias && chars.some((c) => c.data.alias === alias); n++) alias = `${base} ${n}`;
+  s.alias = alias;
+  ensureValid(s);
+  s._linkedArtists = [];
+  return { id: "new-" + slot, slot, userId: session.user.id, data: s, isNew: true, locked: false };
+}
+
+// Primer slot libre por debajo del tope, o null si no hay hueco
+function freeSlot() {
+  // Igual que el trigger de la BD: cuentan TODOS los personajes, también los bloqueados
+  if (chars.length >= characterLimit()) return null;
+  for (let n = 0; n < 3; n++) if (!chars.some((c) => c.slot === n)) return n;
+  return null;
+}
+
+// Parámetro p_player_id de los RPC de artistas: solo los extras lo llevan
+// (null = principal, y así no se envía si el servidor aún no lo conoce).
+const rpcPlayerId = (ch) => (ch && !ch.isNew && ch.slot > 0 ? ch.id : null);
+// Filtro por personaje al LEER vínculos/variantes: solo con más de uno
+const readPlayerId = (ch) => (ch && !ch.isNew && chars.length > 1 ? ch.id : null);
+
+async function loadCharLinks(ch) {
+  if (!ch || ch.data._linksLoaded) return;
+  ch.data._linksLoaded = true;
+  ch.data._linkedArtists = isSaved(ch) && refArtist ? await loadLinkedArtists(readPlayerId(ch)) : [];
+}
 
 function getCharacters() {
   if (!state || !session?.user) return [];
-  return [{ id: MAIN_CHAR_ID, userId: session.user.id, data: state }];
+  return chars;
 }
 
 // Objeto con la forma que esperan renderBanner / renderSheet del panel de artistas
@@ -494,18 +568,20 @@ const canLoad = (url) => new Promise((resolve) => {
   im.onerror = () => resolve(false);
   im.src = url;
 });
-function probeRender(userId) {
-  if (!userId) return Promise.resolve(null);
-  if (!renderProbeCache.has(userId)) {
-    renderProbeCache.set(userId, (async () => {
-      for (const path of renderPaths(userId).png || []) {
+const probeKey = (ch) => `${ch.userId}:${ch.slot}`;
+function probeRender(ch) {
+  if (!ch?.userId) return Promise.resolve(null);
+  const key = probeKey(ch);
+  if (!renderProbeCache.has(key)) {
+    renderProbeCache.set(key, (async () => {
+      for (const path of renderPaths(ch.userId, ch.slot).png || []) {
         const url = getRenderUrl(path);
         if (url && await canLoad(url)) return url;
       }
       return null;
     })());
   }
-  return renderProbeCache.get(userId);
+  return renderProbeCache.get(key);
 }
 
 const PLACEHOLDER_ICON = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
@@ -516,7 +592,10 @@ function focusAfterPaint(selector) {
 }
 
 function openCharacter(id) {
+  const ch = chars.find((c) => c.id === id);
+  if (!ch || ch.locked) return;
   activeCharId = id;
+  state = ch.data;
   mode = "sheet";
   renderModeView();
   window.scrollTo({ top: 0 });
@@ -536,30 +615,78 @@ function startEdit() {
   window.scrollTo({ top: 0 });
 }
 
-// Lista "Personajes": una tarjeta por personaje (hoy una)
+// Alta de un personaje extra: abre el editor con valores por defecto y un alias distinto
+function startNewCharacter() {
+  const slot = freeSlot();
+  if (slot === null) return;
+  const ch = newChar(slot);
+  chars.push(ch);
+  chars.sort((x, y) => x.slot - y.slot);
+  activeCharId = ch.id;
+  state = ch.data;
+  editSnapshot = null;
+  mode = "edit";
+  renderModeView();
+  window.scrollTo({ top: 0 });
+}
+
+// Sale del editor sin guardar. El personaje nuevo se descarta; uno existente se
+// vuelve a leer del servidor (el editor modifica sus datos en memoria al vuelo).
+async function cancelEdit(btn) {
+  btn.disabled = true;
+  const wasId = activeCharId;
+  try {
+    const ch = activeChar();
+    if (ch?.isNew) {
+      chars = chars.filter((c) => c !== ch);
+    } else if (ch) {
+      const rows = await loadPlayers(session.user.id);
+      const row = rows.find((r) => r.id === ch.id);
+      if (row) { const fresh = charFromRow(row); Object.assign(ch, fresh, { locked: ch.locked }); }
+    }
+  } catch (e) { console.warn("cancelEdit:", e); }
+  editSnapshot = null;
+  const back = chars.find((c) => c.id === wasId);
+  if (back && !back.isNew) { activeCharId = back.id; state = back.data; mode = "sheet"; }
+  else { activeCharId = chars[0]?.id || null; state = chars[0]?.data || null; mode = "preview"; }
+  renderModeView();
+  window.scrollTo({ top: 0 });
+}
+
+// Lista "Personajes": una tarjeta por personaje + hueco libre / aviso de bloqueo
 function renderPreviewScreen() {
   clear(appEl());
-  const chars = getCharacters();
+  const chars_ = getCharacters().filter((c) => isSaved(c));
   const list = el("ul", { class: "edc-chars-list" });
-  chars.forEach((ch, i) => list.append(el("li", { style: `--i:${i}` }, renderCharacterCard(ch))));
-  // Gancho fase 2: con el tope sin agotar, aquí va la tarjeta final de espacio libre.
-  // Hoy characterLimit() = 1 y siempre hay 1 personaje, así que no se muestra.
-  if (chars.length && chars.length < characterLimit())
-    list.append(el("li", { style: `--i:${chars.length}` }, renderAddCharacterSlot()));
+  chars_.forEach((ch, i) => list.append(el("li", { style: `--i:${i}` }, renderCharacterCard(ch))));
+  const hasLocked = chars_.some((c) => c.locked);
+  // Con el tope sin agotar, la tarjeta final de espacio libre abre el alta
+  if (chars_.length && freeSlot() !== null)
+    list.append(el("li", { style: `--i:${chars_.length}` }, renderAddCharacterSlot()));
+  // Aviso de cómo ampliar (tope 1) o de cómo recuperar los personajes bloqueados
+  const notice = chars_.length && (hasLocked || characterLimit() === 1) ? renderCharNotice(hasLocked) : null;
 
   const head = el("header", { class: "edc-chars-head" },
     el("h2", { class: "edc-section-title", id: "chars-title", tabindex: "-1" }, t("chars_title")),
-    chars.length ? el("p", { class: "edc-chars-intro" }, t("chars_intro")) : null);
+    chars_.length ? el("p", { class: "edc-chars-intro" }, t("chars_intro")) : null);
 
-  const body = chars.length ? list : el("div", { class: "edc-chars-empty" },
+  const body = chars_.length ? list : el("div", { class: "edc-chars-empty" },
     el("p", {}, t("chars_empty")),
-    el("button", { class: "edc-btn edc-btn-primary", type: "button", onClick: startEdit }, t("chars_create")));
+    el("button", { class: "edc-btn edc-btn-primary", type: "button", onClick: startNewMain }, t("chars_create")));
 
-  appEl().append(el("section", { class: "edc-chars", "aria-labelledby": "chars-title" }, head, body));
+  appEl().append(el("section", { class: "edc-chars", "aria-labelledby": "chars-title" }, head, body, notice));
 
   const help = el("div");
   appEl().append(help);
   renderHelp(help);
+}
+
+// Sin personajes guardados: el editor del principal
+function startNewMain() {
+  if (!chars.length) chars = [newChar(0)];
+  const ch = chars[0];
+  activeCharId = ch.id; state = ch.data; editSnapshot = null;
+  mode = "edit"; renderModeView(); window.scrollTo({ top: 0 });
 }
 
 function renderCharacterCard(ch) {
@@ -570,17 +697,28 @@ function renderCharacterCard(ch) {
   const setStatus = (kind) => { status.dataset.state = kind; status.textContent = t("render_" + kind); };
 
   // Miniatura del render; sin render, marcador de "en preparación"
-  probeRender(ch.userId).then((url) => {
+  probeRender(ch).then((url) => {
     if (!thumb.isConnected) return;   // la pantalla se repintó mientras tanto
     thumb.classList.remove("is-loading");
     if (url) {
       thumb.append(el("img", { src: url, alt: "", decoding: "async" }));
-      setStatus(renderStale.has(ch.id) ? "stale" : "ready");
+      if (ch.locked) setStatus("locked");
+      else setStatus(renderStale.has(ch.id) ? "stale" : "ready");
     } else {
       thumb.append(el("span", { class: "edc-char-thumb-ph", html: PLACEHOLDER_ICON }));
-      setStatus("pending");
+      setStatus(ch.locked ? "locked" : "pending");
     }
   });
+
+  // Personaje bloqueado: visible pero sin acción (ni ficha ni edición)
+  if (ch.locked) {
+    return el("div", { class: "edc-char-card edc-char-card--locked", "data-char-id": ch.id },
+      thumb,
+      el("span", { class: "edc-char-body" },
+        el("span", { class: "edc-char-alias" }, charName(ch)),
+        el("span", { class: "edc-char-meta" }, charSpecies(ch)),
+        status));
+  }
 
   // Splashtag a la derecha (solo si carga; se oculta en móvil por CSS)
   let banner = null;
@@ -604,13 +742,62 @@ function renderCharacterCard(ch) {
     el("span", { class: "edc-char-go", "aria-hidden": "true" }));
 }
 
-// Gancho fase 2: tarjeta de espacio libre. Sin acción hasta que exista el alta
-// de un segundo personaje; ahora mismo no se llega a montar (ver renderPreviewScreen).
+// Tarjeta de espacio libre: abre el editor con un personaje nuevo
 function renderAddCharacterSlot() {
-  return el("button", { class: "edc-char-card edc-char-card--add", type: "button", "aria-disabled": "true" },
+  return el("button", { class: "edc-char-card edc-char-card--add", type: "button", onClick: startNewCharacter },
+    el("span", { class: "edc-char-plus", "aria-hidden": "true" }),
     el("span", { class: "edc-char-body" },
       el("span", { class: "edc-char-alias" }, t("chars_add")),
       el("span", { class: "edc-char-meta" }, t("chars_add_hint"))));
+}
+
+// Aviso bajo la lista: cómo tener más personajes, o cómo recuperar los bloqueados
+const KOFI_URL = "https://ko-fi.com/zerosplatoon";
+function renderCharNotice(hasLocked) {
+  return el("aside", { class: "edc-char-notice" },
+    el("p", { class: "edc-char-notice-text" }, t(hasLocked ? "chars_locked_note" : "chars_upsell")),
+    el("a", { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_URL, target: "_blank", rel: "noopener noreferrer" },
+      el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }), t("kofi_btn")));
+}
+
+// Eliminar un personaje extra, con confirmación inline (sin alert/confirm nativo)
+function renderCharacterDelete(ch) {
+  const box = el("div", { class: "edc-char-del" });
+  const showAsk = () => {
+    clear(box);
+    box.append(el("button", { class: "edc-btn edc-btn-sm edc-char-del-btn", type: "button", onClick: showConfirm }, t("chars_delete")));
+  };
+  const showConfirm = () => {
+    clear(box);
+    const msg = el("p", { class: "edc-char-del-msg", id: "char-del-msg" }, t("chars_delete_confirm").replace("{name}", charName(ch)));
+    const err = el("p", { class: "edc-char-del-err", role: "alert", hidden: "" });
+    const no = el("button", { class: "edc-btn edc-btn-sm", type: "button", onClick: showAsk }, t("chars_cancel"));
+    const yes = el("button", { class: "edc-btn edc-btn-sm edc-char-del-yes", type: "button" }, t("chars_delete_yes"));
+    yes.addEventListener("click", async () => {
+      yes.disabled = no.disabled = true; err.hidden = true;
+      try {
+        await deletePlayer(ch.id, ch.slot);
+        forgetSplattagCfg(session.user.id, ch.slot, ch.id);
+        renderProbeCache.delete(probeKey(ch));
+        renderStale.delete(ch.id);
+        chars = chars.filter((c) => c !== ch);
+        activeCharId = chars[0]?.id || null; state = chars[0]?.data || null;
+        mode = "preview";
+        renderModeView();
+        window.scrollTo({ top: 0 });
+        toast(t("chars_deleted"), "ok");
+      } catch (e) {
+        console.warn("deletePlayer:", e);
+        yes.disabled = no.disabled = false;
+        err.textContent = t("chars_delete_err"); err.hidden = false;
+      }
+    });
+    box.append(el("div", { class: "edc-char-del-ask", role: "group", "aria-labelledby": "char-del-msg" },
+      msg, err, el("div", { class: "edc-char-del-actions" }, no, yes)));
+    no.focus({ preventScroll: true });
+  };
+  showAsk();
+  return box;
 }
 
 // Ficha del personaje: misma composición que la del panel de artistas (render a
@@ -618,7 +805,7 @@ function renderAddCharacterSlot() {
 // "Editar personaje" justo debajo del render.
 function renderCharacterSheet() {
   const ch = getCharacters().find((c) => c.id === activeCharId);
-  if (!ch) { mode = "preview"; renderModeView(); return; }
+  if (!ch || ch.locked || ch.isNew) { mode = "preview"; renderModeView(); return; }
   clear(appEl());
   const p = charPlayer(ch);
 
@@ -626,7 +813,8 @@ function renderCharacterSheet() {
   const side = el("div", { class: "edc-pcard-side edc-char-side" },
     renderCharacterRender(ch, note),
     el("button", { class: "edc-btn edc-btn-primary edc-char-edit", type: "button", onClick: startEdit }, t("chars_edit")),
-    note);
+    note,
+    ch.slot > 0 ? renderCharacterDelete(ch) : null);
 
   const main = el("div", { class: "edc-pcard-main" },
     el("h2", { class: "edc-pcard-name", id: "char-name", tabindex: "-1" }, charName(ch)),
@@ -653,10 +841,10 @@ function renderCharacterRender(ch, note) {
       el("span", {}, t("my_render_pending")));
   };
   paint("loading");
-  const { spin } = renderPaths(ch.userId);
+  const { spin } = renderPaths(ch.userId, ch.slot);
   return createRenderSpin({
     placeholder: ph,
-    pngUrl: probeRender(ch.userId),
+    pngUrl: probeRender(ch),
     spinUrl: spin ? getRenderUrl(spin) : null,
     onLoaded: () => {
       const stale = renderStale.has(ch.id);
@@ -679,7 +867,7 @@ function renderEditor() {
 
   // Entró con X, sin ficha previa y sin Discord vinculado: puede que ya tenga
   // ficha con Discord (otro usuario de Supabase). Aviso para evitar duplicados.
-  if (X_LOGIN_ENABLED && !hasRecord && profile?.hasX && !profile?.hasDiscord)
+  if (X_LOGIN_ENABLED && !hasRecord() && profile?.hasX && !profile?.hasDiscord)
     appEl().append(el("div", { class: "edc-card edc-notice" }, t("editor_dup_note")));
 
   // Modo variante de artista: banner de contexto + botón volver
@@ -723,10 +911,14 @@ function renderEditor() {
   const status = el("span", { class: "edc-save-status" });
   const saveBtnLabel = mode === "artist_custom" && refArtist
     ? withName(t("artist_choice_custom_save"), refArtist.name)
-    : hasRecord ? t("update_player") : t("save");
+    : isSaved(activeChar()) ? t("update_player") : t("save");
   const saveBtn = el("button", { class: "edc-btn edc-btn-primary", onClick: () => doSave(saveBtn, status) },
     saveBtnLabel);
-  const bar = el("div", { class: "edc-card", style: "padding:0" }, el("div", { class: "edc-save-bar" }, saveBtn, status));
+  // Salir sin guardar: solo si hay una lista a la que volver (no en el alta inicial ni en la variante de artista)
+  const cancelBtn = hasRecord() && mode !== "artist_custom"
+    ? el("button", { class: "edc-btn edc-char-cancel", type: "button", onClick: () => cancelEdit(cancelBtn) }, t("chars_cancel"))
+    : null;
+  const bar = el("div", { class: "edc-card", style: "padding:0" }, el("div", { class: "edc-save-bar" }, cancelBtn, saveBtn, status));
   appEl().append(bar);
 }
 
@@ -814,7 +1006,8 @@ async function doSave(btn, status) {
   // Guard anti-doble-click: si ya está guardando, ignora.
   if (btn.disabled) return;
   btn.disabled = true; status.className = "edc-save-status"; status.textContent = t("saving");
-  const isUpdate = hasRecord;            // ¿ya tenía ficha? decide el juego de frases
+  const ch = activeChar();
+  const isUpdate = isSaved(ch);          // ¿ya estaba guardado este personaje? decide el juego de frases
   // Modo variante de artista: guardar en player_artist_chars, no en players
   if (mode === "artist_custom" && state._artistVariantFor) {
     const artistId = state._artistVariantFor;
@@ -832,7 +1025,7 @@ async function doSave(btn, status) {
     const ov = renderSubmitOverlay();
     try {
       await ov.phase(P.send, 60);
-      await saveArtistVariant(artistId, state);
+      await saveArtistVariant(artistId, state, rpcPlayerId(ch));
       await ov.phase(withName(t("artist_choice_custom_saved"), artName), 100, 700);
       ov.close();
       leaveVariantMode();
@@ -869,11 +1062,16 @@ async function doSave(btn, status) {
       } catch (e) { console.warn("No se pudo generar la splattag:", e); }
     }
     await ov.phase(P.send, 62);
-    await savePlayer(state, session.user, profile);
-    if (consenting) await linkArtist(refArtist.id, state);
+    await savePlayer(state, session.user, profile, chars.map((c) => c.slot));
+    // El personaje nuevo pasa a guardado: ya tiene su players.id definitivo
+    renderProbeCache.delete(probeKey(ch));
+    if (ch.isNew) forgetSplattagCfg(session.user.id, state._slot);
+    ch.id = state._charId; ch.slot = state._slot; ch.isNew = false;
+    activeCharId = ch.id;
+    state._linksLoaded = true;
+    if (consenting) await linkArtist(refArtist.id, state, rpcPlayerId(ch));
     await ov.phase(P.reg, 88);
     if (state.banner_path) state.banner_url = getBannerUrl(state.banner_path, state.banner_sha256);
-    hasRecord = true;
     await ov.phase(P.done, 100, 620);
     ov.close();
     if (consenting) {
@@ -886,14 +1084,18 @@ async function doSave(btn, status) {
     }
     // Si cambió algo que afecta al render (o es el primer guardado), queda
     // pendiente de actualizar; la imagen anterior sigue visible mientras tanto.
-    if (!editSnapshot || editSnapshot !== JSON.stringify(pickChar(state))) renderStale.add(MAIN_CHAR_ID);
+    if (!editSnapshot || editSnapshot !== JSON.stringify(pickChar(state))) renderStale.add(ch.id);
     editSnapshot = null;
     // Vuelve a la ficha del personaje editado
-    openCharacter(MAIN_CHAR_ID);
+    openCharacter(ch.id);
   } catch (e) {
     ov.close();
-    status.className = "edc-save-status err"; status.textContent = t("save_err") + e.message;
-    toast(t("save_err") + e.message, "err");
+    // Alta por encima del tope: la BD la rechaza con 'character_limit'. Aviso
+    // inline (barra de guardado + toast), sin alert().
+    const msg = e?.code === "character_limit" ? t("chars_limit_err") : t("save_err") + e.message;
+    if (e?.code === "character_limit") resetCharacterLimit();
+    status.className = "edc-save-status err"; status.textContent = msg;
+    toast(msg, "err");
     btn.disabled = false;
   }
 }
@@ -1013,7 +1215,8 @@ async function init() {
       session = s;
       const nextId = s?.user?.id || null;
       if (nextId === prevId) return;
-      state = null; hasRecord = false; mode = "edit";
+      state = null; chars = []; mode = "edit";
+      resetCharacterLimit();
       activeCharId = null; editSnapshot = null; renderStale.clear(); renderProbeCache.clear();
       const go = () => { applyStaticI18n(); route(); };
       if (s?.user) enforceBan().then(go); else go();

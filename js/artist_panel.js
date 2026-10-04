@@ -507,7 +507,7 @@ function renderSlot(player, onLoaded) {
     const base = player.variant_render.replace(/\.(png|webp)$/i, "");
     png = renderCandidates(base);
     spin = base + "_spin.webp";
-  } else if (player?.user_id) ({ png, spin } = renderPaths(player.user_id));
+  } else if (player?.user_id) ({ png, spin } = renderPaths(player.user_id, player.slot || 0));
   return createRenderSpin({
     placeholder: ph,
     pngUrl: png ? getRenderUrlFirst(png) : null,

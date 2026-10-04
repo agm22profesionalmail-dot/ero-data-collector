@@ -369,7 +369,8 @@ export function renderAdminPanel(container, { onBack } = {}) {
           const r = await rpc("admin_ban", { p_player_id: p.id, p_reason: why });
           ov2.remove();
           // El PNG del bucket: se intenta borrar; si la sesión no tiene permiso, no pasa nada
-          if (r?.banner_path) { try { await supabase.storage.from("banners").remove([r.banner_path]); } catch { /* sin permiso */ } }
+          const bps = [...new Set((Array.isArray(r?.banner_paths) && r.banner_paths.length ? r.banner_paths : [r?.banner_path]).filter(Boolean))];
+          if (bps.length) { try { await supabase.storage.from("banners").remove(bps); } catch { /* sin permiso */ } }
           toast(ta("ban_done"), "ok");
           await reload(); showList();
         } catch (e) {
@@ -421,7 +422,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
     }
     const v = artistId ? vars.find((a) => a.artist_id === artistId)?.variant : null;
     const shown = v
-      ? { ...p, ...v, has_variant: true, variant_render: `${p.user_id}/artist/${artistId}.png` }
+      ? { ...p, ...v, has_variant: true, variant_render: `${p.user_id}/${p.slot > 0 ? `c${p.slot}/` : ""}artist/${artistId}.png` }
       : { ...p, has_variant: false };
     wrap.append(el("div", { class: "edc-pcard" },
       el("div", { class: "edc-pcard-side" },

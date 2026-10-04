@@ -184,7 +184,17 @@ function prettify(file) {
 }
 
 // ── Estado del generador (persistido en state._splattag + localStorage) ─
-const CFG_KEY = (state) => "edc_splattag_" + (state._userId || "anon");
+// Clave por PERSONAJE (players.id). Un personaje aún sin guardar usa user_id + slot.
+// Legado: la clave antigua era solo el user_id; el principal la sigue leyendo.
+const CFG_KEY = (state) => "edc_splattag_" + (state._charId || ((state._userId || "anon") + "_new" + (state._slot || 0)));
+const LEGACY_KEY = (state) => (state._slot || 0) === 0 && state._userId ? "edc_splattag_" + state._userId : null;
+const readStored = (state) => {
+  for (const k of [CFG_KEY(state), LEGACY_KEY(state)]) {
+    if (!k) continue;
+    try { const raw = localStorage.getItem(k); if (raw) return raw; } catch (e) { /* ignore */ }
+  }
+  return null;
+};
 
 function defaultGen(state) {
   // Español de España (EUes) para los títulos del splashtag, no el latinoamericano
@@ -208,7 +218,7 @@ function genState(state) {
     // DB tiene prioridad sobre localStorage (permite editar desde otro dispositivo)
     let saved = state.splattag_config || null;
     if (!saved) {
-      try { const raw = localStorage.getItem(CFG_KEY(state)); if (raw) saved = JSON.parse(raw); } catch (e) { /* ignore */ }
+      try { const raw = readStored(state); if (raw) saved = JSON.parse(raw); } catch (e) { /* ignore */ }
     }
     if (saved && saved.banner) {
       state._splattag = { ...def, ...saved, badges: Array.isArray(saved.badges) ? saved.badges.slice(0, 3) : def.badges };
@@ -224,6 +234,14 @@ function genState(state) {
   return state._splattag;
 }
 
+// Borra la config local de un personaje: la clave del alta sin guardar (`_new<slot>`)
+// y, si se pasa, la de su players.id. Tras el primer guardado correcto y al eliminarlo.
+export function forgetSplattagCfg(userId, slot = 0, charId = null) {
+  const keys = ["edc_splattag_" + (userId || "anon") + "_new" + (slot || 0)];
+  if (charId) keys.push("edc_splattag_" + charId);
+  for (const k of keys) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } }
+}
+
 function persistGen(state) {
   try { localStorage.setItem(CFG_KEY(state), JSON.stringify(state._splattag)); } catch (e) { /* ignore */ }
 }
@@ -233,7 +251,7 @@ function persistGen(state) {
 // Comprueba primero la config de DB (cross-device), luego localStorage.
 export function hasStoredSplattag(state) {
   if (state.splattag_config?.banner) return true;
-  try { const raw = localStorage.getItem(CFG_KEY(state)); return !!(raw && JSON.parse(raw)?.banner); }
+  try { const raw = readStored(state); return !!(raw && JSON.parse(raw)?.banner); }
   catch (e) { return false; }
 }
 

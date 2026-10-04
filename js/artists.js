@@ -100,17 +100,24 @@ export function needsRefConsent(artist, state) {
 // Artistas a los que el jugador ya está asociado (RLS: solo sus filas).
 // Si falla (red, tabla aún no migrada) → [] y se pide consentimiento de nuevo,
 // que es lo seguro: artist_link es idempotente.
-export async function loadLinkedArtists() {
+// `playerId` (players.id del personaje) filtra por personaje; null = sin filtro
+// (principal / esquema anterior a varios personajes).
+export async function loadLinkedArtists(playerId = null) {
   try {
-    const { data, error } = await supabase.from("player_artists").select("artist_id");
+    let q = supabase.from("player_artists").select(playerId ? "artist_id,player_id" : "artist_id");
+    if (playerId) q = q.eq("player_id", playerId);
+    const { data, error } = await q;
     if (error) { console.warn("player_artists:", error); return []; }
     return (data || []).map((r) => r.artist_id);
   } catch (e) { console.warn("player_artists:", e); return []; }
 }
 
 // Asocia al jugador con el artista (con consentimiento). No toca a los demás.
-export async function linkArtist(artistId, state) {
-  const { error } = await supabase.rpc("artist_link", { p_artist_id: artistId });
+// `playerId`: personaje a enlazar (null = principal; no se envía el parámetro).
+export async function linkArtist(artistId, state, playerId = null) {
+  const args = { p_artist_id: artistId };
+  if (playerId) args.p_player_id = playerId;
+  const { error } = await supabase.rpc("artist_link", args);
   if (error) throw error;
   if (state) state._linkedArtists = [...new Set([...(state._linkedArtists || []), artistId])];
 }
@@ -148,10 +155,11 @@ export const CHAR_FIELDS = [
 ];
 
 // Versión ya guardada del jugador para ese artista (RLS: solo las suyas) o null.
-export async function loadArtistVariant(artistId) {
+export async function loadArtistVariant(artistId, playerId = null) {
   try {
-    const { data, error } = await supabase.from("player_artist_chars")
-      .select(CHAR_FIELDS.join(",")).eq("artist_id", artistId).maybeSingle();
+    let q = supabase.from("player_artist_chars").select(CHAR_FIELDS.join(",")).eq("artist_id", artistId);
+    if (playerId) q = q.eq("player_id", playerId);
+    const { data, error } = await q.maybeSingle();
     if (error) { console.warn("player_artist_chars:", error); return null; }
     return data || null;
   } catch (e) { console.warn("player_artist_chars:", e); return null; }
@@ -161,8 +169,8 @@ export async function loadArtistVariant(artistId) {
 // específicamente para un artista. No toca la ficha principal del jugador.
 // Llama al RPC artist_save_char (migración 20260922_01/07), que además asocia
 // al jugador con ese artista.
-export async function saveArtistVariant(artistId, state) {
-  const { error } = await supabase.rpc("artist_save_char", {
+export async function saveArtistVariant(artistId, state, playerId = null) {
+  const args = {
     p_artist_id:   artistId,
     p_player_type: state.player_type,
     p_hair:        state.hair,
@@ -180,7 +188,9 @@ export async function saveArtistVariant(artistId, state) {
     p_weapon_main: state.weapon_main,
     p_anim_name:   state.anim_name,
     p_color:       state.color,
-  });
+  };
+  if (playerId) args.p_player_id = playerId;
+  const { error } = await supabase.rpc("artist_save_char", args);
   if (error) throw error;
   state._linkedArtists = [...new Set([...(state._linkedArtists || []), artistId])];
 }
