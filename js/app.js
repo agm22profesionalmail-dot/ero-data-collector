@@ -1,6 +1,7 @@
 // Orquestador de la SPA
 import { artistTermsHtml } from "./artist_terms.js";
-import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED } from "./config.js";
+import { DEFAULT_PLAYER, SPECIES, X_LOGIN_ENABLED, SHARE_OC_PUBLIC } from "./config.js";
+import { openShareDialog, shareOptsFor } from "./share_card.js";
 import { t, getLang, setLang, onLangChange } from "./i18n.js";
 import { isConfigured, supabase } from "./supabase.js";
 import {
@@ -810,9 +811,17 @@ function renderCharacterSheet() {
   const p = charPlayer(ch);
 
   const note = el("p", { class: "edc-pcard-note", hidden: "" });
+  // "Compartir OC": solo con render ya generado y, mientras sea beta, con ?sharebeta=1
+  const shareSlot = el("div", { class: "edc-char-share" });
+  if (shareEnabled()) probeRender(ch).then((url) => {
+    if (!url || activeCharId !== ch.id || mode !== "sheet") return;
+    shareSlot.append(el("button", { class: "edc-btn edc-char-sharebtn", type: "button",
+      onClick: () => openShareDialog(shareOptsFor(ch, url)) }, t("share_btn")));
+  });
   const side = el("div", { class: "edc-pcard-side edc-char-side" },
     renderCharacterRender(ch, note),
     el("button", { class: "edc-btn edc-btn-primary edc-char-edit", type: "button", onClick: startEdit }, t("chars_edit")),
+    shareSlot,
     note,
     ch.slot > 0 ? renderCharacterDelete(ch) : null);
 
@@ -826,6 +835,15 @@ function renderCharacterSheet() {
       el("button", { class: "edc-btn edc-btn-sm", type: "button", onClick: closeCharacter },
         el("span", { "aria-hidden": "true" }, "←"), " " + t("chars_back"))),
     el("div", { class: "edc-pcard" }, side, main)));
+}
+
+// "Compartir OC" visible para todos (SHARE_OC_PUBLIC) o, en pruebas, con ?sharebeta=1 (se recuerda)
+function shareEnabled() {
+  if (SHARE_OC_PUBLIC) return true;
+  try {
+    if (new URLSearchParams(location.search).get("sharebeta") === "1") localStorage.setItem("edc_sharebeta", "1");
+    return localStorage.getItem("edc_sharebeta") === "1";
+  } catch { return false; }
 }
 
 // Render 3D giratorio del personaje (<user_id>/render.webp o .png + spin.webp).

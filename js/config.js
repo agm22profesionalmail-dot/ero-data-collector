@@ -83,3 +83,7 @@ export const DEFAULT_PLAYER = {
   anim_name: "AW_BrandPoseCollectionA",
   color: { r: 0.965, g: 0.314, b: 0.996, a: 1.0 }, // #F650FE
 };
+
+// ── "Compartir OC" (tarjeta para X) ────────────────────────────────────
+// En false solo se ve con ?sharebeta=1 (se recuerda en este navegador): fase de pruebas.
+export const SHARE_OC_PUBLIC = false;

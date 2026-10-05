@@ -1387,3 +1387,17 @@ h2.edc-pcard-name { margin: 0; font-weight: 400; }
 @media (prefers-reduced-motion: reduce) {
   .edc-char-plus::before, .edc-char-plus::after, .edc-char-pick-btn { transition: none; }
 }
+
+/* ── Compartir OC ─────────────────────────────────────────────────── */
+.edc-char-share:empty { display: none; }
+.edc-char-sharebtn { width: 100%; padding: 12px 16px; font-size: .95rem; margin-top: 8px; }
+.edc-share-modal { width: 880px; }
+.edc-share-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+.edc-share-stage { aspect-ratio: 16 / 9; width: 100%; border-radius: var(--radius-md); overflow: hidden; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.edc-share-stage.is-loading { background: linear-gradient(100deg, var(--panel) 30%, #232c48 50%, var(--panel) 70%); background-size: 200% 100%; animation: edc-share-shimmer 1.4s linear infinite; }
+.edc-share-stage img { display: block; width: 100%; height: auto; }
+.edc-share-note { margin: 0; color: var(--muted); font-size: .85rem; }
+.edc-share-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@keyframes edc-share-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .edc-share-stage.is-loading { animation: none; } }
+@media (max-width: 560px) { .edc-share-actions .edc-btn { flex: 1 1 100%; } }
