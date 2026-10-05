@@ -1414,3 +1414,16 @@ h2.edc-pcard-name { margin: 0; font-weight: 400; }
   .edc-share-actions .edc-btn { transition: none; }
 }
 @media (max-width: 560px) { .edc-share-body { padding: 12px; } .edc-share-actions .edc-btn { flex: 1 1 100%; } }
+
+/* Sorteo dentro del diálogo de compartir */
+.edc-share-raffle { border-top: 1px solid var(--border); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.edc-share-raffle[hidden] { display: none; }
+.edc-share-raffle-title { margin: 0; font-size: 1rem; font-weight: 700; letter-spacing: .3px; }
+.edc-share-raffle-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.edc-share-raffle-row .edc-input { flex: 1 1 260px; min-width: 0; }
+.edc-share-raffle-row [hidden] { display: none; }
+.edc-share-raffle-msg { margin: 0; font-size: .875rem; color: var(--muted); }
+.edc-share-raffle-msg:empty { display: none; }
+.edc-share-raffle-msg[data-kind="ok"] { color: var(--ok); }
+.edc-share-raffle-msg[data-kind="err"] { color: var(--err); }
+@media (max-width: 560px) { .edc-share-raffle-row .edc-btn { flex: 1 1 100%; } }

@@ -8,6 +8,7 @@ import { t, getLang } from "./i18n.js";
 import { el, toast } from "./ui.js";
 import { R2_PUBLIC_URL, SPECIES } from "./config.js";
 import { colorToHex } from "./data.js";
+import { supabase } from "./supabase.js";
 
 export const SITE_URL = "https://eroplayerdata.pages.dev";
 const W = 1200, H = 675;
@@ -263,6 +264,42 @@ export function openShareDialog(opts) {
     msgBox);
   const currentMsg = () => msgBox.value.trim() || nextMessage("");
 
+  // Sorteo: tras publicar, pega el enlace de tu publicación y entras (1 participación por usuario)
+  const raffle = el("section", { class: "edc-share-raffle", "aria-labelledby": "raffle-title", hidden: "" });
+  const raffleIn = el("input", { class: "edc-input", id: "raffle-url", type: "url", inputmode: "url", autocomplete: "off",
+    placeholder: t("raffle_ph"), "aria-label": t("raffle_label") });
+  const raffleBtn = el("button", { class: "edc-btn edc-btn-primary", type: "button" }, t("raffle_btn"));
+  const raffleMsg = el("p", { class: "edc-share-raffle-msg", role: "status" });
+  const paintRaffle = (entry) => {
+    raffle.hidden = false;
+    raffleMsg.textContent = ""; raffleMsg.dataset.kind = "";
+    const inDraw = entry?.status === "valid", won = entry?.status === "won";
+    raffleIn.hidden = raffleBtn.hidden = won;
+    raffleBtn.textContent = inDraw ? t("raffle_change") : t("raffle_btn");
+    if (entry?.post_url) raffleIn.value = entry.post_url;
+    if (won) { raffleMsg.textContent = t("raffle_won"); raffleMsg.dataset.kind = "ok"; }
+    else if (inDraw) { raffleMsg.textContent = t("raffle_in"); raffleMsg.dataset.kind = "ok"; }
+    else if (opts.hasDiscord === false) raffleMsg.textContent = t("raffle_discord");
+  };
+  raffleBtn.addEventListener("click", async () => {
+    raffleBtn.disabled = true; raffleMsg.dataset.kind = "";
+    try {
+      const { data, error } = await supabase.rpc("share_submit", { p_url: raffleIn.value });
+      if (error) {
+        const m = String(error.message || "");
+        raffleMsg.textContent = t(/bad_url/.test(m) ? "raffle_err_url" : /handle_mismatch/.test(m) ? "raffle_err_handle"
+          : /no_character/.test(m) ? "raffle_err_char" : "raffle_err");
+        raffleMsg.dataset.kind = "err"; raffleIn.focus();
+      } else { paintRaffle({ status: data?.status || "valid", post_url: raffleIn.value.trim() }); }
+    } catch { raffleMsg.textContent = t("raffle_err"); raffleMsg.dataset.kind = "err"; }
+    finally { raffleBtn.disabled = false; }
+  });
+  raffle.append(el("h4", { class: "edc-share-raffle-title", id: "raffle-title" }, t("raffle_title")),
+    el("p", { class: "edc-share-note" }, t("raffle_desc")),
+    el("div", { class: "edc-share-raffle-row" }, raffleIn, raffleBtn), raffleMsg);
+  // Solo se muestra si el servidor tiene el sorteo desplegado (migración 20261005_01)
+  supabase.rpc("my_share_entry").then(({ data, error }) => { if (!error) paintRaffle(data); }).catch(() => {});
+
   const fileName = "oc-data-collector-" + (opts.alias || "oc").replace(/[^\w-]+/g, "_").slice(0, 30) + ".png";
   const download = () => {
     const a = el("a", { href: url, download: fileName }); document.body.append(a); a.click(); a.remove();
@@ -284,13 +321,14 @@ export function openShareDialog(opts) {
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(currentMsg())}&url=${encodeURIComponent(SITE_URL)}`,
       "_blank", "noopener");
     status.textContent = t("share_attach");
+    if (!raffle.hidden && !raffleIn.hidden) setTimeout(() => raffleIn.focus(), 400);
   });
 
   overlay.append(el("div", { class: "edc-modal edc-share-modal", role: "dialog", "aria-modal": "true", "aria-label": t("share_title") },
     el("div", { class: "edc-modal-head" }, el("h3", {}, t("share_title")),
       el("button", { class: "edc-modal-close", type: "button", "aria-label": t("share_close"), onClick: close }, "×")),
     el("div", { class: "edc-share-body" }, el("div", { class: "edc-share-shell" }, stage), msgField, status,
-      el("div", { class: "edc-share-actions" }, btnShare, btnSave, btnCopy))));
+      el("div", { class: "edc-share-actions" }, btnShare, btnSave, btnCopy), raffle)));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
   document.body.append(overlay);
@@ -309,7 +347,8 @@ export function openShareDialog(opts) {
 }
 
 // Datos de un personaje de app.js → opciones de la tarjeta
-export const shareOptsFor = (ch, renderUrl) => ({
+export const shareOptsFor = (ch, renderUrl, hasDiscord) => ({
+  hasDiscord,
   alias: ch.data.alias,
   playerType: ch.data.player_type,
   colorHex: colorToHex(ch.data.color),

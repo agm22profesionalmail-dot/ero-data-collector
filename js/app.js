@@ -814,9 +814,10 @@ function renderCharacterSheet() {
   // "Compartir OC": solo con render ya generado y para las cuentas habilitadas
   const shareSlot = el("div", { class: "edc-char-share" });
   if (shareEnabled()) probeRender(ch).then((url) => {
-    if (!url || activeCharId !== ch.id || mode !== "sheet") return;
+    // Solo con el render ya generado y al día (no tras editar el personaje)
+    if (!url || renderStale.has(ch.id) || activeCharId !== ch.id || mode !== "sheet") return;
     shareSlot.append(el("button", { class: "edc-btn edc-char-sharebtn", type: "button",
-      onClick: () => openShareDialog(shareOptsFor(ch, url)) }, t("share_btn")));
+      onClick: () => openShareDialog(shareOptsFor(ch, url, profile?.hasDiscord)) }, t("share_btn")));
   });
   const side = el("div", { class: "edc-pcard-side edc-char-side" },
     renderCharacterRender(ch, note),
