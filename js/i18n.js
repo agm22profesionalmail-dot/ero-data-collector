@@ -1,4 +1,3 @@
-// i18n EN/ES — bilingüe con selector
 const STRINGS = {
   en: {
     app_title: "OC Data Collector",
@@ -8,7 +7,6 @@ const STRINGS = {
     login_desc: "Connect your Discord account to send your character data. You can come back and edit it anytime.",
     login_btn: "Discord",
     login_privacy: "We only read your Discord username and avatar. Nothing is posted. You must be 14+.",
-    // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Connect your Discord or X account to send your character data. You can come back and edit it anytime.",
     login_btn_x: "Twitter",
     login_privacy_x: "We only read your username, avatar and account ID from Discord or X. Nothing is posted. You must be 14+.",
@@ -133,7 +131,7 @@ const STRINGS = {
     banner_current: "Banner in use",
     gen_loading: "Loading the splattag creator…",
     gen_load_err: "Could not load the creator: ",
-    gen_desc: "Build your splattag and press \"Use this banner\". It's saved as a real PNG, ready to upload.",
+    gen_desc: `Build your splattag and press "Use this banner". It's saved as a real PNG, ready to upload.`,
     gen_language: "Language (titles & font)",
     gen_banner: "Banner",
     gen_layer_colors: "Layer colors",
@@ -177,14 +175,12 @@ const STRINGS = {
     kofi_member: "Membership",
     join_discord: "Join our Discord",
     kofi_tip: "Help keep this project running",
-    // Enlace de artista (?ref) — consentimiento
     ref_kicker: "Artist link",
     ref_intro: "You're signing up through {name}. They'll be able to see your character and your Discord/X contact to make commissions for you.",
     ref_consent: "I agree to share my character and contact with {name}",
     ref_consent_required: "Tick the box to share your character with {name}.",
     ref_optional: "Optional. If you leave it unticked, your character is saved as usual and nothing is shared.",
     ref_saved: "Shared with {name}.",
-    // Solicitud de acceso de artista (?apply)
     footer_artist: "Are you an artist? Request access",
     apply_title: "Artist access",
     apply_intro: "Approved artists get a personal link to share with their clients. Players who sign up through it can choose to share their character and Discord/X contact with you. Requests are reviewed by hand.",
@@ -205,7 +201,7 @@ const STRINGS = {
     apply_email_dead: "That email can't receive mail: its domain doesn't exist or has no mail server. Please check it or use another one.",
     apply_email_suggest: "Did you mean {email}?",
     apply_email_suggest_use: "Use it",
-    apply_email_suggest_keep: "If your email is correct, press \"Send request\" again.",
+    apply_email_suggest_keep: 'If your email is correct, press "Send request" again.',
     apply_portfolio: "Portfolio (optional)",
     apply_portfolio_invalid: "Portfolio must be a valid link (https://…).",
     apply_reason: "Why do you want access? (optional)",
@@ -217,7 +213,7 @@ const STRINGS = {
     apply_submit: "Send request",
     apply_sending: "Sending…",
     apply_done_title: "Request sent",
-    apply_done: "We'll let you know by email and on Discord once it's reviewed. If the email doesn't show up, check your spam folder and mark it as \"Not spam\".",
+    apply_done: `We'll let you know by email and on Discord once it's reviewed. If the email doesn't show up, check your spam folder and mark it as "Not spam".`,
     apply_dup: "You already have a pending request.",
     apply_already_approved: "Your request is already approved. Open the artist panel with your key.",
     apply_err: "Could not send the request: ",
@@ -225,7 +221,6 @@ const STRINGS = {
     apply_back_home: "← Back",
     nav_panel: "Panel",
     nav_apply: "Apply",
-    // Reportes y sugerencias (?feedback)
     footer_feedback: "Report a bug / Suggestions",
     fb_title: "Report a bug / Suggestions",
     fb_intro: "Found something broken, or have an idea to make this better? Tell us here. Leave a way to reach you if you want us to follow up.",
@@ -245,7 +240,7 @@ const STRINGS = {
     fb_none_warn: "If you choose Nothing, we will NOT be able to contact you. That means we can't let you know whether your bug report, suggestion or message has been reviewed, fixed or implemented.",
     fb_email: "Email",
     fb_email_ph: "Where we can reply to you",
-    fb_email_suggest_keep: "If your email is correct, press \"Send\" again.",
+    fb_email_suggest_keep: 'If your email is correct, press "Send" again.',
     fb_need_discord: "Sign in with Discord so we can reply to you by direct message.",
     fb_link_discord: "Your session has no Discord account. Link Discord to use this option.",
     fb_as: "As",
@@ -266,7 +261,6 @@ const STRINGS = {
     fb_err_not_logged: "your Discord session has expired. Sign in again.",
     fb_err_rate_limited: "too many messages in a short time. Please try again in a while.",
     fb_err_server: "something went wrong on our side. Please try again later.",
-    // FAQ (colapsable en el footer, al lado del aviso legal)
     lp_faq_title: "Frequently asked",
     lp_faq_1_q: "Is this affiliated with Nintendo?",
     lp_faq_1_a: "No. This is a fan project made by the community, for the community. Splatoon, Inkling, Octoling and all related names are trademarks of Nintendo. We use them only to reference the game visually; Nintendo has neither sponsored nor endorsed this site.",
@@ -275,11 +269,11 @@ const STRINGS = {
     lp_faq_3_q: "Can I use it on mobile?",
     lp_faq_3_a: "Yes. The whole site is responsive and works on phones, tablets and desktop. The character editor and the artist panel behave the same on all sizes. The Splashtag creator (with badge slots and precise color pickers) is more comfortable on a desktop or a large tablet, but usable on mobile too.",
     lp_faq_4_q: "Can I edit my character later?",
-    lp_faq_4_a: "Yes, as many times as you want and there is no limit on changes. Sign in again with the same account (Discord or X, whichever you used first), press \"Edit my character\" and change what you want. If you already had a saved character you never have to start from scratch.",
+    lp_faq_4_a: 'Yes, as many times as you want and there is no limit on changes. Sign in again with the same account (Discord or X, whichever you used first), press "Edit my character" and change what you want. If you already had a saved character you never have to start from scratch.',
     lp_faq_5_q: "Can I have more than one character?",
     lp_faq_5_a: "Yes, but extra slots are not free for now. Every account has 1 character. A Ko-fi donation unlocks 1 extra slot (2 characters) and a monthly Ko-fi subscription unlocks 2 extra slots (3 characters). Donations only pay for better hosting and more storage. Commissions do not count: to support the site, donate on its own or become a member. You also need your Discord connected to Ko-fi and to be in the community Discord server. Each character has its own sheet, 3D render and Splashtag. If that requirement stops being met, the extra characters are kept locked (nothing is deleted) and unlock again once it is met. If an artist gives you their personal link (?ref) you can pick which character to share with them, or save a custom version just for that artist without touching your saved characters.",
     lp_faq_6_q: "What happens to my Splashtag if I edit my character?",
-    lp_faq_6_a: "It stays exactly as it was. Editing species, gear or ink color does not touch the banner. It only changes when you explicitly open the Splashtag creator and press \"Use this banner\", or when you upload a new PNG. If you delete it, your character stays but appears without a Splashtag until you add a new one.",
+    lp_faq_6_a: 'It stays exactly as it was. Editing species, gear or ink color does not touch the banner. It only changes when you explicitly open the Splashtag creator and press "Use this banner", or when you upload a new PNG. If you delete it, your character stays but appears without a Splashtag until you add a new one.',
     lp_faq_7_q: "How do I share my character with an artist?",
     lp_faq_7_a: "Every approved artist has a personal link that looks like ?ref=name. Open that link, sign in with Discord or X, and you get a short choice screen: share your saved character as-is, create a custom version just for them, or skip and save nothing. If you already have a character, sharing does not overwrite it — the artist just gets a read-only view for their commissions.",
     lp_faq_8_q: "Is my Discord data safe?",
@@ -290,7 +284,6 @@ const STRINGS = {
     lp_faq_11_a: "Yes. Your alias, Splashtag (name, title, text or images), badges and any other field must be respectful. Inappropriate, offensive, hateful, sexist, misogynistic, racist, homophobic or sexual content is not allowed, and neither are hate symbols (for example, Nazi symbols). Accounts that break these rules can have that content removed and be banned from the site without prior notice.",
     lp_faq_10_q: "How do I delete my data?",
     lp_faq_10_a: "Contact the project organiser on Discord asking for account deletion. Your character sheet, Splashtag and any custom variants shared with artists are wiped within 30 days. The account can also be unlinked from X or Discord at any time from the header while keeping the sheet, if you only want to disconnect one identity.",
-    // Choice screen — existing user visiting ?ref link
     artist_choice_title: "{name} wants your reference",
     artist_choice_intro: "You already have a character saved. Choose how you want to appear in {name}'s panel.",
     artist_choice_share: "Share my saved character",
@@ -304,11 +297,10 @@ const STRINGS = {
     artist_choice_custom_save: "Save for {name}",
     artist_choice_custom_saved: "Custom character saved for {name}.",
     artist_choice_back: "← Back",
-    // Cuenta baneada (pantalla fija tras iniciar sesión)
     banned_title: "Account banned",
     banned_desc: "This account has been banned from OC Data Collector for breaking the content rules.",
     banned_reason: "Reason:",
-    banned_appeal: "If you think this is a mistake, contact us on Discord:",
+    banned_appeal: "If you think this is a mistake, contact us on Discord:"
   },
   es: {
     app_title: "OC Data Collector",
@@ -318,7 +310,6 @@ const STRINGS = {
     login_desc: "Conecta tu cuenta de Discord para enviar los datos de tu personaje. Puedes volver y editarlo cuando quieras.",
     login_btn: "Discord",
     login_privacy: "Solo leemos tu usuario y avatar de Discord. No publicamos nada. Necesitas 14 años o más.",
-    // Variantes con X (solo se usan con X_LOGIN_ENABLED = true)
     login_desc_x: "Conecta tu cuenta de Discord o de X para enviar los datos de tu personaje. Puedes volver y editarlo cuando quieras.",
     login_btn_x: "Twitter",
     login_privacy_x: "Solo leemos tu usuario, avatar e ID de Discord o X. No publicamos nada. Necesitas 14 años o más.",
@@ -487,14 +478,12 @@ const STRINGS = {
     kofi_member: "Membresía",
     join_discord: "Únete al Discord",
     kofi_tip: "Ayuda a mantener este proyecto",
-    // Enlace de artista (?ref) — consentimiento
     ref_kicker: "Enlace de artista",
     ref_intro: "Te registras a través de {name}. Podrá ver tu personaje y tu contacto de Discord/X para hacerte comisiones.",
     ref_consent: "Acepto compartir mi personaje y contacto con {name}",
     ref_consent_required: "Marca la casilla para compartir tu personaje con {name}.",
     ref_optional: "Opcional. Si no lo marcas, tu personaje se guarda igual y no se comparte nada.",
     ref_saved: "Compartido con {name}.",
-    // Solicitud de acceso de artista (?apply)
     footer_artist: "¿Eres artista? Solicita acceso",
     apply_title: "Acceso para artistas",
     apply_intro: "Los artistas aprobados reciben un enlace personal para compartir con sus clientes. Quien se registre a través de él podrá elegir compartir contigo su personaje y su contacto de Discord/X. Las solicitudes se revisan a mano.",
@@ -535,7 +524,6 @@ const STRINGS = {
     apply_back_home: "← Volver",
     nav_panel: "Panel",
     nav_apply: "Solicitar",
-    // Reportes y sugerencias (?feedback)
     footer_feedback: "Reportar un fallo / Sugerencias",
     fb_title: "Reportar un fallo / Sugerencias",
     fb_intro: "¿Algo no funciona o tienes una idea para mejorar la web? Cuéntanoslo aquí. Deja una forma de contacto si quieres que podamos responderte.",
@@ -576,7 +564,6 @@ const STRINGS = {
     fb_err_not_logged: "tu sesión de Discord ha caducado. Vuelve a iniciar sesión.",
     fb_err_rate_limited: "demasiados mensajes en poco tiempo. Inténtalo de nuevo dentro de un rato.",
     fb_err_server: "algo ha fallado por nuestra parte. Inténtalo más tarde.",
-    // FAQ (colapsable en el footer, al lado del aviso legal)
     lp_faq_title: "Preguntas frecuentes",
     lp_faq_1_q: "¿Está afiliado con Nintendo?",
     lp_faq_1_a: "No. Es un proyecto fan hecho por la comunidad, para la comunidad. Splatoon, Inkling, Octoling y demás nombres asociados son marcas de Nintendo. Los usamos solo para referenciar visualmente el juego; Nintendo no patrocina ni respalda este sitio.",
@@ -585,11 +572,11 @@ const STRINGS = {
     lp_faq_3_q: "¿Se puede usar desde el móvil?",
     lp_faq_3_a: "Sí. Todo el sitio es responsive y funciona en móvil, tablet y ordenador. El editor de personaje y el panel de artistas se comportan igual en todos los tamaños. El creador de Splashtag (con huecos de insignia y selectores de color precisos) es más cómodo en ordenador o tablet grande, pero también se puede usar desde el móvil.",
     lp_faq_4_q: "¿Puedo editar mi personaje luego?",
-    lp_faq_4_a: "Sí, tantas veces como quieras y sin límite de cambios. Vuelve a iniciar sesión con la misma cuenta (Discord o X, la que usaste al principio), pulsa \"Editar mi personaje\" y cambia lo que quieras. Si ya tenías una ficha guardada nunca tienes que empezar de cero.",
+    lp_faq_4_a: 'Sí, tantas veces como quieras y sin límite de cambios. Vuelve a iniciar sesión con la misma cuenta (Discord o X, la que usaste al principio), pulsa "Editar mi personaje" y cambia lo que quieras. Si ya tenías una ficha guardada nunca tienes que empezar de cero.',
     lp_faq_5_q: "¿Puedo tener más de un personaje?",
     lp_faq_5_a: "Sí, pero los slots extra no son gratuitos por el momento. Cada cuenta tiene 1 personaje. Una donación en Ko-fi desbloquea 1 slot extra (2 personajes) y una suscripción mensual en Ko-fi desbloquea 2 slots extra (3 personajes). Las donaciones solo sirven para pagar un mejor alojamiento y más almacenamiento. Las comisiones no cuentan: para apoyar la web hay que donar por separado o hacerse miembro. Además necesitas tu Discord conectado a Ko-fi y estar en el servidor de Discord de la comunidad. Cada personaje tiene su propia ficha, su render 3D y su Splashtag. Si dejas de cumplir ese requisito, los personajes extra se conservan bloqueados (no se borra nada) y vuelven a estar disponibles cuando lo recuperes. Si un artista te da su enlace personal (?ref) puedes elegir qué personaje compartir con él, o guardar una versión personalizada solo para ese artista sin tocar tus personajes guardados.",
     lp_faq_6_q: "¿Qué pasa con mi Splashtag si edito el personaje?",
-    lp_faq_6_a: "Se queda exactamente como estaba. Editar especie, gear o color de tinta no toca el banner. Solo cambia si abres el creador de Splashtag y pulsas \"Usar este banner\", o si subes un PNG nuevo. Si lo borras, tu personaje se queda pero aparece sin Splashtag hasta que añadas uno nuevo.",
+    lp_faq_6_a: 'Se queda exactamente como estaba. Editar especie, gear o color de tinta no toca el banner. Solo cambia si abres el creador de Splashtag y pulsas "Usar este banner", o si subes un PNG nuevo. Si lo borras, tu personaje se queda pero aparece sin Splashtag hasta que añadas uno nuevo.',
     lp_faq_7_q: "¿Cómo comparto mi ficha con un artista?",
     lp_faq_7_a: "Cada artista aprobado tiene un enlace personal del tipo ?ref=nombre. Abres ese enlace, inicias sesión con Discord o X, y aparece una pantalla de elección corta: compartir tu personaje guardado tal cual, crear una versión personalizada solo para él, o saltarlo y no guardar nada. Si ya tenías personaje, compartir NO lo sobrescribe — el artista simplemente recibe una vista de solo lectura para sus comisiones.",
     lp_faq_8_q: "¿Mis datos de Discord están seguros?",
@@ -600,7 +587,6 @@ const STRINGS = {
     lp_faq_11_a: "Sí. Tu alias, tu Splashtag (nombre, título, textos o imágenes), tus insignias y cualquier otro campo tienen que ser respetuosos. No se permite contenido inapropiado, ofensivo, de odio, sexista, machista, racista, homófobo o sexual, ni símbolos de odio (por ejemplo, símbolos nazis). Si una cuenta incumple estas normas, podemos borrar ese contenido y banear la cuenta de la web sin previo aviso.",
     lp_faq_10_q: "¿Cómo elimino mis datos?",
     lp_faq_10_a: "Contacta con el organizador del proyecto por Discord pidiendo la eliminación de tu cuenta. Tu ficha de personaje, tu Splashtag y cualquier variante personalizada compartida con artistas se borran en 30 días. También puedes desvincular X o Discord de tu cuenta en cualquier momento desde la cabecera y conservar la ficha, si solo quieres desconectar una identidad.",
-    // Pantalla de elección — usuario registrado que visita enlace ?ref
     artist_choice_title: "{name} quiere tu referencia",
     artist_choice_intro: "Ya tienes un personaje guardado. Elige cómo quieres aparecer en el panel de {name}.",
     artist_choice_share: "Compartir mi personaje guardado",
@@ -614,22 +600,20 @@ const STRINGS = {
     artist_choice_custom_save: "Guardar para {name}",
     artist_choice_custom_saved: "Personaje guardado para {name}.",
     artist_choice_back: "← Volver",
-    // Cuenta baneada (pantalla fija tras iniciar sesión)
     banned_title: "Cuenta baneada",
     banned_desc: "Esta cuenta ha sido baneada de OC Data Collector por incumplir las normas de contenido.",
     banned_reason: "Motivo:",
-    banned_appeal: "Si crees que es un error, contacta con nosotros por Discord:",
-  },
+    banned_appeal: "Si crees que es un error, contacta con nosotros por Discord:"
+  }
 };
-
 let lang = localStorage.getItem("edc_lang") || (navigator.language.startsWith("es") ? "es" : "en");
 const listeners = [];
-
 export const getLang = () => lang;
 export const t = (key) => STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
 export const onLangChange = (cb) => listeners.push(cb);
 export function setLang(l) {
-  if (!STRINGS[l] || l === lang) return;
+  if (!STRINGS[l] || l === lang)
+    return;
   lang = l;
   localStorage.setItem("edc_lang", l);
   listeners.forEach((cb) => cb(l));

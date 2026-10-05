@@ -1,16 +1,8 @@
-// Términos y condiciones del programa beta de artistas (OC Data Collector).
-// Se muestran en el formulario de solicitud (?apply), que exige aceptarlos, y
-// en el pie de la web para cualquiera. La versión aceptada se guarda en
-// artists.terms_version (migración 20260922_05); si el texto cambia de forma
-// sustancial, sube ARTIST_TERMS_VERSION para que quede constancia de qué
-// versión aceptó cada artista.
-
 export const ARTIST_TERMS_VERSION = "v1-2026-09-22";
-
 const CREDIT = "Character sheet &amp; 3D render: OC Data Collector by @_ZeroSplat";
-
 export function artistTermsHtml(lang) {
-  if (lang === "es") return `
+  if (lang === "es")
+    return `
 <p class="edc-terms-meta">Versión 1 · 22 de septiembre de 2026</p>
 <p>Al solicitar acceso al programa beta de artistas aceptas estas condiciones. El acceso a la beta es gratuito.</p>
 <ol class="edc-terms-list">
