@@ -71,17 +71,16 @@ supabase/
   migrations/         Incremental migrations (run in order)
   functions/          Edge Functions
 .github/workflows/    Cloudflare Pages deploy and keep-alive
-SETUP.md              Self-hosting guide
 ```
 
 ## Self-hosting
 
 The site is fully static. To run your own copy:
 
-1. Follow **[SETUP.md](SETUP.md)**: create a Supabase project, enable Discord (and optionally X) sign-in, run `supabase/schema.sql` and the files in `supabase/migrations/` in order.
+1. Create a Supabase project, enable Discord (and optionally X) sign-in, run `supabase/schema.sql` and the files in `supabase/migrations/` in order.
 2. Fill in `js/config.js` with your `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 3. Deploy the folder to any static host. This repo deploys to **Cloudflare Pages** on every push to `main` (`.github/workflows/deploy-cloudflare.yml`, needs a `CLOUDFLARE_API_TOKEN` secret).
-4. Add your public URL as **Site URL** and **Redirect URL** in Supabase → Authentication → URL Configuration.
+4. Add your public URL as **Site URL** and **Redirect URL** in Supabase Authentication, URL Configuration.
 
 Supabase's free tier pauses inactive projects after 7 days; `.github/workflows/keepalive.yml` pings it weekly (secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`).
 
