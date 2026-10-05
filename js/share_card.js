@@ -12,7 +12,8 @@ import { colorToHex } from "./data.js";
 export const SITE_URL = "https://eroplayerdata.pages.dev";
 const W = 1200, H = 675;
 const ASSET = (p) => new URL(`../assets/${p}`, import.meta.url).href;
-const ACCENT = "#8b5cff";
+const ACCENT = "#8b5cff";      // acento de marca (splat de respaldo)
+const ACCENT_BTN = "#6b3df2";  // mismo morado, más profundo: texto blanco con contraste AA
 
 // ── Utilidades de color ───────────────────────────────────────────────
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -104,21 +105,25 @@ export async function buildShareCard(opts) {
   glow.addColorStop(0, ink.splat + "55"); glow.addColorStop(1, "#0b0e1a00");
   g.fillStyle = glow; g.fillRect(0, 0, W, H);
 
-  // Recuadro del render: el render se dibuja ENTERO (marca de agua incluida) dentro de un
-  // marco 4:5 con el splat de tinta de fondo, ligeramente inclinado. Así la marca se
-  // conserva y no interfiere con el resto del diseño.
-  const PW = 448, PH = Math.round(PW * ren.height / ren.width), PX = 700, PY = Math.round((H - PH) / 2), R = 28;
+  // Render en marco doble (carcasa + núcleo, radios concéntricos). El render se dibuja ENTERO,
+  // marca de agua incluida, así que la marca se conserva sin invadir el resto del diseño.
+  const PW = 432, PH = Math.round(PW * ren.height / ren.width), PAD = 12, R_IN = 28, R_OUT = R_IN + PAD;
+  const CX = 924, CY = H / 2;
+  const shade = mix(ink.splat, "#05070f", 0.8);   // sombra teñida con la tinta, no negro puro
   g.globalAlpha = 0.9;
-  g.drawImage(star, 640, 34, 90, 90);
-  g.drawImage(star, 1112, 548, 66, 66);
+  g.drawImage(star, 640, 34, 84, 84);
+  g.drawImage(star, 1116, 560, 60, 60);
   g.globalAlpha = 1;
   g.save();
-  g.translate(PX + PW / 2, PY + PH / 2); g.rotate(0.035);
-  g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 36; g.shadowOffsetY = 14;
-  g.fillStyle = "#0f1426"; roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.fill();
+  g.translate(CX, CY); g.rotate(0.03);
+  const OW = PW + PAD * 2, OH = PH + PAD * 2;
+  g.shadowColor = shade + "d9"; g.shadowBlur = 40; g.shadowOffsetY = 16;
+  g.fillStyle = "rgba(255,255,255,.07)"; roundRect(g, -OW / 2, -OH / 2, OW, OH, R_OUT); g.fill();
   g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+  g.lineWidth = 2; g.strokeStyle = "rgba(255,255,255,.18)"; roundRect(g, -OW / 2 + 1, -OH / 2 + 1, OW - 2, OH - 2, R_OUT); g.stroke();
+  g.fillStyle = "#0f1426"; roundRect(g, -PW / 2, -PH / 2, PW, PH, R_IN); g.fill();
   g.save();
-  roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.clip();
+  roundRect(g, -PW / 2, -PH / 2, PW, PH, R_IN); g.clip();
   const pg = g.createRadialGradient(0, 0, 20, 0, 0, PH * 0.7);
   pg.addColorStop(0, ink.splat + "66"); pg.addColorStop(1, "#0f142600");
   g.fillStyle = pg; g.fillRect(-PW / 2, -PH / 2, PW, PH);
@@ -126,52 +131,53 @@ export async function buildShareCard(opts) {
   g.drawImage(tinted(splat, ink.splat, sw, sh), -sw / 2, -sh / 2 + 6);
   g.drawImage(ren, -PW / 2, -PH / 2, PW, PH);
   g.restore();
-  g.lineWidth = 5; g.strokeStyle = ink.text; roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.stroke();
+  g.lineWidth = 4; g.strokeStyle = ink.text; roundRect(g, -PW / 2, -PH / 2, PW, PH, R_IN); g.stroke();
   g.restore();
 
-  // Columna izquierda
+  // Columna izquierda (ritmo de 8 px)
   const X = 64;
   g.save(); g.beginPath(); g.arc(X + 28, 74, 28, 0, Math.PI * 2); g.clip();
   g.drawImage(logo, X, 46, 56, 56); g.restore();
   g.fillStyle = "#eaf0ff"; g.textBaseline = "alphabetic";
-  g.font = `24px ${TEXT}`; g.fillText("OC DATA COLLECTOR", X + 72, 83);
+  g.font = `26px ${TEXT}`; g.fillText("OC DATA COLLECTOR", X + 72, 83);
 
-  g.fillStyle = "#ffffff"; fitText(g, c.l1, 590, 60, TITLE, 34); g.fillText(c.l1, X, 168);
-  g.fillStyle = ink.text; fitText(g, c.l2, 590, 100, TITLE, 40); g.fillText(c.l2, X, 262);
-  g.fillStyle = "#93a0c4"; g.font = `27px ${TEXT}`; g.fillText(c.sub, X, 306);
+  g.fillStyle = "#ffffff"; fitText(g, c.l1, 600, 60, TITLE, 34); g.fillText(c.l1, X, 176);
+  g.fillStyle = ink.text; fitText(g, c.l2, 600, 100, TITLE, 40); g.fillText(c.l2, X, 266);
+  g.fillStyle = "#a9b4d6"; g.font = `30px ${TEXT}`; g.fillText(c.sub, X, 312);
 
-  // Placa con el alias, con barra del color de tinta
+  // Placa: alias + especie y color de tinta, con barra del color de tinta
   const alias = (opts.alias || "").trim() || "OC";
-  fitText(g, alias, 470, 40, TEXT, 24);
-  const aw = Math.min(520, Math.max(220, g.measureText(alias).width + 64));
-  g.fillStyle = "rgba(26,33,56,.92)"; roundRect(g, X, 328, aw, 64, 16); g.fill();
-  g.fillStyle = ink.text; roundRect(g, X, 328, 12, 64, 6); g.fill();
-  g.fillStyle = "#ffffff"; g.fillText(alias, X + 32, 328 + 44);
+  const sp = SPECIES[opts.playerType] || SPECIES[0];
+  const meta = `${t(sp.species)} / ${sp.male ? t("boy") : t("girl")}`.toUpperCase();
+  fitText(g, alias, 480, 40, TEXT, 24);
+  const aliasW = g.measureText(alias).width;
+  g.font = `22px ${TEXT}`; const metaW = g.measureText(meta).width + 34;
+  const PLW = Math.min(560, Math.max(300, Math.max(aliasW, metaW) + 64)), PLY = 336, PLH = 96;
+  g.save();
+  g.shadowColor = shade + "99"; g.shadowBlur = 24; g.shadowOffsetY = 8;
+  g.fillStyle = "rgba(26,33,56,.94)"; roundRect(g, X, PLY, PLW, PLH, 20); g.fill();
+  g.restore();
+  g.lineWidth = 1.5; g.strokeStyle = "rgba(255,255,255,.12)"; roundRect(g, X + .75, PLY + .75, PLW - 1.5, PLH - 1.5, 20); g.stroke();
+  g.fillStyle = ink.text; roundRect(g, X + 14, PLY + 18, 8, PLH - 36, 4); g.fill();
+  fitText(g, alias, 480, 40, TEXT, 24);
+  g.fillStyle = "#ffffff"; g.fillText(alias, X + 40, PLY + 46);
+  g.fillStyle = opts.colorHex; g.beginPath(); g.arc(X + 50, PLY + 74, 9, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 2; g.strokeStyle = "rgba(255,255,255,.7)"; g.stroke();
+  g.fillStyle = "#a9b4d6"; g.font = `22px ${TEXT}`; g.fillText(meta, X + 70, PLY + 81);
 
   // Splattag del jugador (si tiene)
-  let y = 412;
   if (ban) {
-    const bw = Math.min(420, 112 * ban.width / ban.height), bh = bw * ban.height / ban.width;
-    g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 16; g.shadowOffsetY = 6;
-    g.drawImage(ban, X, y, bw, bh);
-    g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
-    y += bh + 18;
+    const by = PLY + PLH + 20, bw = Math.min(440, 112 * ban.width / ban.height), bh = bw * ban.height / ban.width;
+    g.save();
+    g.shadowColor = shade + "b3"; g.shadowBlur = 20; g.shadowOffsetY = 8;
+    g.drawImage(ban, X, by, bw, bh);
+    g.restore();
   }
 
-  // Especie + color de tinta
-  const sp = SPECIES[opts.playerType] || SPECIES[0];
-  const spText = `${t(sp.species)} · ${sp.male ? t("boy") : t("girl")}`.toUpperCase();
-  g.font = `24px ${TEXT}`;
-  const tw = g.measureText(spText).width + 70;
-  g.fillStyle = "rgba(255,255,255,.08)"; roundRect(g, X, y, tw, 44, 22); g.fill();
-  g.fillStyle = opts.colorHex; g.beginPath(); g.arc(X + 26, y + 22, 11, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 2; g.stroke();
-  g.fillStyle = "#eaf0ff"; g.fillText(spText, X + 48, y + 31);
-
   // Pie: llamada a la acción + dirección
-  g.fillStyle = ACCENT; roundRect(g, X, H - 78, 214, 46, 23); g.fill();
-  g.fillStyle = "#ffffff"; g.font = `24px ${TEXT}`; g.fillText(c.cta, X + 24, H - 47);
-  g.fillStyle = "#eaf0ff"; g.font = `26px ${TEXT}`; g.fillText(SITE_URL.replace("https://", ""), X + 236, H - 46);
+  g.fillStyle = ACCENT_BTN; roundRect(g, X, H - 86, 230, 50, 25); g.fill();
+  g.fillStyle = "#ffffff"; g.font = `26px ${TEXT}`; g.fillText(c.cta, X + 26, H - 52);
+  g.fillStyle = "#eaf0ff"; g.font = `28px ${TEXT}`; g.fillText(SITE_URL.replace("https://", ""), X + 254, H - 51);
 
   return cv;
 }
@@ -217,7 +223,7 @@ export function openShareDialog(opts) {
   overlay.append(el("div", { class: "edc-modal edc-share-modal", role: "dialog", "aria-modal": "true", "aria-label": t("share_title") },
     el("div", { class: "edc-modal-head" }, el("h3", {}, t("share_title")),
       el("button", { class: "edc-modal-close", type: "button", "aria-label": t("share_close"), onClick: close }, "×")),
-    el("div", { class: "edc-share-body" }, stage, status,
+    el("div", { class: "edc-share-body" }, el("div", { class: "edc-share-shell" }, stage), status,
       el("div", { class: "edc-share-actions" }, btnShare, btnSave, btnCopy))));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
