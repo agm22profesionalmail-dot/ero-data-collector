@@ -13,7 +13,6 @@ export const SITE_URL = "https://eroplayerdata.pages.dev";
 const W = 1200, H = 675;
 const ASSET = (p) => new URL(`../assets/${p}`, import.meta.url).href;
 const ACCENT = "#8b5cff";      // acento de marca (splat de respaldo)
-const ACCENT_BTN = "#6b3df2";  // mismo morado, más profundo: texto blanco con contraste AA
 
 // ── Utilidades de color ───────────────────────────────────────────────
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -174,10 +173,18 @@ export async function buildShareCard(opts) {
     g.restore();
   }
 
-  // Pie: llamada a la acción + dirección
-  g.fillStyle = ACCENT_BTN; roundRect(g, X, H - 86, 230, 50, 25); g.fill();
-  g.fillStyle = "#ffffff"; g.font = `26px ${TEXT}`; g.fillText(c.cta, X + 26, H - 52);
-  g.fillStyle = "#eaf0ff"; g.font = `28px ${TEXT}`; g.fillText(SITE_URL.replace("https://", ""), X + 254, H - 51);
+  // Pie sin cápsula: estrella + llamada a la acción + filete + dirección, centrados en una misma línea
+  const FY = H - 58;                       // eje vertical común
+  g.textBaseline = "middle";
+  g.drawImage(star, X - 6, FY - 28, 56, 56);
+  g.fillStyle = ink.text; g.font = `32px ${TITLE}`;
+  const ctaW = g.measureText(c.cta).width;
+  g.fillText(c.cta, X + 56, FY + 1);
+  const sepX = X + 56 + ctaW + 24;
+  g.fillStyle = "rgba(255,255,255,.22)"; g.fillRect(sepX, FY - 18, 2, 36);
+  g.fillStyle = "#eaf0ff"; g.font = `28px ${TEXT}`;
+  g.fillText(SITE_URL.replace("https://", ""), sepX + 26, FY + 1);
+  g.textBaseline = "alphabetic";
 
   return cv;
 }
