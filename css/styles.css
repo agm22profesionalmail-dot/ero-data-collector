@@ -1398,6 +1398,10 @@ h2.edc-pcard-name { margin: 0; font-weight: 400; }
 .edc-share-stage { aspect-ratio: 16 / 9; width: 100%; border-radius: 12px; overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .edc-share-stage.is-loading { background: linear-gradient(100deg, var(--panel) 30%, #232c48 50%, var(--panel) 70%); background-size: 200% 100%; animation: edc-share-shimmer 1.4s linear infinite; }
 .edc-share-stage img { display: block; width: 100%; height: auto; animation: edc-share-in .45s var(--ease-out-strong) both; }
+.edc-share-field { display: flex; flex-direction: column; gap: 8px; }
+.edc-share-fieldhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.edc-share-fieldhead .edc-label { margin: 0; }
+.edc-share-msg { width: 100%; resize: vertical; min-height: 84px; line-height: 1.5; font-size: .95rem; }
 .edc-share-note { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; max-width: 65ch; }
 .edc-share-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .edc-share-actions .edc-btn { transition: transform .18s var(--ease-out), background-color .18s var(--ease-out), border-color .18s var(--ease-out); }

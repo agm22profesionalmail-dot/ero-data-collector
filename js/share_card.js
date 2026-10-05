@@ -66,13 +66,63 @@ function fitText(g, text, maxW, size, family, min = 22) {
 
 // ── Textos (EN / ES) ──────────────────────────────────────────────────
 const COPY = {
-  en: { l1: "I JUST REGISTERED", l2: "MY OC!", sub: "in the OC Data Collector", cta: "MAKE YOURS",
-        tweet: "I just registered my OC in the OC Data Collector. This is my 3D render, make yours:" },
-  es: { l1: "YA HE REGISTRADO", l2: "¡MI OC!", sub: "en el OC Data Collector", cta: "HAZ EL TUYO",
-        tweet: "Acabo de registrar mi OC en el OC Data Collector. Este es mi render 3D, haz el tuyo:" },
+  en: { l1: "I JUST REGISTERED", l2: "MY OC!", sub: "in the OC Data Collector", cta: "MAKE YOURS" },
+  es: { l1: "YA HE REGISTRADO", l2: "¡MI OC!", sub: "en el OC Data Collector", cta: "HAZ EL TUYO" },
 };
 const copy = () => COPY[getLang()] || COPY.en;
-export const shareText = () => `${copy().tweet} ${SITE_URL}`;
+
+// Mensajes para publicar (sin URL: se añade aparte). Neutros en especie y género.
+export const MESSAGES = {
+  en: [
+    "I just registered my OC in the OC Data Collector. This is my 3D render, make yours:",
+    "My OC finally has a 3D render. Go get yours:",
+    "Registered my OC in the OC Data Collector. Not bad for a couple of clicks. Your turn:",
+    "Tell me this isn't a good-looking OC. Now go register yours:",
+    "Plot twist: my OC has a 3D model now. Make yours here:",
+    "My OC just got its own card. Come get yours:",
+    "Found a site that renders your Splatoon OC in 3D. Of course I tried it:",
+    "OC registered, render ready. What does yours look like?",
+    "Two minutes and my OC has a 3D render. Show me yours:",
+    "This is my OC, rendered in 3D by the OC Data Collector. Make yours and show me:",
+    "My OC, but now with a 3D render and a splattag. Register yours:",
+    "Inkopolis, meet my OC. Make yours and let's compare:",
+    "My OC is official now. Yours deserves a render too:",
+    "Who else has an OC? Register it and get a free 3D render:",
+    "Gave my OC a 3D render. Looks ready for a Splatfest:",
+    "OC check: registered, rendered, ready. Yours?",
+    "New profile pic material: my OC in 3D. Make yours:",
+    "I registered my OC and got this render. Drop yours below:",
+  ],
+  es: [
+    "Acabo de registrar mi OC en el OC Data Collector. Este es mi render 3D, haz el tuyo:",
+    "Mi OC por fin tiene render 3D. Ve a por el tuyo:",
+    "He registrado mi OC en el OC Data Collector. No está mal para un par de clics. Te toca:",
+    "Decidme que mi OC no queda genial. Y ahora registrad el vuestro:",
+    "Giro de guion: mi OC ya tiene modelo 3D. Haz el tuyo aquí:",
+    "Mi OC acaba de conseguir su propia tarjeta. Ven a por la tuya:",
+    "He encontrado una web que renderiza tu OC de Splatoon en 3D. Claro que la he probado:",
+    "OC registrado, render listo. ¿Cómo es el tuyo?",
+    "Dos minutos y mi OC ya tiene render 3D. Enséñame el tuyo:",
+    "Este es mi OC renderizado en 3D por el OC Data Collector. Haz el tuyo y enséñamelo:",
+    "Mi OC, pero ahora con render 3D y splattag. Registra el tuyo:",
+    "Inkopolis, os presento a mi OC. Haced el vuestro y comparamos:",
+    "Mi OC ya es oficial. El tuyo también merece un render:",
+    "¿Quién más tiene un OC? Regístralo y te sale un render 3D gratis:",
+    "Le he hecho un render 3D a mi OC. Parece listo para un Splatfest:",
+    "Revisión de OC: registrado, renderizado y listo. ¿Y el tuyo?",
+    "Material de foto de perfil: mi OC en 3D. Haz el tuyo:",
+    "He registrado mi OC y me ha salido este render. Poned el vuestro en los comentarios:",
+  ],
+};
+const pool = () => MESSAGES[getLang()] || MESSAGES.en;
+// Siguiente mensaje al azar sin repetir el actual
+export function nextMessage(current) {
+  const p = pool();
+  if (p.length < 2) return p[0];
+  let m; do { m = p[Math.floor(Math.random() * p.length)]; } while (m === current);
+  return m;
+}
+export const shareText = (msg) => `${msg} ${SITE_URL}`;
 
 // ── La tarjeta ────────────────────────────────────────────────────────
 // opts: { alias, playerType, colorHex, renderUrl (R2), bannerUrl (R2 | null) }
@@ -203,6 +253,15 @@ export function openShareDialog(opts) {
   const btnShare = el("button", { class: "edc-btn edc-btn-primary", type: "button", disabled: "" }, t("share_x"));
   const btnSave = el("button", { class: "edc-btn", type: "button", disabled: "" }, t("share_download"));
   const btnCopy = el("button", { class: "edc-btn edc-btn-link", type: "button" }, t("share_copy_text"));
+  // Mensaje editable + otro al azar (la URL se añade sola al publicar)
+  const msgBox = el("textarea", { class: "edc-input edc-share-msg", id: "share-msg", rows: "3", maxlength: "240" });
+  msgBox.value = nextMessage("");
+  const btnNext = el("button", { class: "edc-btn edc-btn-sm", type: "button", onClick: () => { msgBox.value = nextMessage(msgBox.value); } }, t("share_another"));
+  const msgField = el("div", { class: "edc-share-field" },
+    el("div", { class: "edc-share-fieldhead" },
+      el("label", { class: "edc-label", for: "share-msg" }, t("share_msg_label")), btnNext),
+    msgBox);
+  const currentMsg = () => msgBox.value.trim() || nextMessage("");
 
   const fileName = "oc-data-collector-" + (opts.alias || "oc").replace(/[^\w-]+/g, "_").slice(0, 30) + ".png";
   const download = () => {
@@ -210,19 +269,19 @@ export function openShareDialog(opts) {
   };
   btnSave.addEventListener("click", download);
   btnCopy.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(shareText()); toast(t("share_copied"), "ok"); }
+    try { await navigator.clipboard.writeText(shareText(currentMsg())); toast(t("share_copied"), "ok"); }
     catch { toast(t("share_copy_err"), "err"); }
   });
   btnShare.addEventListener("click", async () => {
     const file = blob && new File([blob], fileName, { type: "image/png" });
     // Móvil y navegadores con Web Share de ficheros: la imagen va ya adjunta
     if (file && navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], text: shareText() }); return; }
+      try { await navigator.share({ files: [file], text: shareText(currentMsg()) }); return; }
       catch (e) { if (e?.name === "AbortError") return; }
     }
     // Escritorio: X no admite imagen por enlace → se descarga y se abre el tweet escrito
     download();
-    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(copy().tweet)}&url=${encodeURIComponent(SITE_URL)}`,
+    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(currentMsg())}&url=${encodeURIComponent(SITE_URL)}`,
       "_blank", "noopener");
     status.textContent = t("share_attach");
   });
@@ -230,7 +289,7 @@ export function openShareDialog(opts) {
   overlay.append(el("div", { class: "edc-modal edc-share-modal", role: "dialog", "aria-modal": "true", "aria-label": t("share_title") },
     el("div", { class: "edc-modal-head" }, el("h3", {}, t("share_title")),
       el("button", { class: "edc-modal-close", type: "button", "aria-label": t("share_close"), onClick: close }, "×")),
-    el("div", { class: "edc-share-body" }, el("div", { class: "edc-share-shell" }, stage), status,
+    el("div", { class: "edc-share-body" }, el("div", { class: "edc-share-shell" }, stage), msgField, status,
       el("div", { class: "edc-share-actions" }, btnShare, btnSave, btnCopy))));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", esc);
