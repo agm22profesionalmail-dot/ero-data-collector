@@ -286,6 +286,7 @@ function renderFooter() {
     !isFeedbackRoute() && el("button", { class: "edc-footer-link", onClick: openFeedback }, t("footer_feedback"))
   ));
   f.append(el("div", { class: "edc-legal-line" }, t("legal_disclaimer")));
+  f.append(el("div", { class: "edc-legal-line" }, t("ai_notice")));
   const d = el("details", { class: "edc-legal" });
   d.append(el("summary", {}, t("legal_title")));
   d.append(el("div", { class: "edc-help-body", html: legalHtml(getLang()) }));
@@ -958,8 +959,7 @@ function renderCharacterSheet() {
       el(
         "button",
         { class: "edc-btn edc-btn-sm", type: "button", onClick: closeCharacter },
-        el("span", { "aria-hidden": "true" }, "←"),
-        " " + t("chars_back")
+        t("chars_back")
       )
     ),
     el("div", { class: "edc-pcard" }, side, main)
@@ -1513,15 +1513,15 @@ function legalHtml(lang) {
 <h4>Datos que recogemos</h4>
 <p>Al conectar tu Discord guardamos lo siguiente:</p>
 <ul>
-  <li><b>Nombre de usuario y avatar de Discord</b> — para identificarte en la comunidad.</li>
-  <li><b>Configuración de personaje</b> — especie, género, skin, equipamiento, color de tinta y alias que eliges en el formulario.</li>
-  <li><b>Banner (PNG)</b> — generado con el creador integrado.</li>
-  <li><b>Configuración del generador de Splattag</b> — si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración.</li>
+  <li><b>Nombre de usuario y avatar de Discord</b> - para identificarte en la comunidad.</li>
+  <li><b>Configuración de personaje</b> - especie, género, skin, equipamiento, color de tinta y alias que eliges en el formulario.</li>
+  <li><b>Banner (PNG)</b> - generado con el creador integrado.</li>
+  <li><b>Configuración del generador de Splattag</b> - si usaste el creador integrado, guardamos también los ajustes del diseño (banner elegido, nombre, título, insignias…) para que puedas editarlos más adelante sin perder tu configuración.</li>
 </ul>
 ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de X, guardamos en tu ficha únicamente tu nombre de usuario (@), tu nombre público, tu avatar y el identificador numérico de la cuenta, con el mismo fin de identificarte en la comunidad. X también nos facilita tu dirección de email confirmada, que gestiona exclusivamente el sistema de autenticación (Supabase Auth) para identificar tu cuenta; no se guarda en la ficha ni se usa para enviarte comunicaciones. La pantalla de autorización de X solicita lectura de publicaciones y acceso sin conexión porque X lo exige técnicamente para el inicio de sesión: no leemos tus publicaciones, seguidores ni mensajes, y no publicamos nada en tu nombre. Puedes desvincular X en cualquier momento desde la cabecera del sitio (siempre que tengas otra cuenta vinculada).</p>` : ""}
 <p><b>Finalidad:</b> preparar contenido y fotos para eventos de la comunidad. No se venden ni ceden datos a terceros con fines publicitarios.</p>
-<p><b>Enlaces de artistas (opcional):</b> algunos artistas de la comunidad tienen un enlace personal (URL con <code>?ref=</code>). Si te registras a través de uno de esos enlaces y marcas la casilla de consentimiento, autorizas expresamente a ese artista concreto —el que aparece con nombre en la casilla— a ver dentro de un panel privado tu configuración de personaje (especie, género, piel, ojos, peinado, cejas, gear, color de tinta y alias), tu banner y tu contacto (nombre de usuario y avatar de Discord${X ? ", y —si la vinculaste— tu @ de X" : ""}). Se trata de material de referencia visual para poder dibujarte o hacerte comisiones: el panel no permite descargar tu fichero de configuración ni los datos en bruto (muestra las opciones elegidas como referencia visual, nunca el arma ni la animación). El consentimiento es voluntario; si no marcas la casilla, tu personaje se guarda igual y no se comparte con nadie. Puedes retirar el consentimiento en cualquier momento contactando con el organizador por Discord y desasociaremos tu ficha de ese artista.</p>
-<p><b>Normas de contenido:</b> todo lo que añadas a la web —alias, Splashtag (nombre, título, textos o imágenes), insignias o cualquier otro campo— tiene que ser respetuoso. No se permite contenido inapropiado, ofensivo, de odio, sexista, machista, racista, homófobo o sexual, ni símbolos de odio (por ejemplo, símbolos nazis). Si una cuenta incumple estas normas, podemos borrar ese contenido y <b>banear la cuenta de la web</b> sin previo aviso.</p>
+<p><b>Enlaces de artistas (opcional):</b> algunos artistas de la comunidad tienen un enlace personal (URL con <code>?ref=</code>). Si te registras a través de uno de esos enlaces y marcas la casilla de consentimiento, autorizas expresamente a ese artista concreto, el que aparece con nombre en la casilla, a ver dentro de un panel privado tu configuración de personaje (especie, género, piel, ojos, peinado, cejas, gear, color de tinta y alias), tu banner y tu contacto (nombre de usuario y avatar de Discord${X ? ", y, si la vinculaste, tu @ de X" : ""}). Se trata de material de referencia visual para poder dibujarte o hacerte comisiones: el panel no permite descargar tu fichero de configuración ni los datos en bruto (muestra las opciones elegidas como referencia visual, nunca el arma ni la animación). El consentimiento es voluntario; si no marcas la casilla, tu personaje se guarda igual y no se comparte con nadie. Puedes retirar el consentimiento en cualquier momento contactando con el organizador por Discord y desasociaremos tu ficha de ese artista.</p>
+<p><b>Normas de contenido:</b> todo lo que añadas a la web, alias, Splashtag (nombre, título, textos o imágenes), insignias o cualquier otro campo, tiene que ser respetuoso. No se permite contenido inapropiado, ofensivo, de odio, sexista, machista, racista, homófobo o sexual, ni símbolos de odio (por ejemplo, símbolos nazis). Si una cuenta incumple estas normas, podemos borrar ese contenido y <b>banear la cuenta de la web</b> sin previo aviso.</p>
 <p><b>Edad mínima:</b> debes tener al menos 14 años para usar este servicio. Si eres menor de 14 años, necesitas el consentimiento de tu padre, madre o tutor legal.</p>
 <p><b>Tus derechos:</b> puedes consultar, modificar o vaciar tu ficha en cualquier momento volviendo a entrar con ${X ? "tu cuenta de Discord o X" : "tu Discord"}. Para eliminar todos tus datos por completo, contacta con el organizador por Discord. Responderemos a solicitudes de acceso, rectificación o supresión en un plazo máximo de 30 días.</p>
 <p><b>Conservación:</b> tus datos se mantienen mientras haya eventos de comunidad activos o hasta que solicites su eliminación.</p>
@@ -1529,15 +1529,15 @@ ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de
 <h4>Créditos</h4>
 <p>El creador de splattags está basado en el proyecto de código abierto <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), licencia GPL-3.0. Todo el mérito es de sus autores:</p>
 <ul>
-  <li><b>seymour</b> (@spaghettitron) — creador de la web original</li>
-  <li><b>LeanYoshi</b> — base de datos de Splatoon</li>
-  <li><b>Raven_The_Cute</b> — traducciones</li>
-  <li><b>DeadLineSMB</b> — banners Splatband</li>
-  <li><b>ElectroDev</b> — banners de armas especiales</li>
-  <li><b>Lucyfer</b> — banners Pride</li>
-  <li><b>mya</b> — banners Grandfest</li>
-  <li><b>Zeeto</b> — badges de bandas</li>
-  <li><b>Sharkinodraws</b> — badges de huevos de Salmon Run</li>
+  <li><b>seymour</b> (@spaghettitron) - creador de la web original</li>
+  <li><b>LeanYoshi</b> - base de datos de Splatoon</li>
+  <li><b>Raven_The_Cute</b> - traducciones</li>
+  <li><b>DeadLineSMB</b> - banners Splatband</li>
+  <li><b>ElectroDev</b> - banners de armas especiales</li>
+  <li><b>Lucyfer</b> - banners Pride</li>
+  <li><b>mya</b> - banners Grandfest</li>
+  <li><b>Zeeto</b> - badges de bandas</li>
+  <li><b>Sharkinodraws</b> - badges de huevos de Salmon Run</li>
 </ul>
 <p>Los datos e imágenes del juego (configurador de personaje) se cargan desde <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
 <p>Los renders 3D de los personajes se generan con <a href="https://github.com/nvnprogram/HoianViewer" target="_blank" rel="noopener">HoianViewer</a>, de <b>nvnprogram</b>.</p>
@@ -1548,15 +1548,15 @@ ${X ? `<p><b>Cuenta de X (opcional):</b> si entras con X o vinculas tu cuenta de
 <h4>Data we collect</h4>
 <p>When you connect your Discord, we store the following:</p>
 <ul>
-  <li><b>Discord username and avatar</b> — to identify you within the community.</li>
-  <li><b>Character configuration</b> — species, gender, skin tone, gear, ink color and alias you set in the form.</li>
-  <li><b>Banner (PNG)</b> — generated with the built-in creator.</li>
-  <li><b>Splattag generator settings</b> — if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration.</li>
+  <li><b>Discord username and avatar</b> - to identify you within the community.</li>
+  <li><b>Character configuration</b> - species, gender, skin tone, gear, ink color and alias you set in the form.</li>
+  <li><b>Banner (PNG)</b> - generated with the built-in creator.</li>
+  <li><b>Splattag generator settings</b> - if you used the built-in creator, we also save your design settings (chosen banner, name, title, badges…) so you can edit them later without losing your configuration.</li>
 </ul>
 ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X account, your sheet only stores your username (@), display name, avatar and the account's numeric ID, for the same purpose of identifying you within the community. X also provides us with your confirmed email address, which is handled exclusively by the authentication system (Supabase Auth) to identify your account; it is not stored in your sheet or used to contact you. X's authorization screen asks for post reading and offline access because X technically requires them for sign-in: we do not read your posts, followers or messages, and nothing is ever posted on your behalf. You can unlink X at any time from the site header (as long as another account remains linked).</p>` : ""}
 <p><b>Purpose:</b> exclusively to prepare content and photos for community events. We do not sell or share your data with third parties for advertising.</p>
-<p><b>Artist links (optional):</b> some community artists have a personal link (URL with <code>?ref=</code>). If you sign up through one of those links and tick the consent box, you explicitly authorize that specific artist —the one named next to the box— to view inside a private panel your character configuration (species, gender, skin tone, eye color, hair, eyebrows, gear, ink color and alias), your banner and your contact (Discord username and avatar${X ? ", and —if you linked it— your X @" : ""}). This is visual reference material so they can draw or take commissions from you: the panel does not allow downloading your configuration file or the raw data (it shows the chosen options as visual reference, never your weapon or animation). Consent is voluntary; if you leave the box unticked, your character is saved as usual and shared with no one. You can withdraw consent at any time by contacting the organizer on Discord and your sheet will be disassociated from that artist.</p>
-<p><b>Content rules:</b> everything you add to the site —alias, Splashtag (name, title, text or images), badges or any other field— must be respectful. Inappropriate, offensive, hateful, sexist, misogynistic, racist, homophobic or sexual content is not allowed, and neither are hate symbols (for example, Nazi symbols). If an account breaks these rules, we may remove that content and <b>ban the account from the site</b> without prior notice.</p>
+<p><b>Artist links (optional):</b> some community artists have a personal link (URL with <code>?ref=</code>). If you sign up through one of those links and tick the consent box, you explicitly authorize that specific artist, the one named next to the box, to view inside a private panel your character configuration (species, gender, skin tone, eye color, hair, eyebrows, gear, ink color and alias), your banner and your contact (Discord username and avatar${X ? ", and, if you linked it, your X @" : ""}). This is visual reference material so they can draw or take commissions from you: the panel does not allow downloading your configuration file or the raw data (it shows the chosen options as visual reference, never your weapon or animation). Consent is voluntary; if you leave the box unticked, your character is saved as usual and shared with no one. You can withdraw consent at any time by contacting the organizer on Discord and your sheet will be disassociated from that artist.</p>
+<p><b>Content rules:</b> everything you add to the site, alias, Splashtag (name, title, text or images), badges or any other field, must be respectful. Inappropriate, offensive, hateful, sexist, misogynistic, racist, homophobic or sexual content is not allowed, and neither are hate symbols (for example, Nazi symbols). If an account breaks these rules, we may remove that content and <b>ban the account from the site</b> without prior notice.</p>
 <p><b>Minimum age:</b> you must be at least 14 years old to use this service. If you are under 14, you need parental or legal guardian consent.</p>
 <p><b>Your rights:</b> you can view, edit or clear your sheet at any time by logging in again with ${X ? "your Discord or X account" : "your Discord"}. To fully delete your data, contact the organizer on Discord. We will respond to access, rectification or deletion requests within 30 days.</p>
 <p><b>Retention:</b> your data is kept while community events are active, or until you request its deletion.</p>
@@ -1564,15 +1564,15 @@ ${X ? `<p><b>X account (optional):</b> if you sign in with X or link your X acco
 <h4>Credits</h4>
 <p>The splattag creator is based on the open-source project <a href="https://github.com/SeymourSchlong/splashtags" target="_blank" rel="noopener">Splashtag Creator</a> (<a href="https://splashtagmaker.com/" target="_blank" rel="noopener">splashtagmaker.com</a>), GPL-3.0 license. All credit goes to its authors:</p>
 <ul>
-  <li><b>seymour</b> (@spaghettitron) — original website creator</li>
-  <li><b>LeanYoshi</b> — Splatoon database</li>
-  <li><b>Raven_The_Cute</b> — translation help</li>
-  <li><b>DeadLineSMB</b> — Splatband banners</li>
-  <li><b>ElectroDev</b> — special weapon banners</li>
-  <li><b>Lucyfer</b> — Pride banners</li>
-  <li><b>mya</b> — Grandfest banners</li>
-  <li><b>Zeeto</b> — Splatband badges</li>
-  <li><b>Sharkinodraws</b> — Salmon Run egg badges</li>
+  <li><b>seymour</b> (@spaghettitron) - original website creator</li>
+  <li><b>LeanYoshi</b> - Splatoon database</li>
+  <li><b>Raven_The_Cute</b> - translation help</li>
+  <li><b>DeadLineSMB</b> - Splatband banners</li>
+  <li><b>ElectroDev</b> - special weapon banners</li>
+  <li><b>Lucyfer</b> - Pride banners</li>
+  <li><b>mya</b> - Grandfest banners</li>
+  <li><b>Zeeto</b> - Splatband badges</li>
+  <li><b>Sharkinodraws</b> - Salmon Run egg badges</li>
 </ul>
 <p>Game data and images (character configurator) are loaded from <a href="https://github.com/Flexlion/flexlion.github.io" target="_blank" rel="noopener">Flexlion</a>.</p>
 <p>The 3D character renders are generated with <a href="https://github.com/nvnprogram/HoianViewer" target="_blank" rel="noopener">HoianViewer</a>, by <b>nvnprogram</b>.</p>
