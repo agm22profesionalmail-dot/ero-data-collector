@@ -35,11 +35,11 @@ To host your own copy, create a Supabase project, enable Discord sign-in, run `s
 
 ## About AI
 
-Parts of the code are written with the help of an AI assistant, used for coding support and maintenance. It does not create any art, 3D renders or banners, and none of them are AI-generated.
+Parts of the code are written with the help of an AI assistant, used for coding support and maintenance. It does not create any art, renders, banners or any asset, and none of them are AI-generated.
 
 ## Resumen en español
 
-Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Parte del código se escribe con ayuda de un asistente de IA; el arte, los renders y los banners nunca se generan con IA.
+Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Parte del código se escribe con ayuda de un asistente de IA, como apoyo de programación y mantenimiento; no crea arte, renders, banners ni otros recursos, y ninguno está generado con IA.
 
 ## License & credits
 
