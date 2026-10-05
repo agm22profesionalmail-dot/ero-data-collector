@@ -30,9 +30,9 @@ import {
 } from "./artist_panel.js";
 import { isFeedbackRoute, goFeedback, leaveFeedback, restoreFeedbackRoute, renderFeedback } from "./feedback.js";
 
-// Ko-fi: apoyo directo, nunca la página de comisiones. SUPPORT = panel con «One time» y «Membership»;
-// TIERS = membresías; DONATE = el mismo panel (donación única).
-const KOFI_SUPPORT_URL = "https://ko-fi.com/zerosplatoon?hidefeed=true&widget=true&embed=true&preview=true";
+// Ko-fi: apoyo directo, nunca la página de comisiones. SUPPORT = /donate, perfil con la caja «One time / Membership»;
+// TIERS = membresías (perfil con la pestaña Membership).
+const KOFI_SUPPORT_URL = "https://ko-fi.com/zerosplatoon/donate";
 const KOFI_TIERS_URL = "https://ko-fi.com/zerosplatoon/tiers";
 
 const $ = (id) => document.getElementById(id);
