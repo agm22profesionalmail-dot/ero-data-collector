@@ -1,19 +1,22 @@
 // Capa de datos: carga RSDB de Flexlion + filtros por especie + helpers de imagen/nombre
-import { RSDB, LANG_URL, ANIM_URL, IMG, DUMMY_IMG, isSquid, isMale } from "./config.js";
+import { RSDB, LANG_URL, ANIM_URL, IMG, DUMMY_IMG, DATA_FALLBACK, isSquid, isMale } from "./config.js";
 import { getLang } from "./i18n.js";
 
 let DATA = null;
 
-async function getJson(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
-  return r.json();
+// Copia propia primero; si falla, la de Flexlion. El error dice qué URL falló.
+async function getRes(url) {
+  let r;
+  try { r = await fetch(url); } catch (e) { r = null; }
+  if (r && r.ok) return r;
+  const alt = DATA_FALLBACK(url);
+  if (alt) {
+    try { const r2 = await fetch(alt); if (r2.ok) return r2; } catch { /* sigue al error */ }
+  }
+  throw new Error(r ? `HTTP ${r.status} ${url}` : `sin conexión ${url}`);
 }
-async function getText(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
-  return r.text();
-}
+async function getJson(url) { return (await getRes(url)).json(); }
+async function getText(url) { return (await getRes(url)).text(); }
 
 // Nombres OFICIALES del juego en inglés y español de España (gear, armas,
 // badges). Los genera tools/build_names.py desde Leanny/splat3:

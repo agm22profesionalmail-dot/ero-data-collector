@@ -21,9 +21,12 @@ export const SHOW_OWN_RENDER = true;
 // ── Fuentes de assets Splatoon (Flexlion, públicas) ───────────────────
 export const GITHUB_RAW = "https://raw.githubusercontent.com/Flexlion/flexlion.github.io/master";
 export const IMG = GITHUB_RAW + "/assets/img";
-export const RSDB = GITHUB_RAW + "/assets/RSDB";
-export const LANG_URL = GITHUB_RAW + "/assets/lang/EUen.json";
-export const ANIM_URL = GITHUB_RAW + "/assets/animations.txt";
+// Datos del juego: copia propia en assets/ (no depende de GitHub); la de Flexlion queda de respaldo.
+const LOCAL = new URL("../assets", import.meta.url).href;
+export const RSDB = LOCAL + "/RSDB";
+export const LANG_URL = LOCAL + "/lang/EUen.json";
+export const ANIM_URL = LOCAL + "/animations.txt";
+export const DATA_FALLBACK = (url) => url.startsWith(LOCAL) ? GITHUB_RAW + "/assets" + url.slice(LOCAL.length) : null;
 export const DUMMY_IMG = IMG + "/player/gear/Dummy.png";
 
 // ── Especies seleccionables (índices = mismos que el plugin Calico) ────
