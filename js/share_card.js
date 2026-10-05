@@ -104,19 +104,30 @@ export async function buildShareCard(opts) {
   glow.addColorStop(0, ink.splat + "55"); glow.addColorStop(1, "#0b0e1a00");
   g.fillStyle = glow; g.fillRect(0, 0, W, H);
 
-  // Splat grande del color de tinta, detrás del personaje
-  const sw = 640, sh = Math.round(640 * splat.height / splat.width);
-  g.drawImage(tinted(splat, ink.splat, sw, sh), 790 - sw / 2 + 20, H / 2 - sh / 2 + 6);
+  // Recuadro del render: el render se dibuja ENTERO (marca de agua incluida) dentro de un
+  // marco 4:5 con el splat de tinta de fondo, ligeramente inclinado. Así la marca se
+  // conserva y no interfiere con el resto del diseño.
+  const PW = 448, PH = Math.round(PW * ren.height / ren.width), PX = 700, PY = Math.round((H - PH) / 2), R = 28;
   g.globalAlpha = 0.9;
-  g.drawImage(star, 610, 40, 96, 96);
-  g.drawImage(star, 1090, 520, 70, 70);
+  g.drawImage(star, 640, 34, 90, 90);
+  g.drawImage(star, 1112, 548, 66, 66);
   g.globalAlpha = 1;
-
-  // Personaje (el render ya lleva la marca de agua)
-  const rh = 612, rw = Math.round(rh * ren.width / ren.height);
-  g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 28; g.shadowOffsetY = 12;
-  g.drawImage(ren, 800 - rw / 2 + 60, H - rh - 22, rw, rh);
+  g.save();
+  g.translate(PX + PW / 2, PY + PH / 2); g.rotate(0.035);
+  g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 36; g.shadowOffsetY = 14;
+  g.fillStyle = "#0f1426"; roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.fill();
   g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+  g.save();
+  roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.clip();
+  const pg = g.createRadialGradient(0, 0, 20, 0, 0, PH * 0.7);
+  pg.addColorStop(0, ink.splat + "66"); pg.addColorStop(1, "#0f142600");
+  g.fillStyle = pg; g.fillRect(-PW / 2, -PH / 2, PW, PH);
+  const sw = Math.round(PW * 1.25), sh = Math.round(sw * splat.height / splat.width);
+  g.drawImage(tinted(splat, ink.splat, sw, sh), -sw / 2, -sh / 2 + 6);
+  g.drawImage(ren, -PW / 2, -PH / 2, PW, PH);
+  g.restore();
+  g.lineWidth = 5; g.strokeStyle = ink.text; roundRect(g, -PW / 2, -PH / 2, PW, PH, R); g.stroke();
+  g.restore();
 
   // Columna izquierda
   const X = 64;
@@ -125,8 +136,8 @@ export async function buildShareCard(opts) {
   g.fillStyle = "#eaf0ff"; g.textBaseline = "alphabetic";
   g.font = `24px ${TEXT}`; g.fillText("OC DATA COLLECTOR", X + 72, 83);
 
-  g.fillStyle = "#ffffff"; fitText(g, c.l1, 600, 60, TITLE, 34); g.fillText(c.l1, X, 168);
-  g.fillStyle = ink.text; fitText(g, c.l2, 600, 100, TITLE, 40); g.fillText(c.l2, X, 262);
+  g.fillStyle = "#ffffff"; fitText(g, c.l1, 590, 60, TITLE, 34); g.fillText(c.l1, X, 168);
+  g.fillStyle = ink.text; fitText(g, c.l2, 590, 100, TITLE, 40); g.fillText(c.l2, X, 262);
   g.fillStyle = "#93a0c4"; g.font = `27px ${TEXT}`; g.fillText(c.sub, X, 306);
 
   // Placa con el alias, con barra del color de tinta

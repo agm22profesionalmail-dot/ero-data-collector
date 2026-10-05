@@ -85,5 +85,11 @@ export const DEFAULT_PLAYER = {
 };
 
 // ── "Compartir OC" (tarjeta para X) ────────────────────────────────────
-// En false solo se ve con ?sharebeta=1 (se recuerda en este navegador): fase de pruebas.
+// Fase de pruebas: el botón solo lo ven estas cuentas (ids de usuario). Es solo
+// visibilidad de la interfaz; la tarjeta usa datos públicos. Para abrirlo a todos:
+// SHARE_OC_PUBLIC = true.
 export const SHARE_OC_PUBLIC = false;
+export const SHARE_OC_USERS = [
+  "1b9c5abe-86a9-4f0b-8203-78b7b85c47bc",
+  "c2a9cf8d-7753-48b8-9df8-70c81f1b3037",
+];
