@@ -35,7 +35,6 @@ FILES = {
     "bottom": "BottomInfo.json",
 }
 
-
 def load(kind: str) -> list:
     name = FILES[kind]
     if len(sys.argv) > 1:
@@ -43,12 +42,10 @@ def load(kind: str) -> list:
     with urllib.request.urlopen(f"{RSDB_URL}/{name}", timeout=60) as r:  # noqa: S310
         return json.loads(r.read().decode("utf-8"))
 
-
 def q(s):
     if s is None:
         return "NULL"
     return "'" + str(s).replace("'", "''") + "'"
-
 
 names = json.loads((ROOT / "assets" / "lang" / "names.json").read_text(encoding="utf-8"))
 rows = []

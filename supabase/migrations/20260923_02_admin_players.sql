@@ -1,21 +1,3 @@
--- ============================================================
--- Migración 20260923_02: el admin ve TODOS los registros de OC
---
--- Además de aprobar/denegar solicitudes, el panel de admin (?admin) lista
--- todas las fichas de la web con sus datos, banner y render 3D, igual que el
--- panel del artista, más las versiones exclusivas que cada jugador hizo para
--- un artista (player_artist_chars).
---
--- Buckets privados: la web necesita una sesión de Supabase para firmar URLs.
--- Al llamar a admin_players con las credenciales correctas y una sesión
--- iniciada (Discord/X), esa sesión queda marcada como admin durante 12 h
--- (admin_sessions) y las políticas de storage le dejan leer renders/banners.
--- Sin sesión, los datos salen igual pero sin imágenes.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Sesiones de admin (solo se tocan desde funciones SECURITY DEFINER)
 CREATE TABLE IF NOT EXISTS public.admin_sessions (
   user_id    UUID PRIMARY KEY,
   expires_at TIMESTAMPTZ NOT NULL
@@ -38,7 +20,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_media_ok() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_media_ok() TO authenticated;
 
--- 2) Storage: lectura de renders y banners para la sesión de admin
 DROP POLICY IF EXISTS render_select_admin ON storage.objects;
 CREATE POLICY render_select_admin ON storage.objects
   FOR SELECT TO authenticated
@@ -49,7 +30,6 @@ CREATE POLICY banner_select_admin ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'banners' AND public.admin_media_ok());
 
--- 3) RPC: todas las fichas + artistas asociados + versiones exclusivas
 CREATE OR REPLACE FUNCTION public.admin_players(p_user TEXT, p_pass TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql

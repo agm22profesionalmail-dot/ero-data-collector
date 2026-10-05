@@ -1,24 +1,3 @@
--- ============================================================
--- Migración 20260922_08: envío real del email de aprobación
---
--- Antes: admin_approve / admin_reset_generic solo enviaban si app_secrets
--- tenía send_email_url + service_role_key (nunca se configuraron) y la
--- función send-artist-credentials no estaba desplegada → "sent": false y
--- ningún email. Además pasaban el body a net.http_post como text.
---
--- Ahora: el email se deja en la cola artist_email_outbox y pg_net avisa a la
--- Edge Function con {"id": ...}. La función lee la fila con la service_role
--- que Supabase le inyecta, envía por Gmail, marca sent_at y BORRA la clave de
--- la fila. La service_role ya no se guarda en app_secrets (se elimina si
--- existía).
---
--- "sent" en la respuesta de las RPC = email encolado y función avisada. El
--- resultado real queda en artist_email_outbox (sent_at / error).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Cola (cerrada a anon/authenticated: solo RPC security definer y service_role)
 CREATE TABLE IF NOT EXISTS public.artist_email_outbox (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email      TEXT NOT NULL,
@@ -34,13 +13,11 @@ CREATE TABLE IF NOT EXISTS public.artist_email_outbox (
 ALTER TABLE public.artist_email_outbox ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.artist_email_outbox FROM anon, authenticated;
 
--- 2) URL de la función (pública, no es un secreto) y fuera la service_role
 INSERT INTO public.app_secrets (k, v)
 VALUES ('send_email_url', 'https://xwyauyjeteztlevvtydb.supabase.co/functions/v1/send-artist-credentials')
 ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v;
 DELETE FROM public.app_secrets WHERE k = 'service_role_key';
 
--- 3) Encolar + avisar a la función
 CREATE OR REPLACE FUNCTION public.queue_artist_email(
   p_email TEXT, p_name TEXT, p_slug TEXT, p_key TEXT, p_lang TEXT, p_reset BOOLEAN
 )
@@ -53,7 +30,6 @@ DECLARE
   v_id  UUID;
   v_url TEXT;
 BEGIN
-  -- Claves pendientes de envíos anteriores de ese email: fuera (no se reenvían)
   UPDATE public.artist_email_outbox SET key = NULL
    WHERE email = p_email AND sent_at IS NULL AND key IS NOT NULL;
 
@@ -78,7 +54,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.queue_artist_email(TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon, authenticated;
 
--- 4) admin_approve (misma lógica que en producción; solo cambia el envío)
 CREATE OR REPLACE FUNCTION public.admin_approve(p_user text, p_pass text, p_id uuid)
  RETURNS json
  LANGUAGE plpgsql
@@ -129,7 +104,6 @@ begin
   return json_build_object('slug', v_slug, 'sent', v_sent);
 end $function$;
 
--- 5) admin_reset_generic (misma lógica que en producción; solo cambia el envío)
 CREATE OR REPLACE FUNCTION public.admin_reset_generic(p_user text, p_pass text, p_id uuid)
  RETURNS json
  LANGUAGE plpgsql
@@ -166,8 +140,6 @@ begin
   return json_build_object('sent', v_sent);
 end $function$;
 
--- 6) Estado del último email de un artista (para el panel local).
---    Protegida por admin_check como el resto de admin_*.
 CREATE OR REPLACE FUNCTION public.admin_email_status(p_user text, p_pass text, p_id uuid)
 RETURNS json
 LANGUAGE plpgsql

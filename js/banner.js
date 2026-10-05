@@ -27,7 +27,7 @@ export function renderBanner(container, state, onChange) {
       state._splattagDirty = false;
       state._captureSplattag = null;
       renderBanner(container, state, onChange);
-    } }, "← " + t("banner_keep_old")));
+    } }, "" + t("banner_keep_old")));
   }
   const wrap = el("div", { class: "edc-gen" });
   card.append(wrap);

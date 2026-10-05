@@ -1,10 +1,3 @@
-// Proxy del mismo origen para renders y banners de R2.
-//
-// R2 sirve las imágenes sin cabecera CORS: un <canvas> que las dibuje queda
-// "contaminado" y no se puede exportar. La tarjeta "Compartir OC" las pide
-// aquí, desde el propio dominio de la web. Solo reenvía rutas públicas con la
-// forma exacta de un render o un banner; no es un proxy abierto.
-
 const R2_PUBLIC = "https://pub-5e28d3ea68944786851f5d81e47de75c.r2.dev";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const ALLOWED = new RegExp(

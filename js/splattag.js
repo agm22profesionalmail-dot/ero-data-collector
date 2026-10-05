@@ -607,7 +607,7 @@ function openTextPicker({ title, list, onSelect }) {
     frag.append(el("div", { class: "edc-text-row", onClick: () => {
       onSelect("");
       close();
-    } }, "— " + t("gen_none") + " —"));
+    } }, "- " + t("gen_none") + " -"));
     let n = 0;
     for (const s of list) {
       if (ql && !s.toLowerCase().includes(ql))
@@ -795,7 +795,7 @@ export function renderSplattagGenerator(container, state, onUse) {
     controls.append(row(t("gen_name"), nameInput));
     const titleLabel = el("span", { class: "edc-gen-pick-val" });
     const refreshTitle = () => {
-      titleLabel.textContent = titleString(g) || "— " + t("gen_none") + " —";
+      titleLabel.textContent = titleString(g) || "- " + t("gen_none") + " -";
     };
     const firstBtn = el("button", { class: "edc-btn edc-btn-sm", onClick: () => openTextPicker({
       title: t("gen_title_first"),

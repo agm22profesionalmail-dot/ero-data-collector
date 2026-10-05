@@ -33,8 +33,8 @@ const S = {
     err: "Error: ",
     refresh: "Refresh",
     change_key: "Change key",
-    back: "← Back to site",
-    back_gallery: "← Back to group",
+    back: "Back to site",
+    back_gallery: "Back to group",
     render_beta: "*3D renders are in beta, expect errors.",
     empty: "No players in your group yet.",
     no_alias: "No alias",
@@ -101,8 +101,8 @@ const S = {
     err: "Error: ",
     refresh: "Actualizar",
     change_key: "Cambiar clave",
-    back: "← Volver a la web",
-    back_gallery: "← Volver al grupo",
+    back: "Volver a la web",
+    back_gallery: "Volver al grupo",
     render_beta: "*Renderizados 3D en fase beta, espera errores.",
     empty: "Aún no hay jugadores en tu grupo.",
     no_alias: "Sin alias",
@@ -759,7 +759,7 @@ function gearRow(g) {
     el(
       "span",
       {},
-      pair ? curName(pair) : "—",
+      pair ? curName(pair) : "-",
       alt ? el("span", { class: "edc-pcard-name-alt" }, alt) : null
     ),
     g?.alt ? el("span", { class: "edc-pcard-alt" }, ta("alt")) : null

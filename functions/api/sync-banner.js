@@ -1,12 +1,3 @@
-// Copia a R2 el banner que el jugador acaba de guardar en Supabase Storage.
-//
-// La web sube el banner a Supabase (con las políticas RLS de siempre) y lee de
-// R2; esta función cierra el hueco: con la sesión del propio jugador lee SU
-// banner de Supabase, comprueba que es un PNG de tamaño razonable y lo escribe
-// en R2 en la misma ruta. La clave sale del token, no de la petición: nadie
-// puede tocar el banner de otro. Los secretos (R2_*, SUPABASE_*) viven en el
-// entorno del proyecto de Pages, no en el repo.
-
 import { putR2, deleteR2 } from "../_lib/r2.js";
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -27,8 +18,6 @@ export async function onRequestPost({ request, env }) {
   const user = await who.json();
   if (!user?.id || !/^[0-9a-f-]{36}$/.test(user.id)) return json(401, { error: "bad_user" });
 
-  // Personaje (slot 0..2). Slot 0 = banner.png (como siempre); extras = banner_c<n>.png.
-  // El slot sale del cuerpo pero solo como entero validado; el uid, siempre del token.
   let slot = 0, action = "";
   try {
     const body = await request.json();
@@ -38,8 +27,6 @@ export async function onRequestPost({ request, env }) {
   if (!Number.isInteger(slot) || slot < 0 || slot > 2) return json(400, { error: "bad_slot" });
   const name = slot === 0 ? "banner.png" : `banner_c${slot}.png`;
 
-  // Acción "delete": borra el banner de un personaje EXTRA (slot 1..2, nunca el principal)
-  // en R2 y en el bucket de Supabase. El uid sale solo del token.
   if (action === "delete") {
     if (slot < 1) return json(400, { error: "bad_slot" });
     try {
@@ -47,7 +34,6 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return json(502, { error: "r2_failed" });
     }
-    // Con la sesión del propio jugador; si el bucket no permite borrar al propietario, no es fatal
     let storage = "ok";
     try {
       const del = await fetch(`${base}/storage/v1/object/banners/${user.id}/${name}`, {

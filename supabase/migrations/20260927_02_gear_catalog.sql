@@ -1,20 +1,3 @@
--- ============================================================
--- Migración 20260927_02: catálogo de piezas (public.gear_catalog)
---
--- GENERADO por tools/build_gear_catalog.py — no editar a mano.
--- Mapea el id numérico de PlayerConfig de cada pieza (peinado, cejas,
--- piernas, gear de cabeza/ropa/zapatillas) a su nombre de imagen (__RowId
--- del RSDB de Flexlion) y a su nombre oficial EN/ES. Lo usa artist_group
--- (migración 20260927_03) para devolver al panel del artista solo lo que se
--- pinta, nunca los ids crudos del personaje.
---
--- Tabla de solo lectura para todo el mundo: RLS activado sin políticas; la
--- consultan únicamente funciones SECURITY DEFINER.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- Regenerar y volver a aplicar tras cada actualización del juego.
--- ============================================================
-
 CREATE TABLE IF NOT EXISTS public.gear_catalog (
   kind          TEXT NOT NULL CHECK (kind IN ('head', 'clothes', 'shoes', 'hair', 'eyebrow', 'bottom')),
   id            INT  NOT NULL,

@@ -1,13 +1,3 @@
-// Embeds propios para los enlaces de los artistas beta (Cloudflare Pages Function).
-//
-// Discord, X, etc. leen las etiquetas Open Graph del HTML sin ejecutar JS, así
-// que el ?ref=<slug> no basta para cambiar la tarjeta: este middleware reescribe
-// og:image / twitter:image (y la URL) en la respuesta de index.html cuando el
-// slug tiene imagen propia. Cualquier otra petición pasa intacta.
-//
-// Alta de un artista beta: dejar la imagen en assets/og/beta/<slug>.jpg y
-// añadir aquí su entrada (ancho y alto reales de la imagen).
-
 const SITE = "https://eroplayerdata.pages.dev";
 
 const BETA_EMBEDS = {

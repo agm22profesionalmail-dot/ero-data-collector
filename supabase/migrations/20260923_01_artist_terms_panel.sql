@@ -1,17 +1,3 @@
--- ============================================================
--- Migración 2026-09-23 (01) — Aceptar los términos desde el panel del artista
---
--- Los artistas registrados antes de 20260922_05 no aceptaron los términos del
--- programa beta. El panel (js/artist_panel.js) les pide aceptarlos antes de ver
--- su galería. Dos RPC con la MISMA validación que artist_group (sesión Discord
--- + clave bcrypt + artista aprobado):
---   - artist_terms_status(p_key)            -> versión aceptada (o NULL)
---   - artist_accept_terms(p_key, p_version) -> la guarda; terms_accepted_at lo
---     pone el trigger artists_stamp_terms (hora del servidor).
--- Requiere: 20260922_04_hash_artist_keys.sql, 20260922_05_artist_terms.sql
--- Ejecutar en: Supabase Dashboard -> SQL Editor. Idempotente.
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.artist_terms_status(p_key TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql

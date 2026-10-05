@@ -1,19 +1,3 @@
--- ============================================================
--- Migración 20260923_03: render de las versiones para artista
---
--- El worker renderiza también cada versión exclusiva (player_artist_chars)
--- y la sube a renders/<user_id>/artist/<artist_id>.png.
---
--- 1) artist_group devuelve `variant_render` (ruta de ese PNG) en los
---    jugadores con versión para el artista que consulta.
--- 2) Storage: un artista sigue viendo la carpeta de sus jugadores, pero de
---    la subcarpeta artist/ solo SU versión (no la que el jugador hizo para
---    otro artista). Dueño y admin (admin_media_ok) lo ven todo.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) artist_group: se reescribe sobre la definición viva (como en 20260922_07)
 DO $do$
 DECLARE
   v_def text := pg_get_functiondef('public.artist_group(text)'::regprocedure);
@@ -30,7 +14,6 @@ BEGIN
 END
 $do$;
 
--- 2) Storage de renders
 CREATE OR REPLACE FUNCTION public.artist_can_see_render(p_name text)
 RETURNS boolean
 LANGUAGE sql

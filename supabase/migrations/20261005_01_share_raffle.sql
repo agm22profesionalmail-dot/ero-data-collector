@@ -1,23 +1,3 @@
--- ============================================================
--- Migración 2026-10-05 (01) — Sorteo "Compartir OC"
--- ============================================================
--- Quien comparte su OC en X (tarjeta con el render) pega el enlace de su
--- publicación y entra en un sorteo; el ganador desbloquea 1 personaje extra
--- (sube su máximo en character_perks, tope 3).
---
--- * share_entries: una participación por usuario. Sin políticas RLS: solo se
---   toca por RPC (SECURITY DEFINER) o con la service_role.
--- * share_submit / my_share_entry: lado jugador (authenticated).
--- * admin_share_list / admin_share_set_status / admin_share_draw: panel local
---   (service_role, igual que el resto de admin_*).
---
--- Cómo se aplica: SQL Editor → New query → pegar → Run. Se puede repetir
--- sin romper nada (todo es IF NOT EXISTS / CREATE OR REPLACE).
--- ============================================================
-
--- ------------------------------------------------------------
--- 1) Tabla de participaciones
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.share_entries (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -36,12 +16,6 @@ REVOKE ALL ON public.share_entries FROM PUBLIC, anon, authenticated;
 COMMENT ON TABLE public.share_entries IS
   'Participaciones del sorteo Compartir OC (1 por usuario). status: valid | rejected | won. RLS sin políticas: solo RPC o service_role.';
 
--- ------------------------------------------------------------
--- 2) Jugador: apuntarse / ver su participación
--- ------------------------------------------------------------
--- p_url: enlace a SU publicación en X (https://x.com/<usuario>/status/<id>).
--- Si su ficha ya trae cuenta de X (login con X), el usuario del enlace debe
--- coincidir. Puede reenviar otro enlace mientras no haya ganado.
 CREATE OR REPLACE FUNCTION public.share_submit(p_url text)
 RETURNS json
 LANGUAGE plpgsql
@@ -110,10 +84,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.my_share_entry() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.my_share_entry() TO authenticated;
 
--- ------------------------------------------------------------
--- 3) Panel admin (service_role sin token; mismo patrón que admin_*)
--- ------------------------------------------------------------
--- Máximo de personajes actual de un usuario (por sus identidades de Discord).
 CREATE OR REPLACE FUNCTION public.share_current_limit(p_uid uuid)
 RETURNS int
 LANGUAGE sql
@@ -154,7 +124,6 @@ BEGIN
 END;
 $$;
 
--- Aceptar (valid) o rechazar (rejected) una participación. Una ganadora no se toca.
 CREATE OR REPLACE FUNCTION public.admin_share_set_status(p_token text, p_id uuid, p_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -171,9 +140,6 @@ BEGIN
 END;
 $$;
 
--- Sortea p_winners entre las participaciones válidas cuyo usuario tiene Discord
--- (character_perks va por discord_id) y aún no está en el tope de 3. Cada
--- ganador sube 1 su máximo (source = 'manual': kofi_roles_sync no lo retira).
 CREATE OR REPLACE FUNCTION public.admin_share_draw(p_token text, p_winners int DEFAULT 1)
 RETURNS json
 LANGUAGE plpgsql
@@ -217,9 +183,6 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------
--- 4) Permisos: NUNCA anon. Panel local = service_role; la web con token admin = authenticated.
--- ------------------------------------------------------------
 DO $do$
 DECLARE
   f text;

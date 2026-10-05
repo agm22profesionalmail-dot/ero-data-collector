@@ -1,27 +1,3 @@
-// Edge Function: relay-bot-dms
-//
-// Reenvía al propietario (OWNER_DISCORD_ID) por MD las respuestas que la gente
-// escribe al bot en los mensajes directos que el bot usó para contestar reportes
-// o avisar a artistas. No contesta nada por su cuenta: solo reenvía.
-//
-// Sin estado en la base de datos: cada reenvío lleva en el pie "src <id>" del
-// mensaje original, y antes de reenviar se leen los últimos mensajes del MD
-// bot ↔ propietario para no repetir. Es idempotente: llamarla de más no duplica.
-// Solo mira mensajes de las últimas LOOKBACK horas.
-//
-// La dispara .github/workflows/relay-bot-dms.yml cada 5 min (GitHub Actions).
-//
-// A quién mira: contactos de Discord de public.feedback (últimos 90 días),
-// artistas con discord_id y EXTRA_RECIPIENTS (IDs a los que se escribió a
-// mano, separados por comas). Los bots no pueden listar sus MD por REST, por eso se abre el canal
-// por destinatario (POST /users/@me/channels devuelve siempre el mismo).
-//
-// Secrets: EDC_INTERNAL_SECRET (obligatorio: toda llamada trae la cabecera
-// x-edc-secret y sin secret configurado se rechaza todo, ver
-// _shared/internal_secret.ts), DISCORD_BOT_TOKEN, OWNER_DISCORD_ID y
-// EXTRA_RECIPIENTS (opcional). SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los
-// inyecta Supabase. Desplegada con verify_jwt = false.
-
 import { requireInternalSecret } from "../_shared/internal_secret.ts";
 import { serviceKey } from "../_shared/keys.ts";
 

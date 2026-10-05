@@ -1,21 +1,6 @@
--- ============================================================
--- Migración 20260922_01: Variantes de personaje por artista
---
--- Permite que un jugador registrado tenga una configuración de
--- personaje diferente para cada artista (sin tocar su ficha principal).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run
--- ============================================================
-
--- ------------------------------------------------------------
--- 1) Tabla player_artist_chars
---    Clave primaria compuesta: (player_id, artist_id)
---    Un jugador puede tener como máximo 1 variante por artista.
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.player_artist_chars (
   player_id            UUID  NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
   artist_id            UUID  NOT NULL REFERENCES public.artists(id) ON DELETE CASCADE,
-  -- Campos de personaje (mismos nombres/tipos que players)
   player_type          INT   NOT NULL DEFAULT 0,
   hair                 INT   NOT NULL DEFAULT 0,
   bottom               INT   NOT NULL DEFAULT 0,
@@ -38,7 +23,6 @@ CREATE TABLE IF NOT EXISTS public.player_artist_chars (
 
 ALTER TABLE public.player_artist_chars ENABLE ROW LEVEL SECURITY;
 
--- El jugador gestiona solo sus propias variantes
 DROP POLICY IF EXISTS "pac_manage_own" ON public.player_artist_chars;
 CREATE POLICY "pac_manage_own" ON public.player_artist_chars
   FOR ALL TO authenticated
@@ -49,12 +33,6 @@ CREATE POLICY "pac_manage_own" ON public.player_artist_chars
     player_id IN (SELECT id FROM public.players WHERE user_id = auth.uid())
   );
 
--- ------------------------------------------------------------
--- 2) RPC artist_save_char
---    Llamada por el jugador para guardar su variante para un artista.
---    Usa el artist_id resuelto desde artists_public (slug público).
---    También enlaza referred_by si aún no está asignado.
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.artist_save_char(
   p_artist_id     UUID,
   p_player_type   INT   DEFAULT 0,
@@ -83,7 +61,6 @@ DECLARE
   v_artist_ok  BOOLEAN;
   v_player_id  UUID;
 BEGIN
-  -- Verificar que el artista existe y está aprobado
   SELECT EXISTS(
     SELECT 1 FROM public.artists WHERE id = p_artist_id AND status = 'approved'
   ) INTO v_artist_ok;
@@ -92,7 +69,6 @@ BEGIN
     RAISE EXCEPTION 'artist not found or not approved' USING ERRCODE = '28000';
   END IF;
 
-  -- Resolver el jugador por sesión activa
   SELECT id INTO v_player_id
     FROM public.players
    WHERE user_id = auth.uid();
@@ -101,7 +77,6 @@ BEGIN
     RAISE EXCEPTION 'no player record for this user';
   END IF;
 
-  -- Upsert de la variante de personaje
   INSERT INTO public.player_artist_chars (
     player_id, artist_id,
     player_type, hair, bottom, bottom_variation, skin_tone, eye_brows, eye_color,
@@ -132,7 +107,6 @@ BEGIN
     color                = EXCLUDED.color,
     updated_at           = NOW();
 
-  -- Enlazar referred_by si aún no está asignado (aparece en artist_group)
   UPDATE public.players
      SET referred_by = p_artist_id, referred_consent_at = NOW()
    WHERE id = v_player_id
@@ -143,14 +117,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_save_char FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_save_char TO authenticated;
 
--- ------------------------------------------------------------
--- 3) artist_group: devuelve la variante del jugador si existe
---
--- Basada en la función EN PRODUCCIÓN (22-sep-2026): misma autenticación
--- (identidad Discord + access_key_hash bcrypt, ver 20260922_04 + approved) y mismo formato
--- {must_change_password, players}. Solo cambia: LEFT JOIN a
--- player_artist_chars, COALESCE variante→ficha y campo has_variant.
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.artist_group(p_key TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql

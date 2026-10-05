@@ -1,6 +1,3 @@
-// Escritura en Cloudflare R2 por su API compatible con S3 (firma SigV4).
-// Sin dependencias: solo Web Crypto, disponible en Pages Functions.
-
 const enc = new TextEncoder();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 const sha256Hex = async (data) => hex(await crypto.subtle.digest("SHA-256", data));
@@ -10,7 +7,6 @@ async function hmac(key, msg) {
   return new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(msg)));
 }
 
-// PUT de un objeto. `key` solo lleva caracteres seguros (uuid/nombre.png).
 export async function putR2(env, key, body, contentType) {
   const host = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const path = `/${env.R2_BUCKET}/${key}`;
@@ -45,7 +41,6 @@ export async function putR2(env, key, body, contentType) {
   if (!res.ok) throw new Error(`R2 PUT ${res.status}`);
 }
 
-// DELETE de un objeto (misma firma SigV4, sin cuerpo). Un objeto inexistente no es error (204/404).
 export async function deleteR2(env, key) {
   const host = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const path = `/${env.R2_BUCKET}/${key}`;

@@ -1,20 +1,3 @@
--- ============================================================
--- 20260925_01 — Volver a solicitar acceso de artista tras un rechazo
--- ============================================================
--- Antes: la solicitud es un INSERT en public.artists y discord_id es único.
--- Si el artista fue rechazado, su fila seguía ahí → el INSERT fallaba con
--- 23505 y la web decía "Ya tienes una solicitud pendiente", sin forma de
--- apelar. Está permitido volver a pedir acceso tras un rechazo.
---
--- artist_reapply(): la web la llama cuando el INSERT da 23505. Solo actúa
--- sobre la fila del Discord del usuario logueado (auth.identities):
---   rejected → vuelve a 'pending' con los datos nuevos → 'reapplied'
---   pending  → sin cambios → 'pending'
---   approved / revoked / otro → sin cambios → el estado
--- Mismas validaciones que la política artists_request_insert.
--- Idempotente: se puede ejecutar varias veces sin error.
--- ============================================================
-
 create or replace function public.artist_reapply(
   p_discord_id    text,
   p_name          text,

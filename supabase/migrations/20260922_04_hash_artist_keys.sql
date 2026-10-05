@@ -1,32 +1,12 @@
--- ============================================================
--- Migración 20260922_04: claves de artista siempre con bcrypt
---
--- Problema: artist_group comparaba la clave en claro
--- (access_key_hash = p_key) porque su search_path era solo `public` y
--- crypt() vive en el schema `extensions` → alguien la cambió a
--- comparación directa y la clave de una cuenta de prueba se guardó sin cifrar.
--- admin_approve / admin_reset_* / artist_change_password ya escriben bcrypt.
---
--- 1) Cifra con bcrypt las claves que estén en claro (la clave del artista
---    NO cambia: se hashea el mismo valor).
--- 2) CHECK: access_key_hash solo admite NULL o un hash bcrypt.
--- 3) artist_group vuelve a comparar con crypt() (search_path + extensions).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Hashear las claves en claro
 UPDATE public.artists
    SET access_key_hash = extensions.crypt(access_key_hash, extensions.gen_salt('bf', 12))
  WHERE access_key_hash IS NOT NULL
    AND access_key_hash !~ '^\$2[aby]\$[0-9]{2}\$';
 
--- 2) Impedir que vuelva a guardarse una clave en claro
 ALTER TABLE public.artists DROP CONSTRAINT IF EXISTS artists_access_key_bcrypt;
 ALTER TABLE public.artists ADD CONSTRAINT artists_access_key_bcrypt
   CHECK (access_key_hash IS NULL OR access_key_hash ~ '^\$2[aby]\$[0-9]{2}\$.{53}$');
 
--- 3) artist_group con comparación bcrypt
 CREATE OR REPLACE FUNCTION public.artist_group(p_key TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql

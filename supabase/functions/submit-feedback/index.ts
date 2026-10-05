@@ -1,38 +1,3 @@
-// Edge Function: submit-feedback
-//
-// Recibe los reportes de fallos y sugerencias del formulario ?feedback de la
-// web, los guarda en public.feedback (migración 20260923_07) y avisa al propietario
-// por mensaje directo de Discord con el bot (Pelipper).
-//
-// Acciones (POST, JSON):
-//  - {"action":"check_member"} + Authorization: Bearer <access_token del usuario>
-//      → {ok:true, member:true|false}. ¿Está la cuenta de Discord del usuario
-//      en ZeroServer? Solo a los miembros puede escribirles el bot.
-//  - {"action":"submit", kind, message, contact_method, email?, page?, lang, website?}
-//      → {ok:true} | {ok:false, error:<código>}. Con contact_method="discord"
-//      hace falta el JWT del usuario: el id y el nombre de Discord se sacan de
-//      ahí, NUNCA del cuerpo. Con contact_method="none" no se guarda ningún
-//      contacto (el usuario acepta que no se le podrá avisar del resultado).
-//
-// Códigos de error (la web los traduce): bad_request, email_dead, not_member,
-// not_logged, rate_limited, server.
-//
-// Anti-spam: máximo 5 envíos por contacto y hora, 20 por IP y hora (5 por IP y
-// hora si no dejan contacto; contados en la tabla; la IP se guarda solo como
-// hash), y un honeypot (`website`): si
-// viene relleno se responde ok sin guardar nada.
-//
-// Secrets: DISCORD_BOT_TOKEN (sin él no hay aviso; el reporte se guarda igual
-// con notified=false), DISCORD_GUILD_ID (id del servidor de Discord de la
-// comunidad; sin él NO se puede comprobar la pertenencia y el contacto por
-// Discord se rechaza — fail-closed), OWNER_DISCORD_ID (destinatario del
-// aviso). SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY los
-// inyecta Supabase. FEEDBACK_IP_SALT es opcional (sal del hash de IP; si
-// falta se usa la service_role).
-//
-// Desplegar con verify_jwt = false: los envíos por email no llevan sesión y
-// el JWT se valida a mano contra /auth/v1/user cuando hace falta.
-
 import { isPublicKey, publishableKey, serviceKey } from "../_shared/keys.ts";
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
@@ -56,10 +21,6 @@ const MAX_PER_CONTACT = 5;
 const MAX_PER_IP = 20;
 const MAX_NONE_PER_IP = 5; // sin contacto no hay otra barrera: límite más estricto
 
-// ── CORS ────────────────────────────────────────────────────────────────
-// Sin cookies: se refleja el origen si está en la lista (o localhost) y, si
-// no, el de producción. Vary: Origin para las cachés intermedias. Solo el
-// dominio real de Cloudflare Pages (auditoría 2026-09-27: fuera github.io).
 const ALLOWED_ORIGINS = ["https://eroplayerdata.pages.dev"];
 const LOCAL_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
@@ -75,7 +36,6 @@ function corsHeaders(req: Request): Record<string, string> {
   };
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────
 type ErrCode = "bad_request" | "email_dead" | "not_member" | "not_logged" | "rate_limited" | "server";
 
 const rest = (path: string, init: RequestInit = {}) =>
@@ -94,7 +54,6 @@ async function sha256Hex(text: string) {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// DNS-over-HTTPS (Cloudflare y Google de reserva). null = no se pudo consultar.
 async function doh(name: string, type: "MX" | "A" | "AAAA") {
   const code = { MX: 15, A: 1, AAAA: 28 }[type];
   for (const base of ["https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"]) {
@@ -112,8 +71,6 @@ async function doh(name: string, type: "MX" | "A" | "AAAA") {
   return null;
 }
 
-// "ok" = el dominio recibe correo; "dead" = no existe, MX nulo o sin MX/A/AAAA;
-// "unknown" = DNS sin respuesta (no se bloquea).
 async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> {
   const domain = (email.split("@").pop() ?? "").trim().toLowerCase().replace(/\.$/, "");
   if (!domain) return "dead";
@@ -128,7 +85,6 @@ async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> 
   return a || aaaa ? "dead" : "unknown";
 }
 
-// ── Usuario a partir del JWT ────────────────────────────────────────────
 type AuthUser = {
   id: string;
   user_metadata?: Record<string, unknown>;
@@ -136,7 +92,6 @@ type AuthUser = {
 };
 type DiscordIdentity = { userId: string; discordId: string; discordName: string | null };
 
-// null = sin token o token inválido/caducado
 async function userFromRequest(req: Request): Promise<AuthUser | null> {
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
@@ -156,9 +111,6 @@ async function userFromRequest(req: Request): Promise<AuthUser | null> {
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-// Misma lógica que identityProfile() en la web: la identidad de Discord
-// manda; user_metadata solo vale de respaldo si no hay identidad de X (con X
-// el metadata podría ser de X).
 function discordIdentity(u: AuthUser): DiscordIdentity | null {
   const idents = u.identities ?? [];
   const dc = idents.find((i) => i.provider === "discord");
@@ -180,7 +132,6 @@ function discordIdentity(u: AuthUser): DiscordIdentity | null {
   return { userId: u.id, discordId, discordName };
 }
 
-// ── Discord ─────────────────────────────────────────────────────────────
 const discordApi = (path: string, init: RequestInit = {}) =>
   fetch(`https://discord.com/api/v10${path}`, {
     ...init,
@@ -188,8 +139,6 @@ const discordApi = (path: string, init: RequestInit = {}) =>
     signal: AbortSignal.timeout(10000),
   });
 
-// true/false = respuesta clara de Discord; null = no se pudo saber.
-// Sin DISCORD_GUILD_ID configurado nunca se da por miembro a nadie (false).
 async function isGuildMember(discordId: string): Promise<boolean | null> {
   if (!/^\d{5,25}$/.test(GUILD_ID)) { console.error("DISCORD_GUILD_ID not configured"); return false; }
   if (!DISCORD_BOT_TOKEN) return null;
@@ -205,7 +154,6 @@ async function isGuildMember(discordId: string): Promise<boolean | null> {
   }
 }
 
-// Mensaje directo. null = enviado; si no, el motivo del fallo.
 async function sendDiscordDm(discordId: string, payload: unknown): Promise<string | null> {
   if (!DISCORD_BOT_TOKEN) return "discord bot not configured";
   try {
@@ -262,7 +210,6 @@ function notifyPayload(row: Row) {
   };
 }
 
-// ── Respuestas ──────────────────────────────────────────────────────────
 const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -270,7 +217,6 @@ const json = (req: Request, body: unknown, status = 200) =>
   });
 const fail = (req: Request, error: ErrCode, status = 400) => json(req, { ok: false, error }, status);
 
-// ── Acciones ────────────────────────────────────────────────────────────
 async function checkMember(req: Request) {
   const u = await userFromRequest(req);
   const who = u && discordIdentity(u);
@@ -285,8 +231,6 @@ type SubmitBody = {
   page?: unknown; lang?: unknown; website?: unknown;
 };
 
-// Texto del usuario: sin caracteres de control (salvo salto de línea y
-// tabulador), espacios normalizados en los extremos.
 const cleanText = (v: unknown, max: number) =>
   typeof v === "string" ? v.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim().slice(0, max) : "";
 
@@ -299,7 +243,6 @@ async function countRecent(filter: string, limit: number): Promise<number | null
 }
 
 async function submit(req: Request, body: SubmitBody) {
-  // Honeypot: bots que rellenan todo. Se responde ok y no se guarda.
   if (typeof body.website === "string" && body.website.trim()) return json(req, { ok: true });
 
   const kind = body.kind as Kind;
@@ -328,8 +271,6 @@ async function submit(req: Request, body: SubmitBody) {
     if (!member) return fail(req, "not_member", 403);
   }
 
-  // Anti-spam: por contacto y por IP en la última hora
-  // IP puesta por el proxy primero: el primer valor de x-forwarded-for lo puede falsear el cliente
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip")
     || (req.headers.get("x-forwarded-for") ?? "").split(",").pop()?.trim() || "";
   const ipHash = ip ? await sha256Hex(`${IP_SALT}|${ip}`) : null;
@@ -341,7 +282,6 @@ async function submit(req: Request, body: SubmitBody) {
     if (byContact === null) return fail(req, "server", 500);
     if (byContact >= MAX_PER_CONTACT) return fail(req, "rate_limited", 429);
   } else {
-    // Sin contacto: sin IP no hay forma de limitar, así que se rechaza
     if (!ipHash) return fail(req, "rate_limited", 429);
     const noneByIp = await countRecent(`ip_hash=eq.${ipHash}&contact_method=eq.none`, MAX_NONE_PER_IP);
     if (noneByIp === null) return fail(req, "server", 500);
@@ -353,7 +293,6 @@ async function submit(req: Request, body: SubmitBody) {
     if (byIp >= MAX_PER_IP) return fail(req, "rate_limited", 429);
   }
 
-  // Guardar
   const insert = await rest("feedback", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -373,7 +312,6 @@ async function submit(req: Request, body: SubmitBody) {
   const row = ((await insert.json()) as Row[])[0];
   if (!row?.id) return fail(req, "server", 500);
 
-  // Aviso al propietario. Si falla, el reporte queda guardado con notified=false.
   const dmErr = await sendDiscordDm(NOTIFY_USER_ID, notifyPayload(row));
   if (dmErr) {
     console.error("feedback notify:", dmErr);

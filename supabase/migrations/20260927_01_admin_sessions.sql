@@ -1,57 +1,6 @@
--- ============================================================
--- Migración 20260927_01: endurecimiento del acceso de administración
--- (auditoría de seguridad 2026-09-27: A1, A2, M1 servidor, M2 lado SQL)
---
--- Antes:
---  - Todas las RPC admin_* recibían usuario + clave en cada llamada y eran
---    ejecutables por `anon`: un solo factor, sin límite de intentos, y el AND
---    de admin_check se cortaba antes del bcrypt si el usuario no coincidía
---    (permitía enumerar el usuario por tiempo de respuesta).
---  - La web guardaba usuario y clave en claro en localStorage.
---  - La clave "genérica" de los artistas estaba en claro en app_secrets.
---  - Las Edge Functions que dispara pg_net no comprobaban ningún secreto.
---
--- Ahora:
---  1) admin_identities: lista blanca de usuarios (auth.uid()) que pueden ser
---     admin. Sin sesión de la web (Discord/X) en esa lista no hay login.
---  2) admin_login(usuario, clave) → token de sesión aleatorio (12 h). En la
---     base de datos solo se guarda su SHA-256 (admin_sessions); revocable con
---     admin_logout. Bloqueo: 5 fallos en 15 min por uid; el contador por
---     usuario solo lo alimentan uids de la lista blanca (un tercero con
---     sesión no puede bloquear al admin). Serializado con advisory locks.
---     bcrypt SIEMPRE (contra un hash de relleno si falta el real) y
---     comparaciones en tiempo constante.
---  3) El resto de admin_* reciben p_token (primer parámetro) en vez de
---     usuario/clave. Se eliminan las firmas antiguas. EXECUTE solo para
---     authenticated (+ service_role, que entra sin token: panel local).
---  4) Clave genérica de artistas eliminada: admin_approve / admin_reset_*
---     generan una clave temporal aleatoria por artista (solo el bcrypt queda
---     en artists.access_key_hash; en la cola de avisos hasta enviarla). La
---     Edge Function, ante un rebote, pide otra con artist_issue_temp_key.
---     A los artistas aprobados que aún tenían la genérica
---     (must_change_password = true) se les rota la clave a una temporal
---     propia y se les reencola el aviso (bloque 8b): la genérica deja de
---     servir en el mismo instante en que se aplica esta migración.
---  5) Llamadas SQL → Edge Functions con la cabecera x-edc-secret, leída de
---     Supabase Vault (secreto `edc_internal_secret`). Sin secreto, el aviso
---     queda en la cola con error (nunca se llama sin cabecera).
---
--- PASOS MANUALES tras aplicar (ver DEPLOY_20260927.md):
---  a) Crear el secreto en Vault:
---       select vault.create_secret('<valor aleatorio>', 'edc_internal_secret');
---     y el mismo valor como secret EDC_INTERNAL_SECRET de las Edge Functions.
---  b) Dar de alta al administrador en admin_identities (bloque final).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run (rol postgres).
--- Idempotente: se puede ejecutar varias veces sin error.
--- ============================================================
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- ------------------------------------------------------------
--- 0) Comparación en tiempo constante (sin cortocircuito por el primer byte)
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.ct_equal(a text, b text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -66,8 +15,6 @@ DECLARE
   acc  int   := 0;
   i    int;
 BEGIN
-  -- Recorre siempre el mismo número de bytes (el mayor de los dos) y acumula
-  -- las diferencias con OR: el tiempo no depende de dónde difieren.
   IF la = 0 THEN ab := '\x00'::bytea; END IF;
   IF lb = 0 THEN bb := '\x00'::bytea; END IF;
   FOR i IN 0 .. greatest(la, lb, 1) - 1 LOOP
@@ -78,9 +25,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.ct_equal(text, text) FROM PUBLIC, anon, authenticated;
 
--- ------------------------------------------------------------
--- 1) Lista blanca de administradores (auth.users.id)
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.admin_identities (
   user_id    uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   label      text,
@@ -89,9 +33,6 @@ CREATE TABLE IF NOT EXISTS public.admin_identities (
 ALTER TABLE public.admin_identities ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.admin_identities FROM PUBLIC, anon, authenticated;
 
--- ------------------------------------------------------------
--- 2) Intentos fallidos de login (bloqueo temporal)
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.admin_login_attempts (
   id           bigserial PRIMARY KEY,
   subject      text NOT NULL,             -- 'user:<usuario>' | 'uid:<auth.uid()>'
@@ -102,11 +43,6 @@ CREATE INDEX IF NOT EXISTS admin_login_attempts_subject_idx
 ALTER TABLE public.admin_login_attempts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.admin_login_attempts FROM PUBLIC, anon, authenticated;
 
--- ------------------------------------------------------------
--- 3) Sesiones de admin: token aleatorio, guardado solo hasheado (SHA-256)
---    La tabla ya existía (20260923_02) con user_id + expires_at para las
---    políticas de storage; se amplía. Una sesión activa por usuario.
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.admin_sessions (
   user_id    uuid PRIMARY KEY,
   expires_at timestamptz NOT NULL
@@ -117,28 +53,12 @@ ALTER TABLE public.admin_sessions
   ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
 ALTER TABLE public.admin_sessions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.admin_sessions FROM PUBLIC, anon, authenticated;
--- Las sesiones anteriores a esta migración no tienen token: fuera.
 UPDATE public.admin_sessions SET revoked_at = now() WHERE token_hash IS NULL AND revoked_at IS NULL;
 
--- Hash de relleno para que el bcrypt se ejecute SIEMPRE, exista o no la
--- clave real (misma duración con usuario bueno o malo).
 INSERT INTO public.app_secrets (k, v)
 VALUES ('admin_pass_dummy', crypt(encode(gen_random_bytes(16), 'hex'), gen_salt('bf', 10)))
 ON CONFLICT (k) DO NOTHING;
 
--- ------------------------------------------------------------
--- 4) admin_check: SOLO interna (la llama admin_login). No devuelve error:
---    registra el fallo y devuelve false, para que el intento quede grabado
---    aunque quien la llame lance después una excepción.
---    Motivos: 'ok' | 'locked' | 'no_session' | 'bad_credentials'.
---    Bloqueo: el contador 'uid:<uid>' cuenta siempre; el contador
---    'user:<usuario>' SOLO lo alimentan (y solo bloquea a) uids que estén en
---    admin_identities. Así un usuario cualquiera con sesión no puede dejar
---    fuera al admin a base de fallar con su nombre: solo se bloquea a sí
---    mismo. Los dos contadores se leen y escriben bajo advisory locks de
---    transacción (en orden estable por el valor del hash) para que dos
---    intentos concurrentes no cuenten de menos.
--- ------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_check(text, text);
 CREATE FUNCTION public.admin_check(p_user text, p_pass text)
 RETURNS text
@@ -164,14 +84,11 @@ DECLARE
   v_lock_a  int := hashtext(v_subj_u);
   v_lock_b  int := hashtext(v_subj_id);
 BEGIN
-  -- Serializar por sujeto (usuario y uid), siempre en el mismo orden
-  -- (menor hash primero) para que dos sesiones no se crucen en deadlock.
   PERFORM pg_advisory_xact_lock(least(v_lock_a, v_lock_b));
   PERFORM pg_advisory_xact_lock(greatest(v_lock_a, v_lock_b));
 
   DELETE FROM public.admin_login_attempts WHERE attempted_at < now() - interval '1 day';
 
-  -- ¿Puede este uid ser admin? (service_role: panel local, sin uid)
   v_ok_uid  := (v_role = 'service_role')
                OR (v_uid IS NOT NULL AND EXISTS (SELECT 1 FROM public.admin_identities WHERE user_id = v_uid));
 
@@ -191,8 +108,6 @@ BEGIN
   SELECT v INTO v_hash  FROM public.app_secrets WHERE k = 'admin_pass';
   SELECT v INTO v_dummy FROM public.app_secrets WHERE k = 'admin_pass_dummy';
 
-  -- Las tres comprobaciones se calculan SIEMPRE (sin cortocircuito) y en
-  -- tiempo constante; solo al final se combinan.
   v_cmp     := coalesce(v_hash, v_dummy);
   v_ok_user := public.ct_equal(coalesce(p_user, ''), coalesce(v_user, ''));
   v_ok_pass := public.ct_equal(crypt(coalesce(p_pass, ''), v_cmp), v_cmp);
@@ -204,8 +119,6 @@ BEGIN
     RETURN 'ok';
   END IF;
 
-  -- uid fuera de la lista blanca: solo cuenta contra sí mismo, nunca
-  -- contra el usuario (evita el bloqueo del admin por terceros).
   IF NOT v_ok_uid THEN
     INSERT INTO public.admin_login_attempts (subject) VALUES (v_subj_id);
     RETURN 'bad_credentials';
@@ -220,10 +133,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.admin_check(text, text) FROM PUBLIC, anon, authenticated;
 
--- ------------------------------------------------------------
--- 5) admin_login → token de sesión (12 h). Devuelve JSON, nunca lanza por
---    credenciales malas (así el intento fallido queda registrado).
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_login(p_user text, p_pass text)
 RETURNS json
 LANGUAGE plpgsql
@@ -259,7 +168,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_login(text, text) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.admin_login(text, text) TO authenticated;
 
--- ¿Es válida esta sesión de admin? service_role (panel local) entra sin token.
 CREATE OR REPLACE FUNCTION public.admin_session_ok(p_token text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -290,7 +198,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.admin_session_ok(text) FROM PUBLIC, anon, authenticated;
 
--- Lanza 'unauthorized' (28000) si el token no vale. La usan todas las admin_*.
 CREATE OR REPLACE FUNCTION public.admin_require(p_token text)
 RETURNS void
 LANGUAGE plpgsql
@@ -325,8 +232,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_logout(text) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.admin_logout(text) TO authenticated;
 
--- Storage (renders/banners del admin): la sesión tiene que seguir viva y no
--- revocada, y el usuario en la lista blanca.
 CREATE OR REPLACE FUNCTION public.admin_media_ok()
 RETURNS boolean
 LANGUAGE sql
@@ -347,11 +252,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_media_ok() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.admin_media_ok() TO authenticated;
 
--- ------------------------------------------------------------
--- 6) Cabecera secreta para las Edge Functions (Supabase Vault)
---    NULL si el secreto no está creado: quien la usa no llama a la función y
---    deja el aviso en la cola con error (fail-closed en los dos lados).
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.edc_internal_headers()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -379,27 +279,16 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.edc_internal_headers() FROM PUBLIC, anon, authenticated;
 
--- ------------------------------------------------------------
--- 7) Clave temporal por artista (sustituye a generic_artist_key)
---    La fila generic_artist_key de app_secrets se borra en el bloque 8b,
---    junto con la rotación de los artistas que aún la tenían (necesita
---    queue_artist_email ya redefinida con la cabecera secreta).
--- ------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION public.artist_new_temp_key()
 RETURNS text
 LANGUAGE sql
 VOLATILE
 SET search_path = public, extensions
 AS $$
-  -- 16 caracteres legibles (base64 sin / + =)
   SELECT replace(replace(replace(encode(gen_random_bytes(12), 'base64'), '/', 'x'), '+', 'y'), '=', '');
 $$;
 REVOKE EXECUTE ON FUNCTION public.artist_new_temp_key() FROM PUBLIC, anon, authenticated;
 
--- Para la Edge Function (service_role) cuando un aviso rebota y hay que
--- reenviar la clave por Discord: solo si el artista está aprobado y aún no
--- ha elegido su propia clave (must_change_password). Devuelve la nueva.
 CREATE OR REPLACE FUNCTION public.artist_issue_temp_key(p_artist_id uuid)
 RETURNS text
 LANGUAGE plpgsql
@@ -429,9 +318,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_issue_temp_key(uuid) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.artist_issue_temp_key(uuid) TO service_role;
 
--- ------------------------------------------------------------
--- 8) Cola de avisos → Edge Function, ahora con la cabecera secreta
--- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.queue_artist_email(
   p_email TEXT, p_name TEXT, p_slug TEXT, p_key TEXT, p_lang TEXT, p_reset BOOLEAN
 )
@@ -517,15 +403,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.queue_artist_notice(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 
--- 8b) Retirar la clave genérica: borrar el secreto y, en el mismo bloque,
---     rotar la clave de TODOS los artistas aprobados que aún la tenían
---     (must_change_password = true) a una temporal aleatoria propia, con
---     su aviso reencolado (misma cola/Edge Function; variante "reset").
---     Idempotente: si el secreto ya no existe (segunda ejecución) no se
---     rota nada, para no reenviar avisos.
---     Si el aviso no puede encolarse (send_email_url o Vault sin
---     configurar) la fila queda en artist_email_outbox con error y la
---     clave ya rotada: se reenvía con admin_reset_generic desde el panel.
 DO $do$
 DECLARE
   r     record;
@@ -562,8 +439,6 @@ BEGIN
 END
 $do$;
 
--- Revisión de rebotes (pg_cron): misma cabecera. Solo se programa si el
--- secreto existe en el momento de la llamada (WHERE ... IS NOT NULL).
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'artist-email-bounces';
 SELECT cron.schedule(
@@ -586,15 +461,6 @@ SELECT cron.schedule(
   $cron$
 );
 
--- ------------------------------------------------------------
--- 9) RPC de administración: firmas nuevas (p_token) y fuera las antiguas
--- ------------------------------------------------------------
--- Todas las admin_* del schema public cuya lista de argumentos empiece por
--- (p_user text, p_pass text ...) son firmas antiguas: se borran una a una,
--- sin CASCADE. admin_check y admin_login (nuevas, con esa misma cabecera)
--- se excluyen. Si alguna tuviera dependencias (vista, política, trigger),
--- el DROP falla con un mensaje claro: revisar pg_depend (ver DEPLOY) antes
--- de volver a ejecutar.
 DO $do$
 DECLARE
   r record;
@@ -620,7 +486,6 @@ BEGIN
 END
 $do$;
 
--- 9a) Solicitudes de artistas (pending primero) + nº de jugadores asociados
 CREATE OR REPLACE FUNCTION public.admin_list(p_token text DEFAULT NULL)
 RETURNS json
 LANGUAGE plpgsql
@@ -657,8 +522,6 @@ BEGIN
 END;
 $$;
 
--- 9b) Aprobar: slug + clave temporal aleatoria (bcrypt) + aviso por la cola.
---     La clave no se devuelve al cliente: viaja en la cola hasta enviarse.
 CREATE OR REPLACE FUNCTION public.admin_approve(p_token text, p_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -704,8 +567,6 @@ BEGIN
 END;
 $$;
 
--- 9c) Restablecer: nueva clave temporal + aviso (nombre histórico, ya no hay
---     clave genérica).
 CREATE OR REPLACE FUNCTION public.admin_reset_generic(p_token text, p_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -738,7 +599,6 @@ BEGIN
 END;
 $$;
 
--- 9d) Nueva clave mostrada UNA vez al admin (panel web, entrega a mano).
 CREATE OR REPLACE FUNCTION public.admin_reset_key(p_token text, p_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -839,8 +699,6 @@ BEGIN
 END;
 $$;
 
--- 9e) Todas las fichas (panel web del admin). La sesión de storage la da
---     admin_login; aquí ya no se escribe nada.
 CREATE OR REPLACE FUNCTION public.admin_players(p_token text DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -879,7 +737,6 @@ BEGIN
 END;
 $$;
 
--- 9f) Panel local: resumen, reportes, cola de avisos
 CREATE OR REPLACE FUNCTION public.admin_edc_overview(p_token text DEFAULT NULL)
 RETURNS json
 LANGUAGE plpgsql
@@ -888,8 +745,6 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 DECLARE
-  -- Cuentas de prueba del equipo (no cuentan como artistas aprobados).
-  -- Sustituir por sus IDs de Discord al ejecutar; en el repo no se publican.
   v_test_ids CONSTANT text[] := ARRAY['<TEST_DISCORD_ID_1>', '<TEST_DISCORD_ID_2>'];
 BEGIN
   PERFORM public.admin_require(p_token);
@@ -985,7 +840,6 @@ BEGIN
 END;
 $$;
 
--- 9g) Aviso libre por email (cuenta del proyecto)
 CREATE OR REPLACE FUNCTION public.admin_send_email(
   p_token   text,
   p_email   text,
@@ -1041,7 +895,6 @@ BEGIN
 END;
 $$;
 
--- 9h) Baneos
 CREATE OR REPLACE FUNCTION public.admin_ban(p_token text, p_player_id uuid, p_reason text)
 RETURNS json
 LANGUAGE plpgsql
@@ -1132,11 +985,6 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------
--- 10) Permisos: NUNCA anon. authenticated (web, con token) y service_role
---     (panel local, sin token). Supabase concede EXECUTE por defecto a
---     anon/authenticated en cada función nueva: se retira explícitamente.
--- ------------------------------------------------------------
 DO $do$
 DECLARE
   f text;
@@ -1168,14 +1016,3 @@ $do$;
 
 NOTIFY pgrst, 'reload schema';
 
--- ►►► ALTA DEL ADMINISTRADOR (paso manual, una sola vez) ◄◄◄
--- El uuid es el id de auth.users de la cuenta (Discord o X) con la que el
--- administrador inicia sesión en la web. Para encontrarlo:
---   select u.id, i.provider, i.provider_id
---     from auth.users u join auth.identities i on i.user_id = u.id
---    where i.provider_id = '<tu id de Discord>';
--- y después:
---
--- insert into public.admin_identities (user_id, label)
--- values ('00000000-0000-0000-0000-000000000000', 'admin')
--- on conflict (user_id) do nothing;

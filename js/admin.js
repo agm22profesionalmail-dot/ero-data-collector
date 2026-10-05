@@ -5,7 +5,7 @@ import { SPECIES } from "./config.js";
 import { ensureData, renderSlot, renderBanner, renderSheet, sheetFromRaw, setMainWide } from "./artist_panel.js";
 const S = {
   en: {
-    title: "Admin — artists",
+    title: "Admin - artists",
     intro: "Sign in with your admin credentials.",
     user: "User",
     pass: "Password",
@@ -16,7 +16,7 @@ const S = {
     locked: "Too many failed attempts. Try again in 15 minutes.",
     need_session: "Sign in on the site (Discord or X) with your admin account before opening this panel.",
     expired: "Admin session expired. Sign in again.",
-    back: "← Back to site",
+    back: "Back to site",
     empty: "No requests yet.",
     render_beta: "*3D renders are in beta, expect errors.",
     st_pending: "Pending",
@@ -53,7 +53,7 @@ const S = {
     n_versions: "artist version(s)",
     main_profile: "Main profile",
     version_for: "For",
-    back_list: "← Back to registrations",
+    back_list: "Back to registrations",
     no_media: "Sign in on the site (Discord or X) and refresh to see renders and Splashtags.",
     d_discord: "Discord",
     d_x: "X",
@@ -63,7 +63,7 @@ const S = {
     d_artists: "Artists",
     d_consent: "consent",
     d_variant_edit: "Version edited",
-    none: "—",
+    none: "-",
     ban: "Ban",
     unban: "Lift ban",
     banned: "Banned",
@@ -87,7 +87,7 @@ const S = {
     b_date: "Banned on"
   },
   es: {
-    title: "Admin — artistas",
+    title: "Admin - artistas",
     intro: "Entra con tus credenciales de administrador.",
     user: "Usuario",
     pass: "Clave",
@@ -98,7 +98,7 @@ const S = {
     locked: "Demasiados intentos fallidos. Vuelve a intentarlo en 15 minutos.",
     need_session: "Inicia sesión en la web (Discord o X) con tu cuenta de administrador antes de abrir este panel.",
     expired: "La sesión de administrador ha caducado. Vuelve a entrar.",
-    back: "← Volver a la web",
+    back: "Volver a la web",
     empty: "Aún no hay solicitudes.",
     render_beta: "*Renderizados 3D en fase beta, espera errores.",
     st_pending: "Pendiente",
@@ -135,7 +135,7 @@ const S = {
     n_versions: "versión(es) para artistas",
     main_profile: "Ficha principal",
     version_for: "Para",
-    back_list: "← Volver a los registros",
+    back_list: "Volver a los registros",
     no_media: "Inicia sesión en la web (Discord o X) y pulsa Actualizar para ver renders y Splashtags.",
     d_discord: "Discord",
     d_x: "X",
@@ -145,7 +145,7 @@ const S = {
     d_artists: "Artistas",
     d_consent: "consentimiento",
     d_variant_edit: "Versión editada",
-    none: "—",
+    none: "-",
     ban: "Banear",
     unban: "Quitar baneo",
     banned: "Baneado",
@@ -387,7 +387,7 @@ export function renderAdminPanel(container, { onBack } = {}) {
     c.append(el(
       "div",
       { class: "edc-admin-meta" },
-      el("strong", {}, a.name || "—"),
+      el("strong", {}, a.name || "-"),
       el("span", { class: "edc-admin-badge edc-admin-badge-" + a.status }, ta("st_" + a.status)),
       a.status === "approved" && a.players != null ? el("span", { class: "edc-admin-players" }, a.players + " " + ta("players")) : null
     ));

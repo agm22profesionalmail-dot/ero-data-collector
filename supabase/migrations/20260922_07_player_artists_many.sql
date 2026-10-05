@@ -1,20 +1,3 @@
--- ============================================================
--- Migración 20260922_07: un jugador puede estar con VARIOS artistas
---
--- Antes: players.referred_by (un solo artista). Si el jugador entraba por el
--- enlace de otro artista, o no se asociaba o pisaba al anterior, que perdía
--- la ficha. Ahora: tabla player_artists (jugador ↔ artista, N:M) con la fecha
--- de consentimiento. referred_by se queda como dato histórico (primer
--- artista) y deja de usarse para dar acceso.
---
--- La asociación solo se crea por RPC (artist_link / artist_save_char), que
--- comprueban que el artista está aprobado y usan auth.uid(): el jugador no
--- puede asociarse a mano escribiendo en la tabla.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Tabla N:M
 CREATE TABLE IF NOT EXISTS public.player_artists (
   player_id  UUID NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
   artist_id  UUID NOT NULL REFERENCES public.artists(id) ON DELETE CASCADE,
@@ -25,7 +8,6 @@ CREATE TABLE IF NOT EXISTS public.player_artists (
 CREATE INDEX IF NOT EXISTS player_artists_artist_idx ON public.player_artists (artist_id);
 ALTER TABLE public.player_artists ENABLE ROW LEVEL SECURITY;
 
--- El jugador ve y puede retirar (DELETE) sus propias asociaciones; no inserta.
 REVOKE ALL ON public.player_artists FROM anon, authenticated;
 GRANT SELECT, DELETE ON public.player_artists TO authenticated;
 DROP POLICY IF EXISTS pa_select_own ON public.player_artists;
@@ -37,14 +19,12 @@ CREATE POLICY pa_delete_own ON public.player_artists
   FOR DELETE TO authenticated
   USING (player_id IN (SELECT id FROM public.players WHERE user_id = (SELECT auth.uid())));
 
--- 2) Backfill desde referred_by (conserva la fecha de consentimiento)
 INSERT INTO public.player_artists (player_id, artist_id, consent_at)
 SELECT id, referred_by, referred_consent_at
   FROM public.players
  WHERE referred_by IS NOT NULL
 ON CONFLICT (player_id, artist_id) DO NOTHING;
 
--- 3) RPC: asociarse a un artista con consentimiento (no toca a los demás)
 CREATE OR REPLACE FUNCTION public.artist_link(p_artist_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -65,7 +45,6 @@ BEGIN
   VALUES (v_player_id, p_artist_id, NOW())
   ON CONFLICT (player_id, artist_id)
     DO UPDATE SET consent_at = COALESCE(public.player_artists.consent_at, EXCLUDED.consent_at);
-  -- Histórico: primer artista del jugador
   UPDATE public.players SET referred_by = p_artist_id, referred_consent_at = NOW()
    WHERE id = v_player_id AND referred_by IS NULL;
 END;
@@ -73,7 +52,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_link(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_link(UUID) TO authenticated;
 
--- 4) artist_save_char: asocia vía player_artists
 CREATE OR REPLACE FUNCTION public.artist_save_char(
   p_artist_id     UUID,
   p_player_type   INT   DEFAULT 0,
@@ -102,7 +80,6 @@ DECLARE
   v_artist_ok  BOOLEAN;
   v_player_id  UUID;
 BEGIN
-  -- Verificar que el artista existe y está aprobado
   SELECT EXISTS(
     SELECT 1 FROM public.artists WHERE id = p_artist_id AND status = 'approved'
   ) INTO v_artist_ok;
@@ -111,7 +88,6 @@ BEGIN
     RAISE EXCEPTION 'artist not found or not approved' USING ERRCODE = '28000';
   END IF;
 
-  -- Resolver el jugador por sesión activa
   SELECT id INTO v_player_id
     FROM public.players
    WHERE user_id = auth.uid();
@@ -120,7 +96,6 @@ BEGIN
     RAISE EXCEPTION 'no player record for this user';
   END IF;
 
-  -- Upsert de la variante de personaje
   INSERT INTO public.player_artist_chars (
     player_id, artist_id,
     player_type, hair, bottom, bottom_variation, skin_tone, eye_brows, eye_color,
@@ -151,8 +126,6 @@ BEGIN
     color                = EXCLUDED.color,
     updated_at           = NOW();
 
-  -- Asociar al artista (sin quitar los demás). La web solo llama aquí con la
-  -- casilla de consentimiento marcada.
   INSERT INTO public.player_artists (player_id, artist_id, consent_at)
   VALUES (v_player_id, p_artist_id, NOW())
   ON CONFLICT (player_id, artist_id)
@@ -163,8 +136,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_save_char FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_save_char TO authenticated;
 
-
--- 5) artist_group: jugadores del artista vía player_artists
 CREATE OR REPLACE FUNCTION public.artist_group(p_key TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -243,7 +214,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_group FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_group TO authenticated;
 
--- 6) Storage (banners/renders): el artista ve a sus jugadores vía player_artists
 CREATE OR REPLACE FUNCTION public.artist_can_see_user(p_user_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -265,8 +235,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_can_see_user(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_can_see_user(text) TO authenticated;
 
--- 7) admin_list: el contador de jugadores por artista usa player_artists.
---    Se reescribe sobre la definición viva (solo cambia esa subconsulta).
 DO $do$
 DECLARE
   v_def text := pg_get_functiondef('public.admin_list(text,text)'::regprocedure);

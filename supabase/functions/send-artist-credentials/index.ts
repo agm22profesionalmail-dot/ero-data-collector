@@ -1,40 +1,3 @@
-// Edge Function: send-artist-credentials
-//
-// Envía el email de acceso al artista aprobado (o restablecido) y el aviso de
-// solicitud rechazada. La disparan las RPCs admin_approve /
-// admin_reset_generic / admin_reject vía pg_net con {"id": <uuid>} de una fila
-// de public.artist_email_outbox (migraciones 20260922_08 y 20260923_04).
-//
-// Seguridad: quien llama NO manda datos ni credenciales, solo el id. La
-// función lee la fila con la service_role que Supabase inyecta sola
-// (SUPABASE_SERVICE_ROLE_KEY), solo si está sin enviar y tiene < 15 min, y al
-// terminar borra la clave de la fila. Un id inventado no hace nada. Así la
-// service_role nunca tiene que guardarse en la base de datos.
-// Además (auditoría 2026-09-27) TODA llamada tiene que traer la cabecera
-// x-edc-secret con el valor de EDC_INTERNAL_SECRET (_shared/internal_secret.ts):
-// sin secret configurado o sin cabecera correcta se rechaza (fail-closed).
-// pg_net la manda desde public.edc_internal_headers() (Supabase Vault).
-//
-// Secrets de la función (Supabase → Edge Functions → Secrets):
-//   EDC_INTERNAL_SECRET = secreto compartido con la base de datos (Vault)
-//   GMAIL_USER          = cuenta de Gmail de envío del proyecto
-//   GMAIL_APP_PASSWORD  = app password de Google (16 caracteres)
-//   SITE_URL            = https://eroplayerdata.pages.dev
-//   DISCORD_BOT_TOKEN   = token del bot de Discord (opcional: sin él no hay
-//                         plan B por mensaje directo)
-// SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los inyecta Supabase.
-//
-// Entrega (migración 20260923_06):
-//  1) Antes de enviar se mira el DNS del dominio (MX, o A/AAAA). Si no puede
-//     recibir correo, se usa el email verificado de la cuenta de Discord del
-//     artista (auth.users) y, si tampoco vale, un mensaje directo de Discord.
-//  2) Si Gmail rechaza el envío, también se tira de Discord.
-//  3) {"action":"check_bounces"} (pg_cron cada 15 min): lee por IMAP los
-//     rebotes de mailer-daemon del buzón de envío, marca bounced_at en la
-//     cola y reenvía el aviso por Discord.
-//
-// Desplegar con verify_jwt = false (pg_net no manda JWT de usuario): la
-// autenticación es la cabecera x-edc-secret.
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { requireInternalSecret } from "../_shared/internal_secret.ts";
 import { serviceKey } from "../_shared/keys.ts";
@@ -72,7 +35,6 @@ const rest = (path: string, init: RequestInit = {}) =>
     },
   });
 
-// UTF-8 → base64 en líneas de 76 caracteres (RFC 2045)
 function b64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let bin = "";
@@ -86,14 +48,7 @@ async function mark(id: string, patch: Record<string, unknown>) {
   await rest(`artist_email_outbox?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
-// ── Plantilla del email ─────────────────────────────────────────────────
-// Correo transaccional "corporativo": tarjeta blanca de 600px sobre gris
-// claro, cabecera de marca, imagen de portada, un único botón y bloques de
-// datos. HTML de email: tablas + estilos inline, sin CSS externo ni JS, las
-// imágenes con URL absoluta (servidas por la web).
-
 const ASSETS = "https://eroplayerdata.pages.dev/assets";
-// Comunidad de Discord (ZeroServer): se invita en los emails de aprobación y rechazo (2026-09-25).
 const DISCORD_INVITE = "https://discord.gg/Hckay4PGNR";
 const C = {
   page: "#eef0f4",
@@ -107,10 +62,7 @@ const C = {
   brand: "#8b5cff",      // morado de la web (franja y detalles)
   cta: "#5b2ee0",        // morado oscuro: contraste AA con texto blanco
 };
-// Portadas del email de acceso: una al azar por envío (Deep Cut, Squid
-// Sisters, Off the Hook; ilustraciones de las cartas de Tableturf).
 const APPROVED_HEROES = ["email-hero-approved-1.jpg", "email-hero-approved-2.jpg", "email-hero-approved-3.jpg"];
-// hero (1-3) en la fila de la cola fija la portada (envíos de prueba); si no, al azar
 const pickHero = (n?: number | null) =>
   (n && APPROVED_HEROES[n - 1]) || APPROVED_HEROES[Math.floor(Math.random() * APPROVED_HEROES.length)];
 const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
@@ -199,10 +151,6 @@ function subjectFor(lang: "en" | "es", reset: boolean) {
   return copy(lang, reset, "").subject;
 }
 
-// El HTML se compacta antes de enviarlo: denomailer codifica en
-// quoted-printable y los espacios al final de línea salían como "=20"
-// visibles en Gmail (móvil). Sin saltos de línea ni sangría no hay nada que
-// codificar mal.
 function compact(html: string) {
   return html.replace(/>\s+</g, "><").replace(/\s*\n\s*/g, " ").trim();
 }
@@ -224,7 +172,6 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset, hero }: Arg
   </table>
 </td></tr>`;
 
-  // Restablecer: el enlace de artista no va en el correo, fuera su paso
   const stepList = reset ? t.steps.slice(0, 3) : t.steps;
   const steps = stepList.map((s, i) => `
     <tr>
@@ -322,9 +269,6 @@ function renderHtmlRaw({ name, refLink, panelLink, key, lang, reset, hero }: Arg
 </html>`;
 }
 
-// ── Solicitud rechazada ─────────────────────────────────────────────────
-// Misma maqueta que el de acceso, sin clave, enlace ni pasos. El botón lleva
-// a la web.
 type RejectCopy = {
   htmlLang: string; subject: string; preheader: string; kicker: string;
   title: string; hello: string; paras: string[]; cta: string;
@@ -456,12 +400,9 @@ function renderText({ name, refLink, panelLink, key, lang, reset }: Args) {
   return lines.join("\n");
 }
 
-// ── Entrega: DNS, alternativas y Discord ───────────────────────────────
-
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-// DNS-over-HTTPS (Cloudflare y Google de reserva). null = no se pudo consultar.
 async function doh(name: string, type: "MX" | "A" | "AAAA") {
   const code = { MX: 15, A: 1, AAAA: 28 }[type];
   for (const base of ["https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"]) {
@@ -479,8 +420,6 @@ async function doh(name: string, type: "MX" | "A" | "AAAA") {
   return null;
 }
 
-// "ok" = el dominio recibe correo; "dead" = no existe, MX nulo o sin MX/A/AAAA;
-// "unknown" = DNS sin respuesta (no se bloquea: se intenta enviar igual).
 async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> {
   const domain = (email.split("@").pop() ?? "").trim().toLowerCase().replace(/\.$/, "");
   if (!domain) return "dead";
@@ -503,7 +442,6 @@ async function artistByEmail(email: string): Promise<ArtistInfo | null> {
   return rows[0] ?? null;
 }
 
-// Email verificado de la cuenta de Discord (auth.users), vía RPC solo service_role
 async function discordAccountEmail(discordId: string): Promise<string | null> {
   const r = await rest("rpc/artist_discord_email", { method: "POST", body: JSON.stringify({ p_discord_id: discordId }) });
   if (!r.ok) return null;
@@ -511,11 +449,6 @@ async function discordAccountEmail(discordId: string): Promise<string | null> {
   return typeof v === "string" && v.includes("@") ? v : null;
 }
 
-// Ya no hay clave genérica compartida (migración 20260927_01): cada artista
-// recibe una clave temporal aleatoria cuyo bcrypt es lo único que queda en la
-// BBDD. Si el aviso rebotó y hay que reenviarlo, se pide OTRA clave temporal
-// (RPC artist_issue_temp_key, solo service_role; solo mientras el artista no
-// haya elegido la suya).
 async function issueTempKey(artistId: string): Promise<string | null> {
   const r = await rest("rpc/artist_issue_temp_key", { method: "POST", body: JSON.stringify({ p_artist_id: artistId }) });
   if (!r.ok) return null;
@@ -535,8 +468,6 @@ async function sendSmtp(to: string, subject: string, text: string, html: string)
       from: `OC Data Collector <${GMAIL_USER}>`,
       to,
       subject,
-      // base64 en vez del quoted-printable de denomailer (su codificador
-      // dejaba "=20" visibles en Gmail)
       mimeContent: [
         { mimeType: 'text/plain; charset="utf-8"', transferEncoding: "base64", content: b64(text) },
         { mimeType: 'text/html; charset="utf-8"', transferEncoding: "base64", content: b64(html) },
@@ -547,8 +478,6 @@ async function sendSmtp(to: string, subject: string, text: string, html: string)
   }
 }
 
-// Mensaje directo por Discord. null = enviado; si no, el motivo del fallo.
-// Un bot solo puede escribir a quien comparte servidor con él (error 50007).
 async function sendDiscordDm(discordId: string, payload: DiscordPayload): Promise<string | null> {
   if (!DISCORD_BOT_TOKEN) return "discord bot not configured";
   const api = (path: string, body: unknown) => fetch(`https://discord.com/api/v10${path}`, {
@@ -569,10 +498,6 @@ async function sendDiscordDm(discordId: string, payload: DiscordPayload): Promis
   }
 }
 
-// Mensaje de Discord con el aspecto del email: embed con la franja morada de
-// la marca, cabecera con el logo, la misma portada, clave tras spoiler, pasos
-// numerados, botones de enlace y el pie legal. key = null → sin clave
-// (rechazo, o el artista ya eligió la suya): solo se le manda al panel.
 type DiscordPayload = {
   content?: string;
   embeds: Record<string, unknown>[];
@@ -580,11 +505,8 @@ type DiscordPayload = {
   allowed_mentions: { parse: string[] };
 };
 
-// alsoEmailed (2026-09-25): el DM se manda SIEMPRE, no solo si falla el email,
-// porque Gmail mete muchos de estos correos en spam; el texto cambia según el caso.
 function discordMessage(row: Outbox, key: string | null, alsoEmailed = false): DiscordPayload {
   if (row.kind === "custom") {
-    // Aviso libre (enviar_email.py / admin_send_email): texto plano tal cual.
     const why = row.lang === "es"
       ? "-# Te escribimos por aquí porque no hemos podido hacerte llegar el email."
       : "-# We're messaging you here because we couldn't get the email to you.";
@@ -655,7 +577,6 @@ function discordMessage(row: Outbox, key: string | null, alsoEmailed = false): D
   };
 }
 
-// Plan B por Discord. Devuelve el parche para la fila de la cola.
 async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: string | null, reason: string) {
   const dmErr = artist?.discord_id ? await sendDiscordDm(artist.discord_id, discordMessage(row, key)) : "no discord id";
   if (!dmErr) {
@@ -667,10 +588,6 @@ async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: stri
   return { error: `${reason} | ${dmErr}`.slice(0, 500), note: reason };
 }
 
-// Aviso libre (kind = custom, migración 20260925_02): el asunto y el texto los
-// escribe el propietario. Plantilla mínima (texto plano + HTML sencillo, sin imágenes)
-// para que parezca un correo normal y no un boletín. Sale de GMAIL_USER
-// (cuenta del proyecto), nunca de un correo personal. Si Gmail lo rechaza → Discord.
 function customHtml(row: Outbox): string {
   const linkify = (t: string) => e(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
   const paras = (row.body ?? "").split(/\n{2,}/).map((p) =>
@@ -714,7 +631,6 @@ async function sendRow(row: Outbox) {
 
   const artist = await artistByEmail(row.email);
 
-  // 1) ¿El dominio recibe correo? Si no, email de la cuenta de Discord.
   let target = row.email;
   let channel = "email";
   let reason = "";
@@ -729,17 +645,13 @@ async function sendRow(row: Outbox) {
     }
   }
 
-  // 2) Email (principal o alternativo); si Gmail lo rechaza, Discord.
   if (channel !== "discord") {
     try {
       await sendSmtp(target, subject, text, html);
-      // Copia por Discord aunque el email haya salido (muchos acaban en spam).
-      // Si el DM falla no pasa nada: el email ya se envió.
       const dmErr = artist?.discord_id
         ? await sendDiscordDm(artist.discord_id, discordMessage(row, rejected ? null : (row.key ?? null), true))
         : "no discord id";
       const dmNote = dmErr ? `discord dm: ${dmErr}` : "discord dm ok";
-      // Enviado: se borra la clave de la cola (no se queda en claro en la BBDD)
       await mark(id, {
         sent_at: new Date().toISOString(), key: null, error: null, channel,
         delivered_to: channel === "email_alt" ? target : null,
@@ -753,16 +665,10 @@ async function sendRow(row: Outbox) {
     }
   }
 
-  // 3) Discord
   const patch = await discordFallback(row, artist, rejected ? null : row.key, reason);
   await mark(id, patch);
   return "channel" in patch ? json({ ok: true, channel: "discord" }) : json({ ok: false, error: patch.error }, 502);
 }
-
-// ── Rebotes (IMAP) ─────────────────────────────────────────────────────
-// Gmail acepta el envío y el rebote llega después al buzón como un correo de
-// mailer-daemon. Cliente IMAP mínimo sobre TLS: LOGIN, SELECT, UID SEARCH,
-// UID FETCH (BODY.PEEK: no marca como leído) y LOGOUT.
 
 class Imap {
   private buf = "";
@@ -821,7 +727,6 @@ async function checkBounces() {
   if (!rows.length) return json({ ok: true, checked: 0, bounced: 0 });
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return json({ ok: false, error: "Gmail credentials not configured" }, 500);
 
-  // Rebotes recientes: cabeceras + primeros 30 KB del cuerpo de cada uno
   const bounces: { at: number; text: string }[] = [];
   const imap = await Imap.open("imap.gmail.com");
   try {
@@ -841,9 +746,6 @@ async function checkBounces() {
   }
 
   let bounced = 0;
-  // Una sola clave temporal nueva por artista y pasada: si varias filas del
-  // mismo artista rebotan a la vez, todas van con la misma clave (cada
-  // artist_issue_temp_key invalida la anterior).
   const tempKeys = new Map<string, string | null>();
   const tempKeyFor = async (artistId: string) => {
     if (!tempKeys.has(artistId)) tempKeys.set(artistId, await issueTempKey(artistId));
@@ -852,7 +754,6 @@ async function checkBounces() {
   for (const row of rows) {
     const addr = (row.delivered_to || row.email).toLowerCase();
     const sentAt = Date.parse(row.sent_at as string);
-    // Margen de 2 min por diferencias de reloj entre Gmail y Supabase
     const hit = bounces.find((b) => b.at >= sentAt - 120000 && b.text.includes(addr));
     if (!hit) continue;
     bounced++;
@@ -860,8 +761,6 @@ async function checkBounces() {
       ?? hit.text.match(/\b5\d\d[ -][^\r\n]{0,160}/)?.[0] ?? "bounced";
     const reason = `bounced: ${diag.trim()}`.slice(0, 300);
     const artist = await artistByEmail(row.email);
-    // Email de acceso y aún no ha elegido su clave → clave temporal nueva
-    // (una por artista en esta pasada)
     const key = row.kind === "credentials" && artist?.status === "approved" && artist.must_change_password
       ? await tempKeyFor(artist.id) : null;
     const patch = await discordFallback(row, artist, key, reason);
@@ -879,7 +778,6 @@ Deno.serve(async (req) => {
   let body: { id?: unknown; action?: unknown } = {};
   try { body = (await req.json()) ?? {}; } catch { /* sin cuerpo */ }
 
-  // Revisión de rebotes (pg_cron). No recibe datos: solo mira la cola.
   if (body.action === "check_bounces") {
     try {
       return await checkBounces();
@@ -897,8 +795,6 @@ Deno.serve(async (req) => {
   const rows: Outbox[] = r.ok ? await r.json() : [];
   const row = rows[0];
   const keyless = row?.kind === "rejected" || (row?.kind === "custom" && !!row.subject && !!row.body);
-  // Respuesta neutra: no revela si el id existe. El de acceso necesita clave;
-  // el de rechazo y el aviso libre no llevan ninguna.
   if (!row || (!keyless && !row.key) || Date.now() - Date.parse(row.created_at) > MAX_AGE_MS) {
     return json({ ok: false });
   }

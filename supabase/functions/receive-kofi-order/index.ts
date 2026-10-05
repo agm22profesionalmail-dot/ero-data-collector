@@ -1,23 +1,13 @@
-// Ko-fi Webhook → Supabase Edge Function
-// Recibe el POST de Ko-fi cuando llega una comisión y la inserta en public.orders
-//
-// Variables de entorno necesarias (Supabase Dashboard → Settings → Edge Functions → Secrets):
-//   KOFI_TOKEN        — token de verificación de Ko-fi (Ko-fi Dashboard → API → Webhook Token)
-//   SUPABASE_URL      — inyectada automáticamente por Supabase
-//   SUPABASE_SERVICE_ROLE_KEY — inyectada automáticamente por Supabase
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serviceKey as getServiceKey } from "../_shared/keys.ts";
 
 const COMMISSION_TYPE_MAP: Record<string, string> = {
-  // Fotos (orden importa: frases más específicas primero)
   "full group photo": "full_group_photo",
   "full_group_photo": "full_group_photo",
   "simple group photo": "simple_group_photo",
   "simple_group_photo": "simple_group_photo",
   "individual photo": "individual_photo",
   "individual_photo": "individual_photo",
-  // Transformaciones
   "get canonised": "get_canonised",
   "get_canonised": "get_canonised",
   "canonised": "get_canonised",
@@ -30,9 +20,6 @@ const COMMISSION_TYPE_MAP: Record<string, string> = {
   "fuzzed": "get_fuzzed",
 };
 
-// Ko-fi NO manda el nombre de la comisión: en shop_items solo viene el código
-// del enlace directo (ko-fi.com/c/<código>) y la variación elegida.
-// Al crear una comisión nueva en Ko-fi, añadir aquí su código.
 const DIRECT_LINK_CODE_MAP: Record<string, string> = {
   "9f29d12127": "individual_photo", // Individual Photo (€1+)
   "285cf9e2be": "full_group_photo", // Full Group Photo (€20+)
@@ -49,24 +36,20 @@ function matchName(text: string): string | null {
 }
 
 function detectCommissionType(shopItems: ShopItem[], message: string, amount: number): string {
-  // 1. Código del enlace directo de la comisión
   for (const item of shopItems) {
     const byCode = DIRECT_LINK_CODE_MAP[String(item?.direct_link_code || "").toLowerCase()];
     if (byCode) return byCode;
   }
-  // 2. Nombre/variación del item o mensaje del comprador
   for (const item of shopItems) {
     const byName = matchName(`${item?.name || ""} ${item?.variation_name || ""}`);
     if (byName) return byName;
   }
   const byMsg = matchName(message);
   if (byMsg) return byMsg;
-  // 3. Último recurso por importe (solo hay Individual €1+ y Full Group €20+)
   console.warn("[kofi-webhook] Tipo no identificado; se deduce por importe", amount);
   return amount >= 20 ? "full_group_photo" : "individual_photo";
 }
 
-// Primer campo de texto no vacío del payload (Ko-fi cambia el nombre según el tipo).
 function firstText(obj: Record<string, unknown>, keys: string[]): string | null {
   for (const k of keys) {
     const v = obj[k];
@@ -88,7 +71,6 @@ async function safeEqual(a: string, b: string): Promise<boolean> {
 }
 
 Deno.serve(async (req: Request) => {
-  // Solo acepta POST
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -97,7 +79,6 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = getServiceKey();
 
-  // Parsear payload Ko-fi (application/x-www-form-urlencoded con campo "data" JSON)
   let kofi: Record<string, unknown>;
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -107,7 +88,6 @@ Deno.serve(async (req: Request) => {
       const form = await req.formData();
       raw = form.get("data") as string;
     } else {
-      // Algunos planes Ko-fi envían JSON directamente
       raw = await req.text();
     }
 
@@ -116,8 +96,6 @@ Deno.serve(async (req: Request) => {
     return new Response("Bad payload", { status: 400 });
   }
 
-  // Verificar token Ko-fi. Sin KOFI_TOKEN configurado se rechaza todo (fail-closed)
-  // y la comparación es en tiempo constante sobre SHA-256 de longitud fija.
   if (!kofiToken) {
     return new Response("Webhook not configured", { status: 503 });
   }
@@ -125,7 +103,6 @@ Deno.serve(async (req: Request) => {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // Solo procesar comisiones (type === "Commission")
   if (kofi.type !== "Commission") {
     return new Response(JSON.stringify({ skipped: true, type: kofi.type }), {
       status: 200,
@@ -133,9 +110,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Payload sin token ni email en los logs (Edge Functions → Logs) para depurar
-  // qué campos manda Ko-fi en cada pedido.
-  // Solo metadatos: nada de nombres, mensajes, emails ni usuarios de Discord.
   console.log("[kofi-webhook] payload:", JSON.stringify({
     type: kofi.type,
     kofi_transaction_id: kofi.kofi_transaction_id,
@@ -148,12 +122,10 @@ Deno.serve(async (req: Request) => {
   const amount = parseFloat(String(kofi.amount || "0"));
   const commissionType = detectCommissionType(shopItems, message, amount);
 
-  // Add-ons = variaciones elegidas (el nombre de la comisión no viene en el payload)
   const addons: string[] = shopItems
     .map((i) => i?.variation_name || i?.name || "")
     .filter(Boolean);
 
-  // Discord: campo nativo de Ko-fi o "Discord name: X" en la descripción del comprador
   const discordFromMsg = message.match(/discord(?:\s*(?:name|user(?:name)?))?\s*[:：]\s*@?([^\s,;]+)/i)?.[1] ?? null;
   const discordUsername = firstText(kofi, ["discord_username"]) || discordFromMsg;
 

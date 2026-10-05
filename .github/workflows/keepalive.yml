@@ -1,7 +1,3 @@
-# Mantiene vivo el proyecto Supabase (el plan Free se pausa tras ~7 dias sin actividad de BBDD).
-# Ejecuta una consulta REAL a Postgres via PostgREST (SELECT sobre la tabla players).
-# No requiere configurar secrets: la URL y la anon key (publica) se leen de js/config.js,
-# asi que si rotas la anon key el keepalive sigue funcionando sin tocar nada.
 name: keepalive
 
 on:

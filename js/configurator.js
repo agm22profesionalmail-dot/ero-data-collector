@@ -203,7 +203,7 @@ export function renderConfigurator(container, state, onChange) {
     row.append(el(
       "div",
       { class: "edc-gear-name" },
-      curPair ? curName(curPair) : "—",
+      curPair ? curName(curPair) : "-",
       curPair && altName(curPair) ? el("span", { class: "edc-gear-alt" }, altName(curPair)) : null
     ));
     row.append(el("button", { class: "edc-btn edc-btn-sm", onClick: () => {

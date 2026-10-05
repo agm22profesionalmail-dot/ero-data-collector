@@ -1,20 +1,3 @@
--- ============================================================
--- 20260925_02 — Avisos libres por email desde la cuenta del proyecto
--- ============================================================
--- Los correos a artistas / jugadores / comunidad salen SIEMPRE de la cuenta
--- de envío del proyecto (GMAIL_USER de la Edge Function send-artist-credentials),
--- nunca de un correo personal.
---
--- La cola artist_email_outbox admite kind = 'custom' con asunto y texto
--- libres. admin_send_email() los encola y avisa a la función, que los envía
--- con una plantilla mínima (texto + HTML sencillo). Si Gmail lo rechaza, la
--- función cae a un DM de Pelipper (si el email es de un artista con Discord).
---
--- Se llama con las credenciales admin (p_user / p_pass) o con la service_role
--- (desde una herramienta de administración local).
--- Idempotente: se puede ejecutar varias veces sin error.
--- ============================================================
-
 alter table public.artist_email_outbox
   add column if not exists subject text,
   add column if not exists body    text;

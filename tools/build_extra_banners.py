@@ -21,15 +21,12 @@ ver = sys.argv[1] if len(sys.argv) > 1 else "1130"
 rows = get(f"{LEANNY}/data/mush/{ver}/NamePlateBgInfo.json")
 have = {b["file"] for b in get(ST)["banners"] if isinstance(b, dict) and "file" in b}
 
-# Sección del generador según el prefijo (igual que agrupa el catálogo original)
 SECTION = {"Catalog": "catalog", "Coop": "coop", "Lot": "jackpot", "Sdodr": "side"}
-
 
 def srgb(c: float) -> int:  # TextColor viene en lineal
     c = max(0.0, min(1.0, c))
     v = 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055
     return round(v * 255)
-
 
 out = []
 for r in rows:

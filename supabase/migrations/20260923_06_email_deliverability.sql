@@ -1,22 +1,3 @@
--- ============================================================
--- Migración 20260923_06: que el aviso llegue a cualquier artista
---
--- Problema: la cola daba el email por enviado en cuanto Gmail lo aceptaba.
--- Un dominio muerto (p. ej. ajimelo.net) o un buzón inexistente rebotaba
--- después y nadie se enteraba.
---
--- La Edge Function send-artist-credentials (misma fecha) ahora:
---  1) mira el DNS del dominio antes de enviar; si no recibe correo, usa el
---     email verificado de la cuenta de Discord del artista y, si tampoco,
---     un mensaje directo por Discord (secret DISCORD_BOT_TOKEN);
---  2) si Gmail rechaza el envío, también tira de Discord;
---  3) con {"action":"check_bounces"} lee por IMAP los rebotes del buzón de
---     envío y los marca aquí (bounced_at) + reenvía por Discord.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Cola: por dónde salió y si rebotó
 ALTER TABLE public.artist_email_outbox
   ADD COLUMN IF NOT EXISTS channel      TEXT,         -- email | email_alt | discord
   ADD COLUMN IF NOT EXISTS delivered_to TEXT,         -- email alternativo o discord:<id>
@@ -26,8 +7,6 @@ ALTER TABLE public.artist_email_outbox DROP CONSTRAINT IF EXISTS artist_email_ou
 ALTER TABLE public.artist_email_outbox
   ADD CONSTRAINT artist_email_outbox_channel_check CHECK (channel IS NULL OR channel IN ('email', 'email_alt', 'discord'));
 
--- 2) Email verificado de la cuenta de Discord del artista (auth.users). Solo
---    la usa la Edge Function (service_role) como alternativa.
 CREATE OR REPLACE FUNCTION public.artist_discord_email(p_discord_id TEXT)
 RETURNS TEXT
 LANGUAGE sql
@@ -46,8 +25,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.artist_discord_email(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.artist_discord_email(TEXT) TO service_role;
 
--- 3) Estado del último aviso (panel local): + canal, destino y rebote.
---    Rebotado sin plan B que funcionara = 'error'.
 CREATE OR REPLACE FUNCTION public.admin_email_status(p_user text, p_pass text, p_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -82,8 +59,6 @@ BEGIN
 END;
 $$;
 
--- 4) Revisión de rebotes cada 15 min, solo si hay envíos de los últimos
---    3 días por revisar (si no, ni se llama a la función).
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'artist-email-bounces';

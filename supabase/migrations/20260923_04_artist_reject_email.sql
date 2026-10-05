@@ -1,20 +1,3 @@
--- ============================================================
--- Migración 20260923_04: email al rechazar una solicitud de artista
---
--- Antes: "Rechazar" (admin_set_status → 'rejected') solo cambiaba el estado;
--- el solicitante no se enteraba de nada.
---
--- Ahora: admin_reject cambia el estado y deja en la cola artist_email_outbox
--- un email de tipo 'rejected' (sin clave ni enlace). La Edge Function
--- send-artist-credentials lo envía con su propia plantilla: la solicitud no
--- cumple los requisitos o no aporta información suficiente para ser válida.
---
--- admin_set_status sigue igual (revocar / reactivar / volver a pendiente).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Tipo de email en la cola; los rechazos no tienen slug
 ALTER TABLE public.artist_email_outbox
   ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'credentials';
 ALTER TABLE public.artist_email_outbox DROP CONSTRAINT IF EXISTS artist_email_outbox_kind_check;
@@ -22,7 +5,6 @@ ALTER TABLE public.artist_email_outbox
   ADD CONSTRAINT artist_email_outbox_kind_check CHECK (kind IN ('credentials', 'rejected'));
 ALTER TABLE public.artist_email_outbox ALTER COLUMN slug DROP NOT NULL;
 
--- 2) Encolar un aviso sin clave (de momento solo 'rejected') + avisar a la función
 CREATE OR REPLACE FUNCTION public.queue_artist_notice(
   p_email TEXT, p_name TEXT, p_lang TEXT, p_kind TEXT
 )
@@ -60,8 +42,6 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.queue_artist_notice(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 
--- 3) Rechazar + email. Solo envía si la solicitud estaba pendiente (rechazar
---    dos veces o rechazar a alguien ya revocado no manda nada).
 CREATE OR REPLACE FUNCTION public.admin_reject(p_user text, p_pass text, p_id uuid)
  RETURNS json
  LANGUAGE plpgsql

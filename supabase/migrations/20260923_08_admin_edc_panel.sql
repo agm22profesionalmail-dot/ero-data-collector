@@ -1,28 +1,3 @@
--- ============================================================
--- Migración 20260923_08: RPCs del panel de administración externo
---
--- Una herramienta de administración gestiona todo lo de la web (OC Data
--- Collector): cifras generales, reportes de ?feedback, cola de avisos a
--- artistas y estado de la beta. Todo pasa por RPCs SECURITY DEFINER que
--- validan las credenciales de admin con admin_check (migración 20260916_04):
--- la herramienta solo tiene la anon key + usuario/clave admin.
--- NOTA: sustituida por 20260927_01 (las RPC reciben un token de sesión).
---
---  1) admin_edc_overview      → cifras del resumen (jugadores, artistas,
---                               reportes, envíos fallidos, último registro)
---  2) admin_feedback_list     → reportes (por estado; por defecto abiertos)
---  3) admin_feedback_set_status → marcar leído / hecho / descartado
---  4) admin_email_log         → últimos avisos de artist_email_outbox
---                               (NUNCA devuelve la columna key)
---
--- Las cuentas de prueba del equipo no cuentan como artistas aprobados, igual
--- que en el roster de la beta. Sustituye <TEST_DISCORD_ID_1/2> por sus IDs de
--- Discord al ejecutar esta migración (en el repo no se publican).
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
--- 1) Resumen ---------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_edc_overview(p_user text, p_pass text)
 RETURNS json
 LANGUAGE plpgsql
@@ -57,8 +32,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_edc_overview(text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_edc_overview(text, text) TO anon, authenticated;
 
--- 2) Reportes: lista ------------------------------------------------------
---    p_status NULL → abiertos (new + read). Nunca devuelve ip_hash.
 CREATE OR REPLACE FUNCTION public.admin_feedback_list(p_user text, p_pass text, p_status text DEFAULT NULL, p_limit int DEFAULT 50)
 RETURNS json
 LANGUAGE plpgsql
@@ -93,7 +66,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_feedback_list(text, text, text, int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_feedback_list(text, text, text, int) TO anon, authenticated;
 
--- 3) Reportes: cambiar estado --------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_feedback_set_status(p_user text, p_pass text, p_id uuid, p_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -116,7 +88,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_feedback_set_status(text, text, uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_feedback_set_status(text, text, uuid, text) TO anon, authenticated;
 
--- 4) Cola de avisos: últimos envíos (sin la clave) --------------------------
 CREATE OR REPLACE FUNCTION public.admin_email_log(p_user text, p_pass text, p_limit int DEFAULT 20)
 RETURNS json
 LANGUAGE plpgsql

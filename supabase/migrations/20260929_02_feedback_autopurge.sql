@@ -1,15 +1,3 @@
--- ============================================================
--- Migración 20260929_02: los reportes completados se borran solos
---
--- Un reporte marcado como "hecho" o "descartado" desaparece del panel y, pasados
--- 7 días, se borra de public.feedback. Como la tabla no guardaba cuándo se
--- completó, se añade resolved_at (lo pone un trigger al pasar a hecho/descartado
--- y lo quita si se reabre) y un job diario de pg_cron que purga.
---
--- Idempotente. Los que ya estaban hechos/descartados cuentan desde la fecha
--- de esta migración (siete días de margen).
--- ============================================================
-
 BEGIN;
 
 ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
@@ -39,7 +27,6 @@ CREATE TRIGGER feedback_resolved_at
   BEFORE INSERT OR UPDATE OF status ON public.feedback
   FOR EACH ROW EXECUTE FUNCTION public.feedback_set_resolved_at();
 
--- Borra los completados hace más de 7 días. Devuelve cuántos.
 CREATE OR REPLACE FUNCTION public.feedback_purge_resolved()
 RETURNS integer
 LANGUAGE sql
@@ -57,5 +44,4 @@ REVOKE ALL ON FUNCTION public.feedback_purge_resolved() FROM PUBLIC, anon, authe
 
 COMMIT;
 
--- Job diario (04:17 UTC). cron.schedule con el mismo nombre lo reemplaza.
 SELECT cron.schedule('feedback-purge-resolved', '17 4 * * *', $$SELECT public.feedback_purge_resolved()$$);

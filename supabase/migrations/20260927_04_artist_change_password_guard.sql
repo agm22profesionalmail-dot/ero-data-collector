@@ -1,28 +1,3 @@
--- ============================================================
--- Migración 20260927_04: artist_change_password debe cerrar la clave temporal
--- (auditoría 2026-09-27, revisión: M1 lado artista)
---
--- CONDICIONAL. artist_change_password(p_current, p_new) se creó a mano en
--- producción (no está en el repo). El flujo nuevo depende de que, al cambiar
--- la clave, ponga must_change_password = false: si no lo hiciera, el artista
--- se quedaría para siempre con {must_change_password: true, players: []}
--- (artist_group v3) y el panel no mostraría nada.
---
--- Aplicar SOLO si la comprobación previa del DEPLOY (paso 7.3) dice que la
--- función de producción NO pone must_change_password = false, o no existe.
--- El bloque es defensivo: si la función ya existe y su cuerpo contiene
--- "must_change_password = false", NO la toca (NOTICE) y termina.
---
--- La definición que se instala replica el contrato que usa la web
--- (js/artist_panel.js): identifica al artista igual que artist_group
--- (cuenta Discord de la sesión + bcrypt de la clave actual), exige ≥ 10
--- caracteres y clave distinta de la actual, escribe bcrypt y cierra el
--- primer acceso. Errores: 'unauthorized' (28000) si la clave actual no
--- casa; 'weak password' (22023) si no cumple.
---
--- Ejecutar en: Supabase Dashboard → SQL Editor → Run. Idempotente.
--- ============================================================
-
 DO $do$
 DECLARE
   v_def text;
