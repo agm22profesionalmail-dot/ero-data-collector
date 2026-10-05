@@ -1,104 +1,45 @@
 # OC Data Collector
 
-**Share your Splatoon 3 character once, and every artist gets exactly what they need to draw it.**
+A free, fan-made web tool for Splatoon 3 players and artists. You rebuild your in-game character, attach your Splattag banner, and artists who follow your link get everything they need to draw it: the 3D render, every gear piece by name, exact ink colour and banner.
 
-🌐 **[eroplayerdata.pages.dev](https://eroplayerdata.pages.dev)** · 💬 [Discord](https://discord.gg/Hckay4PGNR) · ☕ [Ko-fi](https://ko-fi.com/zerosplatoon)
+Site: https://eroplayerdata.pages.dev
+Discord: https://discord.gg/Hckay4PGNR
+Ko-fi: https://ko-fi.com/zerosplatoon
 
-OC Data Collector is a free fan-made web tool. Players sign in with **Discord** or **X**, rebuild their in-game character piece by piece and attach their **Splattag banner**. The result is a character sheet with species, skin and eye colour, hairstyle, every gear piece by name, weapon, exact ink colour and a 3D reference, so commission artists don't have to ask.
+## What it does
 
-> Español: más abajo, en [Resumen en español](#resumen-en-español).
+Players sign in with Discord or X and build their character piece by piece: species, skin and eye colour, hair, eyebrows, legs, gear with ALT variants, weapon and pose. Ink colour can be copied as HEX, RGB or HSL. There is a Splattag creator built in, or you can upload your own banner. Each character gets a 3D render you can spin, and the sheet can be edited whenever you like.
 
----
+Artists apply at /?apply and get their own link. Characters shared through it show up in the artist panel with full references. Bugs and suggestions go through /?feedback.
 
-## Features
+Every account has one character. Extra slots are optional and paid for through Ko-fi, since storage for images and renders has a real cost. Slots are also given away in free prize draws.
 
-### For players
-- **Character builder**: Inkling / Octoling, girl / boy, skin tone, eye colour, hairstyle, eyebrows, legs, head / clothes / shoes (with ALT variants), weapon and pose. Species-aware: only compatible hairstyles and eyebrows are offered.
-- **Exact ink colour**: pick your colour and anyone can copy it as **HEX**, **RGB** or **HSL**.
-- **Built-in Splattag creator**: banners (including layer-recolourable ones), name, titles in 13 languages with their original fonts, tag, up to 3 badges, or your own banner / badge image. Exported as a real 700×200 PNG and attached to your sheet on save. You can also upload your in-game banner instead.
-- **3D render (beta)**: a turntable of your character that artists can spin 360°, with top and bottom views for the tricky details.
-- **Edit anytime**: sign back in and update your sheet. You can link **Discord and X** to the same sheet from the header.
-- **English / Español** interface.
+Only your username, avatar and account ID are read from Discord or X, and nothing is posted on your behalf. Uploads are PNG only and are checked before use. Minimum age is 14. Offensive content or hate symbols lead to a ban.
 
-### For artists (Artist Beta)
-- **Apply** at [`/?apply`](https://eroplayerdata.pages.dev/?apply) with your portfolio. Approved artists get their own link.
-- Players who sign up through an artist's link share their OC with that artist: full 3D reference, every gear piece named, exact colours and banner.
-- **Artist panel** with all the characters shared with you, including artist-exclusive versions of a character.
+## Built with
 
-### Community & safety
-- **Bug reports and suggestions** straight from the site at [`/?feedback`](https://eroplayerdata.pages.dev/?feedback).
-- **Content rules**: offensive content or hate symbols in names or uploaded images lead to an account ban.
-- Only **PNG** uploads (no SVG). Files are validated in the browser and scanned before they are used.
-- We only read your username, avatar and account ID. Nothing is ever posted on your behalf. Users must be 14+.
+A static single-page app on Cloudflare Pages, with Supabase for authentication, database, storage and edge functions. Row-level security means each user only reads and edits their own data, and artists only see what has been shared with them. The site ships only the public anon key. The content security policy allows scripts from the site itself, and supabase-js is vendored.
 
----
-
-## How it works
+Game data and icons are loaded from Flexlion's public files, and Splattag assets from the splashtags project.
 
 ```
-Browser (static SPA) ──sign in with Discord / X──►  Supabase Auth
-        │   saves sheet + banner                    Supabase Postgres (row-level security)
-        ▼                                            Supabase Storage (PNG only)
- Cloudflare Pages (static hosting)                   Supabase Edge Functions (feedback, emails)
+index.html          single page
+css/styles.css      theme
+js/                 app logic, auth, character builder, banner creator, artist panel
+functions/          Cloudflare Pages functions
+supabase/           schema, migrations, edge functions
+.github/workflows/  deploy and keep-alive
 ```
 
-- There is no custom backend. OAuth secrets live in Supabase; the site only ships the public *anon* key.
-- Row-level security: every user can only read and edit their own sheet and their own files. Artists only see the characters explicitly shared with them. The artist panel does not hand over the character configuration file or the raw stored data: it receives resolved images and names and shows the chosen options as visual reference (species, skin and eye tone, hair, gear, ink color), so a determined artist could still note them down by hand; weapon and animation are never shown.
-- Strict Content Security Policy: scripts are served only from this site (`supabase-js` is vendored, third-party assets are pinned to a commit).
-- Game data (gear lists, icons) is loaded from [Flexlion](https://github.com/Flexlion/flexlion.github.io)'s public files; Splattag assets from [splashtags](https://github.com/SeymourSchlong/splashtags) via jsDelivr. This repository does not host them.
+To host your own copy, create a Supabase project, enable Discord sign-in, run `supabase/schema.sql` and then the files in `supabase/migrations/` in order. Put your `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `js/config.js`, deploy the folder to any static host, and add your URL as Site URL and Redirect URL in Supabase. The `service_role` key never goes in this repository or in the site.
 
-## Project structure
+## About AI
 
-```
-index.html            Single-page app
-css/styles.css        Splatoon 3 inspired dark theme
-js/
-  app.js              App orchestration
-  auth.js             Discord / X sign-in and account linking
-  configurator.js     Character builder
-  data.js             Game data loading and species filters
-  banner.js           Splattag tabs (create / upload) and PNG validation
-  splattag.js         Splattag renderer (port of splashtags)
-  render_spin.js      3D render turntable viewer
-  artists.js          Artist links and sharing
-  artist_panel.js     Artist panel
-  artist_terms.js     Artist Beta terms
-  feedback.js         Bug reports and suggestions
-  store.js            Save / load sheets and files
-  i18n.js             English / Spanish strings
-supabase/
-  schema.sql          Base schema, RLS and storage buckets
-  migrations/         Incremental migrations (run in order)
-  functions/          Edge Functions
-.github/workflows/    Cloudflare Pages deploy and keep-alive
-```
-
-## Self-hosting
-
-The site is fully static. To run your own copy:
-
-1. Create a Supabase project, enable Discord (and optionally X) sign-in, run `supabase/schema.sql` and the files in `supabase/migrations/` in order.
-2. Fill in `js/config.js` with your `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-3. Deploy the folder to any static host. This repo deploys to **Cloudflare Pages** on every push to `main` (`.github/workflows/deploy-cloudflare.yml`, needs a `CLOUDFLARE_API_TOKEN` secret).
-4. Add your public URL as **Site URL** and **Redirect URL** in Supabase Authentication, URL Configuration.
-
-Supabase's free tier pauses inactive projects after 7 days; `.github/workflows/keepalive.yml` pings it weekly (secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`).
-
-> Never put the Supabase `service_role` key in this repository or in the site.
-
----
+Parts of the code are written with the help of an AI assistant, used for coding support and maintenance. It does not create any art, 3D renders or banners, and none of them are AI-generated.
 
 ## Resumen en español
 
-**OC Data Collector** es una web gratuita hecha por fans. Entras con **Discord** o **X**, recreas tu personaje de Splatoon 3 pieza a pieza y adjuntas tu **banner Splattag**. El resultado es una ficha con especie, colores, peinado, el nombre de cada prenda, arma, el color de tinta exacto (HEX/RGB/HSL) y una referencia 3D que se puede girar 360°.
-
-- Creador de Splattag integrado, o sube tu banner del juego.
-- Puedes editar tu ficha cuando quieras y vincular Discord y X a la misma ficha desde la cabecera.
-- **Artist Beta:** los artistas se apuntan en [`/?apply`](https://eroplayerdata.pages.dev/?apply) y reciben su propio enlace; los jugadores que entran por él les comparten su OC.
-- Reportes y sugerencias en [`/?feedback`](https://eroplayerdata.pages.dev/?feedback).
-- Solo se lee tu nombre de usuario, avatar e ID. Nunca se publica nada en tu nombre. Edad mínima: 14 años.
-
----
+Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Parte del código se escribe con ayuda de un asistente de IA; el arte, los renders y los banners nunca se generan con IA.
 
 ## License & credits
 
