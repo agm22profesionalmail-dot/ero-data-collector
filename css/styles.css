@@ -1427,3 +1427,5 @@ h2.edc-pcard-name { margin: 0; font-weight: 400; }
 .edc-share-raffle-msg[data-kind="ok"] { color: var(--ok); }
 .edc-share-raffle-msg[data-kind="err"] { color: var(--err); }
 @media (max-width: 560px) { .edc-share-raffle-row .edc-btn { flex: 1 1 100%; } }
+
+.edc-char-notice-links { display: flex; flex-wrap: wrap; gap: 8px; }

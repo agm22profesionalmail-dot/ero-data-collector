@@ -30,6 +30,11 @@ import {
 } from "./artist_panel.js";
 import { isFeedbackRoute, goFeedback, leaveFeedback, restoreFeedbackRoute, renderFeedback } from "./feedback.js";
 
+// Ko-fi: apoyo directo, nunca la página de comisiones. SUPPORT = panel con «One time» y «Membership»;
+// TIERS = membresías; DONATE = el mismo panel (donación única).
+const KOFI_SUPPORT_URL = "https://ko-fi.com/zerosplatoon?hidefeed=true&widget=true&embed=true&preview=true";
+const KOFI_TIERS_URL = "https://ko-fi.com/zerosplatoon/tiers";
+
 const $ = (id) => document.getElementById(id);
 const appEl = () => $("app");
 
@@ -279,7 +284,7 @@ function renderFloatbar() {
        el("span", { class: "edc-float-label" }, t("join_discord"))),
     el("a", {
       class: "edc-float-btn edc-float-kofi",
-      href: "https://ko-fi.com/zerosplatoon",
+      href: KOFI_SUPPORT_URL,
       target: "_blank", rel: "noopener noreferrer",
       "aria-label": t("kofi_btn"),
     }, el("span", { class: "edc-float-ico", html: kofiSvg(18) }),
@@ -753,12 +758,14 @@ function renderAddCharacterSlot() {
 }
 
 // Aviso bajo la lista: cómo tener más personajes, o cómo recuperar los bloqueados
-const KOFI_URL = "https://ko-fi.com/zerosplatoon";
 function renderCharNotice(hasLocked) {
   return el("aside", { class: "edc-char-notice" },
     el("p", { class: "edc-char-notice-text" }, t(hasLocked ? "chars_locked_note" : "chars_upsell")),
-    el("a", { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_URL, target: "_blank", rel: "noopener noreferrer" },
-      el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }), t("kofi_btn")));
+    el("div", { class: "edc-char-notice-links" },
+      el("a", { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_SUPPORT_URL, target: "_blank", rel: "noopener noreferrer" },
+        el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }), t("kofi_donate")),
+      el("a", { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_TIERS_URL, target: "_blank", rel: "noopener noreferrer" },
+        el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }), t("kofi_member"))));
 }
 
 // Eliminar un personaje extra, con confirmación inline (sin alert/confirm nativo)

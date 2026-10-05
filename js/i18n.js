@@ -173,6 +173,8 @@ const STRINGS = {
     boy: "Boy",
     footer: "Free fan tool · data stored securely · edit anytime",
     kofi_btn: "Support on Ko-fi",
+    kofi_donate: "One-time donation",
+    kofi_member: "Membership",
     join_discord: "Join our Discord",
     kofi_tip: "Help keep this project running",
     // Enlace de artista (?ref) — consentimiento
@@ -481,6 +483,8 @@ const STRINGS = {
     boy: "Chico",
     footer: "Herramienta gratuita · proyecto fan · datos guardados de forma segura",
     kofi_btn: "Apoyar en Ko-fi",
+    kofi_donate: "Donación única",
+    kofi_member: "Membresía",
     join_discord: "Únete al Discord",
     kofi_tip: "Ayuda a mantener este proyecto",
     // Enlace de artista (?ref) — consentimiento
