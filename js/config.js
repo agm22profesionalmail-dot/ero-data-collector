@@ -93,3 +93,5 @@ export const SHARE_OC_USERS = [
   "1b9c5abe-86a9-4f0b-8203-78b7b85c47bc",
   "c2a9cf8d-7753-48b8-9df8-70c81f1b3037",
 ];
+// Fin del sorteo (ISO, p. ej. "2026-10-20T23:59:00+02:00"). null = sin fecha; pasada la fecha el cuadro del sorteo se oculta.
+export const SHARE_RAFFLE_ENDS = null;

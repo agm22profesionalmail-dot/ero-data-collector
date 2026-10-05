@@ -6,7 +6,7 @@
 // (móvil: abre la app de X con la tarjeta puesta); si no, descarga + intent de X.
 import { t, getLang } from "./i18n.js";
 import { el, toast } from "./ui.js";
-import { R2_PUBLIC_URL, SPECIES } from "./config.js";
+import { R2_PUBLIC_URL, SPECIES, SHARE_RAFFLE_ENDS } from "./config.js";
 import { colorToHex } from "./data.js";
 import { supabase } from "./supabase.js";
 
@@ -298,7 +298,8 @@ export function openShareDialog(opts) {
     el("p", { class: "edc-share-note" }, t("raffle_desc")),
     el("div", { class: "edc-share-raffle-row" }, raffleIn, raffleBtn), raffleMsg);
   // Solo se muestra si el servidor tiene el sorteo desplegado (migración 20261005_01)
-  supabase.rpc("my_share_entry").then(({ data, error }) => { if (!error) paintRaffle(data); }).catch(() => {});
+  const raffleOpen = !SHARE_RAFFLE_ENDS || Date.now() < Date.parse(SHARE_RAFFLE_ENDS);
+  if (raffleOpen) supabase.rpc("my_share_entry").then(({ data, error }) => { if (!error) paintRaffle(data); }).catch(() => {});
 
   const fileName = "oc-data-collector-" + (opts.alias || "oc").replace(/[^\w-]+/g, "_").slice(0, 30) + ".png";
   const download = () => {
