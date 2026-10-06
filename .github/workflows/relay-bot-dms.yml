@@ -1,5 +1,7 @@
 name: relay-bot-dms
 
+# Reenvio con intervalos periodicos a mi DM para la revisión de bugs, reportes y sugerencias de los usuarios y los artistas en el programa de la beta.
+
 on:
   schedule:
     - cron: "*/10 * * * *"
@@ -17,16 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Llamar a relay-bot-dms
+      - name: Run relay
         env:
           EDC_INTERNAL_SECRET: ${{ secrets.EDC_INTERNAL_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${EDC_INTERNAL_SECRET:-}" ]; then
-            echo "::error::Falta el secreto EDC_INTERNAL_SECRET del repositorio"; exit 1
+            echo "::error::missing EDC_INTERNAL_SECRET"; exit 1
           fi
-          curl -sS --fail-with-body --max-time 90 -X POST \
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 -X POST \
             -H "Content-Type: application/json" \
             -H "x-edc-secret: ${EDC_INTERNAL_SECRET}" \
             -d '{}' \
-            https://xwyauyjeteztlevvtydb.supabase.co/functions/v1/relay-bot-dms
+            https://xwyauyjeteztlevvtydb.supabase.co/functions/v1/relay-bot-dms)
+          if [ "$code" != "200" ]; then
+            echo "::error::relay failed with status $code"; exit 1
+          fi
+          
