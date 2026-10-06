@@ -52,7 +52,7 @@ async function recipients(): Promise<Map<string, string>> {
   for (const [id, label] of Object.entries(EXTRA_RECIPIENTS)) add(id, label);
   const since = new Date(Date.now() - FEEDBACK_DAYS * 86400000).toISOString();
   const fb = await rest(`feedback?contact_method=eq.discord&created_at=gte.${since}&select=contact_discord_id,contact_discord_name`);
-  if (fb.ok) for (const f of await fb.json()) add(f.contact_discord_id, f.contact_discord_name ? `feedback · ${f.contact_discord_name}` : "feedback");
+  if (fb.ok) for (const f of await fb.json()) add(f.contact_discord_id, f.contact_discord_name ? `feedback - ${f.contact_discord_name}` : "feedback");
   const ar = await rest("artists?discord_id=not.is.null&select=discord_id");
   if (ar.ok) for (const a of await ar.json()) add(a.discord_id, "artista");
   return out;
@@ -83,7 +83,7 @@ function forwardPayload(m: Msg, label: string) {
   const files = (m.attachments ?? []).map((a) => `[${a.filename}](${a.url})`).join("\n");
   const text = [m.content || "", files].filter(Boolean).join("\n\n").slice(0, 3900) || "(sin texto)";
   return {
-    content: `📨 Respuesta por MD a Pelipper de <@${m.author.id}>`,
+    content: `Respuesta por MD a Pelipper de <@${m.author.id}>`,
     allowed_mentions: { parse: [] },
     embeds: [{
       color: 0x8b5cff,

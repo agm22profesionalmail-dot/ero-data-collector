@@ -4,10 +4,10 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 const ANON_KEY = publishableKey();
 const SERVICE_ROLE_KEY = serviceKey();
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
-const IP_SALT = Deno.env.get("FEEDBACK_IP_SALT") || SERVICE_ROLE_KEY;
+const IP_SALT = Deno.env.get("FEEDBACK_IP_SALT") ?? "";
 
-const GUILD_ID = (Deno.env.get("DISCORD_GUILD_ID") ?? "").trim();  // servidor de la comunidad (secret)
-const NOTIFY_USER_ID = Deno.env.get("OWNER_DISCORD_ID") ?? "";   // destinatario del aviso (secret)
+const GUILD_ID = (Deno.env.get("DISCORD_GUILD_ID") ?? "").trim();
+const NOTIFY_USER_ID = Deno.env.get("OWNER_DISCORD_ID") ?? "";
 const SITE_URL = "https://eroplayerdata.pages.dev";
 const ICON_URL = `${SITE_URL}/assets/apple-touch-icon.png`;
 
@@ -22,11 +22,10 @@ const MAX_PER_IP = 20;
 const MAX_NONE_PER_IP = 5; // sin contacto no hay otra barrera: límite más estricto
 
 const ALLOWED_ORIGINS = ["https://eroplayerdata.pages.dev"];
-const LOCAL_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
-  const allow = ALLOWED_ORIGINS.includes(origin) || LOCAL_RE.test(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin :ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -184,12 +183,12 @@ const KIND_META: Record<Kind, { label: string; color: number }> = {
 function notifyPayload(row: Row) {
   const meta = KIND_META[row.kind];
   const firstWords = row.message.replace(/\s+/g, " ").split(" ").slice(0, 8).join(" ");
-  const title = `${meta.label} · ${firstWords.length < 70 ? firstWords : firstWords.slice(0, 67) + "…"}`;
+  const title = `${meta.label} · ${firstWords.length < 70 ? firstWords : firstWords.slice(0, 67) + "..."}`;
   const contact = row.contact_method === "email"
-    ? `✉️ ${row.contact_email}`
+    ? `${row.contact_email}`
     : row.contact_method === "none"
-      ? "🚫 Sin contacto (no se le puede avisar)"
-      : `<@${row.contact_discord_id}> · ${row.contact_discord_name ?? "?"} (\`${row.contact_discord_id}\`)`;
+      ? "Sin contacto (no se le puede avisar)"
+          : `<@${row.contact_discord_id}> - ${row.contact_discord_name ?? "?"} (\`${row.contact_discord_id}\`)`;
   const page = row.page ? `${SITE_URL}${row.page.startsWith("/") ? "" : "/"}${row.page}` : "—";
   return {
     allowed_mentions: { parse: [] as string[] },
@@ -324,7 +323,7 @@ async function submit(req: Request, body: SubmitBody) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== "POST") return json(req, { ok: false, error: "bad_request" }, 405);
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) return json(req, { ok: false, error: "server" }, 500);
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY || !IP_SALT) return json(req, { ok: false, error: "server" }, 500);
 
   let body: SubmitBody & { action?: unknown } = {};
   try { body = (await req.json()) ?? {}; } catch { /* sin cuerpo */ }

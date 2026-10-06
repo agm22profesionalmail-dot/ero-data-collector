@@ -15,11 +15,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 type Outbox = {
   id: string; email: string; name: string | null; slug: string | null; key: string | null;
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
-  kind?: "credentials" | "rejected" | "custom";   // migración 20260923_04 (+ custom 20260925_02)
-  subject?: string | null;              // migración 20260925_02: solo kind = custom
+  kind?: "credentials" | "rejected" | "custom";
+  subject?: string | null;
   body?: string | null;
-  hero?: number | null;                 // migración 20260923_05 (portada fija, pruebas)
-  channel?: string | null;              // migración 20260923_06: email | email_alt | discord
+  hero?: number | null;
+  channel?: string | null;
   delivered_to?: string | null;
   bounced_at?: string | null;
 };
@@ -57,10 +57,10 @@ const C = {
   body: "#474b63",
   muted: "#7a7f96",
   line: "#e4e6ee",
-  soft: "#f5f3ff",       // fondo lila muy suave de los bloques
+  soft: "#f5f3ff",
   softLine: "#e2dafd",
-  brand: "#8b5cff",      // morado de la web (franja y detalles)
-  cta: "#5b2ee0",        // morado oscuro: contraste AA con texto blanco
+  brand: "#8b5cff",
+  cta: "#5b2ee0",
 };
 const APPROVED_HEROES = ["email-hero-approved-1.jpg", "email-hero-approved-2.jpg", "email-hero-approved-3.jpg"];
 const pickHero = (n?: number | null) =>
