@@ -35,11 +35,11 @@ To host your own copy, create a Supabase project, enable Discord sign-in, run `s
 
 ## About AI
 
-Parts of the code are written with the help of an AI assistant, used for coding support and maintenance. It does not create any art, renders, banners or any asset, and none of them are AI-generated.
+Parts of the code are written with the help of an AI assistant, as support for programming, maintenance and occasional fixes. The assistant also helps publish updates to GitHub remotely when needed, and with general organization. I'm pretty clumsy with so many files. This tool is not used for art, renders, banners or any other asset, and no asset is created with it.
 
 ## Resumen en español
 
-Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Parte del código se escribe con ayuda de un asistente de IA, como apoyo de programación y mantenimiento; no crea arte, renders, banners ni otros recursos, y ninguno está generado con IA.
+Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Sobre la IA: parte del código se escribe con ayuda de un asistente de IA, como apoyo de programación, mantenimiento o corrección puntual. El asistente también ayuda a publicar actualizaciones en GitHub en remoto si son necesarias y a la organización en general. Soy bastante torpe con tanto archivo. Esta herramienta no se usa para arte, renders, banners ni otros recursos y ningún recurso está creado con ella.
 
 ## License & credits
 
