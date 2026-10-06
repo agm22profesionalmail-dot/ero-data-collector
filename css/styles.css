@@ -3409,24 +3409,6 @@ body:has(.edc-save-bar) {
   color: var(--muted);
   text-wrap: pretty;
 }
-.edc-char-notice-link {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  background: var(--accent-deep);
-  border-color: var(--accent-deep);
-  color: #fff;
-}
-.edc-char-notice-link:hover {
-  background: var(--accent-deep);
-  border-color: var(--accent);
-  filter: brightness(1.15);
-}
-.edc-char-notice-ico {
-  display: inline-flex;
-}
 .edc-chars-empty {
   display: flex;
   flex-direction: column;
@@ -3832,9 +3814,4 @@ h2.edc-pcard-name {
   .edc-share-raffle-row .edc-btn {
     flex: 1 1 100%;
   }
-}
-.edc-char-notice-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }

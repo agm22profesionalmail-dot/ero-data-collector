@@ -62,7 +62,6 @@ import {
 } from "./artist_panel.js";
 import { isFeedbackRoute, goFeedback, leaveFeedback, restoreFeedbackRoute, renderFeedback } from "./feedback.js";
 const KOFI_SUPPORT_URL = "https://ko-fi.com/zerosplatoon/donate";
-const KOFI_TIERS_URL = "https://ko-fi.com/zerosplatoon/tiers";
 const $ = (id) => document.getElementById(id);
 const appEl = () => $("app");
 let session = null;
@@ -733,7 +732,9 @@ function renderPreviewScreen() {
   const hasLocked = chars_.some((c) => c.locked);
   if (chars_.length && freeSlot() !== null)
     list.append(el("li", { style: `--i:${chars_.length}` }, renderAddCharacterSlot()));
-  const notice = chars_.length && (hasLocked || characterLimit() === 1) ? renderCharNotice(hasLocked) : null;
+  const notice = chars_.length && (hasLocked || characterLimit() === 1)
+    ? el("aside", { class: "edc-char-notice" }, el("p", { class: "edc-char-notice-text" }, t(hasLocked ? "chars_locked_note" : "chars_upsell")))
+    : null;
   const head = el(
     "header",
     { class: "edc-chars-head" },
@@ -841,29 +842,6 @@ function renderAddCharacterSlot() {
       { class: "edc-char-body" },
       el("span", { class: "edc-char-alias" }, t("chars_add")),
       el("span", { class: "edc-char-meta" }, t("chars_add_hint"))
-    )
-  );
-}
-function renderCharNotice(hasLocked) {
-  return el(
-    "aside",
-    { class: "edc-char-notice" },
-    el("p", { class: "edc-char-notice-text" }, t(hasLocked ? "chars_locked_note" : "chars_upsell")),
-    el(
-      "div",
-      { class: "edc-char-notice-links" },
-      el(
-        "a",
-        { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_SUPPORT_URL, target: "_blank", rel: "noopener noreferrer" },
-        el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }),
-        t("kofi_donate")
-      ),
-      el(
-        "a",
-        { class: "edc-btn edc-btn-sm edc-char-notice-link", href: KOFI_TIERS_URL, target: "_blank", rel: "noopener noreferrer" },
-        el("span", { class: "edc-char-notice-ico", html: kofiSvg(15) }),
-        t("kofi_member")
-      )
     )
   );
 }

@@ -12,7 +12,7 @@ Players sign in with Discord or X and build their character piece by piece: spec
 
 Artists apply at /?apply and get their own link. Characters shared through it show up in the artist panel with full references. Bugs and suggestions go through /?feedback.
 
-Every account has one character. Extra slots are optional and paid for through Ko-fi, since storage for images and renders has a real cost. Slots are also given away in free prize draws.
+Every account has one character. Extra slots are given away in free prize draws.
 
 Only your username, avatar and account ID are read from Discord or X, and nothing is posted on your behalf. Uploads are PNG only and are checked before use. Minimum age is 14. Offensive content or hate symbols lead to a ban.
 
@@ -39,7 +39,7 @@ Parts of the code are written with the help of an AI assistant, as support for p
 
 ## Resumen en español
 
-Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra son opcionales por Ko-fi, porque el almacenamiento tiene coste, y también se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Sobre la IA: parte del código se escribe con ayuda de un asistente de IA, como apoyo de programación, mantenimiento o corrección puntual. El asistente también ayuda a publicar actualizaciones en GitHub en remoto si son necesarias y a la organización en general. Soy bastante torpe con tanto archivo. Esta herramienta no se usa para arte, renders, banners ni otros recursos y ningún recurso está creado con ella.
+Web gratuita hecha por fans. Entras con Discord o X, recreas tu personaje de Splatoon 3 y adjuntas tu banner Splattag. Los artistas que reciban tu enlace ven la ficha completa con el render 3D, cada pieza con su nombre y el color exacto. Cada cuenta tiene un personaje; los slots extra se regalan en sorteos gratuitos. Los artistas se apuntan en /?apply y los reportes van en /?feedback. Sobre la IA: parte del código se escribe con ayuda de un asistente de IA, como apoyo de programación, mantenimiento o corrección puntual. El asistente también ayuda a publicar actualizaciones en GitHub en remoto si son necesarias y a la organización en general. Soy bastante torpe con tanto archivo. Esta herramienta no se usa para arte, renders, banners ni otros recursos y ningún recurso está creado con ella.
 
 ## License & credits
 
