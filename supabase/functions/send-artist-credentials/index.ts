@@ -512,7 +512,7 @@ function discordMessage(row: Outbox, key: string | null, alsoEmailed = false): D
       : "-# We're messaging you here because we couldn't get the email to you.";
     return {
       allowed_mentions: { parse: [] },
-      content: `${why}\n**${row.subject ?? ""}**\n\n${row.body ?? ""}`.slice(0, 2000),
+      content: `${why}\n**${row.subject ?? ""}**\n\n${parseCustom(row).text}`.slice(0, 2000),
       embeds: [], components: [],
     };
   }
@@ -588,16 +588,105 @@ async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: stri
   return { error: `${reason} | ${dmErr}`.slice(0, 500), note: reason };
 }
 
+const CUSTOM_HEROES: Record<string, string> = { delete: "email-hero-delete" };
+
+// Optional leading "@hero <name>" and "@title <text>" lines; they never reach the plain-text body
+function parseCustom(row: Outbox) {
+  const lines = (row.body ?? "").replace(/\r\n?/g, "\n").split("\n");
+  const opts: Record<string, string> = {};
+  let i = 0;
+  for (; i < lines.length; i++) {
+    const m = lines[i].match(/^@(hero|title)(?:[ \t]+(.*?))?[ \t]*$/);
+    if (!m) break;
+    if (m[2]) opts[m[1]] = m[2];
+  }
+  return { text: lines.slice(i).join("\n").replace(/^\s+/, ""), hero: opts.hero ?? null, title: opts.title ?? null };
+}
+
 function customHtml(row: Outbox): string {
-  const linkify = (t: string) => e(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
-  const paras = (row.body ?? "").split(/\n{2,}/).map((p) =>
-    `<p style="margin:0 0 14px 0;">${linkify(p).replace(/\n/g, "<br>")}</p>`).join("");
-  return `<!doctype html><html lang="${row.lang === "es" ? "es" : "en"}"><body style="margin:0;padding:16px;` +
-    `font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#1f2330;">${paras}</body></html>`;
+  const lang = row.lang === "es" ? "es" : "en";
+  const { text, hero, title } = parseCustom(row);
+  const heroFile = hero && CUSTOM_HEROES[hero] ? `${ASSETS}/${CUSTOM_HEROES[hero]}-${lang}.jpg` : null;
+  const linkify = (t: string) =>
+    e(t).replace(/(https?:\/\/[^\s<]+)/g, `<a href="$1" style="color:${C.cta};">$1</a>`);
+
+  const body = text.trim().split(/\n{2,}/).map((b, i) => {
+    const runs: { li: boolean; lines: string[] }[] = [];
+    for (const l of b.split("\n")) {
+      const li = l.startsWith("- ");
+      const last = runs[runs.length - 1];
+      if (last && last.li === li) last.lines.push(l);
+      else runs.push({ li, lines: [l] });
+    }
+    return runs.map((r, k) => {
+      if (!r.li) {
+        const txt = r.lines.join("\n");
+        const greeting = i === 0 && k === 0 && /^[^\n]{1,40},$/.test(txt);
+        return `<p style="margin:0 0 12px 0;${greeting ? `color:${C.ink};font-weight:700;` : ""}">` +
+          `${linkify(txt).replace(/\n/g, "<br>")}</p>`;
+      }
+      const rows = r.lines.map((l) => `<tr>
+        <td valign="top" width="22" style="padding:8px 0 0 0;"><div style="width:8px;height:8px;border-radius:4px;background:${C.brand};line-height:8px;font-size:0;">&nbsp;</div></td>
+        <td style="padding:0 0 8px 0;font-family:${FONT};font-size:15px;line-height:23px;color:${C.body};">${linkify(l.slice(2))}</td>
+      </tr>`).join("");
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;background:${C.soft};border:1px solid ${C.softLine};border-radius:12px;"><tr><td style="padding:16px 20px 8px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr></table>`;
+    }).join("");
+  }).join("");
+
+  const subject = row.subject ?? "OC Data Collector";
+  const legal = lang === "es"
+    ? "Proyecto fan, sin afiliación con Nintendo. Splatoon es una marca de Nintendo."
+    : "Fan project, not affiliated with Nintendo. Splatoon is a trademark of Nintendo.";
+
+  return compact(`<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${e(subject)}</title>
+<style>
+  @media only screen and (max-width:480px) {
+    .px { padding-left:22px !important; padding-right:22px !important; }
+    .kicker { display:none !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page};">
+<tr><td align="center" style="padding:32px 12px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <tr><td style="padding:0 4px 16px 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle" width="44"><img src="${ASSETS}/apple-touch-icon.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:8px;"></td>
+        <td valign="middle" style="font-family:${FONT};font-size:17px;font-weight:800;color:${C.ink};letter-spacing:.2px;"><span style="color:${C.cta};">OC</span> Data Collector</td>
+        <td class="kicker" valign="middle" align="right" style="font-family:${FONT};font-size:12px;color:${C.muted};">ERO's Team</td>
+      </tr></table>
+    </td></tr>
+  </table>
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:${C.card};border-radius:16px;overflow:hidden;border:1px solid ${C.line};">
+    <tr><td style="height:6px;line-height:6px;font-size:0;background:${C.brand};">&nbsp;</td></tr>
+    ${heroFile ? `<tr><td style="padding:0;"><img src="${heroFile}" width="600" alt="OC Data Collector" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>` : ""}
+    <tr><td class="px" style="padding:32px 40px 8px 40px;">
+      <h1 style="margin:0;font-family:${FONT};font-size:24px;line-height:31px;font-weight:800;color:${C.ink};">${e(title ?? subject)}</h1>
+    </td></tr>
+    <tr><td class="px" style="padding:12px 40px 28px 40px;font-family:${FONT};font-size:15px;line-height:24px;color:${C.body};">${body}</td></tr>
+  </table>
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+    <tr><td align="center" style="padding:20px 24px 0 24px;font-family:${FONT};font-size:12px;line-height:19px;color:${C.muted};">
+      <p style="margin:0 0 6px 0;">OC Data Collector by ERO's Team &middot; <a href="https://eroplayerdata.pages.dev" style="color:${C.muted};text-decoration:underline;">eroplayerdata.pages.dev</a></p>
+      <p style="margin:0;">${e(legal)}</p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`);
 }
 
 async function sendCustom(row: Outbox) {
-  const text = row.body ?? "";
+  const text = parseCustom(row).text;
   const artist = await artistByEmail(row.email);
   try {
     await sendSmtp(row.email, row.subject ?? "OC Data Collector", text, customHtml(row));
