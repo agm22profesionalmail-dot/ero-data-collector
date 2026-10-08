@@ -588,7 +588,16 @@ async function discordFallback(row: Outbox, artist: ArtistInfo | null, key: stri
   return { error: `${reason} | ${dmErr}`.slice(0, 500), note: reason };
 }
 
-const CUSTOM_HEROES: Record<string, string> = { delete: "email-hero-delete" };
+const CUSTOM_HEROES: Record<string, string> = {"delete": "delete", "deleted": "deleted", "report": "report", "ban": "ban", "win": "win"};
+const HERO_HINTS:  [string, RegExp][] = [
+  ["deleted", /eliminad|deleted/i],
+  ["report", /denunci|report/i],
+  ["ban", /\bban(ea|ned)|suspend/i],
+  ["win", /gan(ad|aste)|\bwon\b|victoria|sorteo|raffle|giveaway/i],
+  ["delete", /eliminar|delete|deletion/i],
+];
+const detectHero = (hero: string | null, subject: string) =>
+  CUSTOM_HEROES[hero ?? ""] ? hero : HERO_HINTS.find(([, re]) => re.test(subject))?.[0] ?? null;
 
 // Optional leading "@hero <name>" and "@title <text>" lines; they never reach the plain-text body
 function parseCustom(row: Outbox) {
@@ -606,7 +615,8 @@ function parseCustom(row: Outbox) {
 function customHtml(row: Outbox): string {
   const lang = row.lang === "es" ? "es" : "en";
   const { text, hero, title } = parseCustom(row);
-  const heroFile = hero && CUSTOM_HEROES[hero] ? `${ASSETS}/${CUSTOM_HEROES[hero]}-${lang}.jpg` : null;
+  const theme = detectHero(hero, row.subject ?? "");
+  const heroFile = theme ? `${ASSETS}/email-hero-${theme}-${lang}.jpg` : null;
   const linkify = (t: string) =>
     e(t).replace(/(https?:\/\/[^\s<]+)/g, `<a href="$1" style="color:${C.cta};">$1</a>`);
 
