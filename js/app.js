@@ -634,20 +634,24 @@ const canLoad = (url) => new Promise((resolve) => {
   im.src = url;
 });
 const probeKey = (ch) => `${ch.userId}:${ch.slot}`;
+async function firstLoadable(bases) {
+  for (const suffix of ["", `r=${Date.now()}`]) {
+    for (const base of bases) {
+      if (!base)
+        continue;
+      const url = suffix ? base + (base.includes("?") ? "&" : "?") + suffix : base;
+      if (await canLoad(url))
+        return url;
+    }
+  }
+  return null;
+}
 function probeRender(ch) {
   if (!ch?.userId)
     return Promise.resolve(null);
   const key = probeKey(ch);
-  if (!renderProbeCache.has(key)) {
-    renderProbeCache.set(key, (async () => {
-      for (const path of renderPaths(ch.userId, ch.slot).png || []) {
-        const url = getRenderUrl(path);
-        if (url && await canLoad(url))
-          return url;
-      }
-      return null;
-    })());
-  }
+  if (!renderProbeCache.has(key))
+    renderProbeCache.set(key, firstLoadable((renderPaths(ch.userId, ch.slot).png || []).map(getRenderUrl)));
   return renderProbeCache.get(key);
 }
 const PLACEHOLDER_ICON = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 6h24v20H4V6zm2 2v14l6.5-5.5 5 4 6-6.5L28 18V8H6z" fill="currentColor"/></svg>';
@@ -963,7 +967,7 @@ function renderCharacterRender(ch, note) {
   return createRenderSpin({
     placeholder: ph,
     pngUrl: probeRender(ch),
-    spinUrl: spin ? getRenderUrl(spin) : null,
+    spinUrl: spin ? probeRender(ch).then((u) => u ? firstLoadable([getRenderUrl(spin)]) : null) : null,
     onLoaded: () => {
       const stale = renderStale.has(ch.id);
       note.dataset.state = stale ? "stale" : "info";
