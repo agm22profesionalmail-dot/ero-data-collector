@@ -213,7 +213,7 @@ export async function saveArtistVariant(artistId, state, playerId = null) {
     throw error;
   state._linkedArtists = [...new Set([...state._linkedArtists || [], artistId])];
 }
-const BETA_FULL = true;
+const BETA_FULL = false;
 export const isApplyRoute = () => new URLSearchParams(window.location.search).has("apply");
 export function goApply() {
   if (isApplyRoute())
