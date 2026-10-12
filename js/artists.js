@@ -400,6 +400,8 @@ export function renderArtistApply(container, { session, profile, actions }) {
   reason.value = draft.reason;
   reason.addEventListener("input", () => {
     draft.reason = reason.value;
+    reason.classList.remove("error");
+    showErr("");
   });
   card.append(reason);
   card.append(el("label", { class: "edc-label" }, t("artist_terms_title")));
@@ -432,6 +434,12 @@ export function renderArtistApply(container, { session, profile, actions }) {
       email.classList.add("error");
       showErr(t("apply_email_invalid"));
       email.focus();
+      return;
+    }
+    if (r.length < 20) {
+      reason.classList.add("error");
+      showErr(t("apply_reason_required"));
+      reason.focus();
       return;
     }
     const fix = suggestEmail(em);
