@@ -69,6 +69,7 @@ const S = {
     show_selected: "Show only the selected one",
     terms_title: "Artist Beta Program Terms",
     terms_intro: "Before entering your panel, please read and accept the terms of the Artist Beta Program.",
+    terms_updated: "The Artist Beta Program terms have been updated. Please read and accept the new version to keep using your panel.",
     terms_accept: "I have read and accept the Artist Beta Program Terms.",
     terms_required: "You must accept the terms to continue.",
     terms_submit: "Accept and continue",
@@ -137,6 +138,7 @@ const S = {
     show_selected: "Ver solo la elegida",
     terms_title: "Términos del programa beta de artistas",
     terms_intro: "Antes de entrar en tu panel, lee y acepta los términos del programa beta de artistas.",
+    terms_updated: "Los términos del programa beta de artistas se han actualizado. Lee y acepta la nueva versión para seguir usando tu panel.",
     terms_accept: "He leído y acepto los términos del programa beta de artistas.",
     terms_required: "Tienes que aceptar los términos para continuar.",
     terms_submit: "Aceptar y continuar",
@@ -241,7 +243,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         termsOk = true;
         return next();
       }
-      showTerms(next);
+      showTerms(next, "", !!data2);
     } catch (e) {
       if (isUnauthorized(e))
         return showKeyForm(ta("bad_key"));
@@ -249,7 +251,7 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
       next();
     }
   }
-  function showTerms(next, errMsg) {
+  function showTerms(next, errMsg, updated) {
     clear(wrap);
     const cb = el("input", { type: "checkbox", id: "edcPanelTerms" });
     const row = el("label", { class: "edc-terms-accept", for: "edcPanelTerms" }, cb, el("span", {}, ta("terms_accept")));
@@ -275,14 +277,14 @@ export function renderArtistPanel(container, { session, profile, actions } = {})
         btn.disabled = false;
         if (isUnauthorized(e))
           return showKeyForm(ta("bad_key"));
-        showTerms(next, ta("err") + (e?.message || ""));
+        showTerms(next, ta("err") + (e?.message || ""), updated);
       }
     });
     wrap.append(el(
       "div",
       { class: "edc-card" },
       el("div", { class: "edc-section-title" }, ta("terms_title")),
-      el("p", { class: "edc-apply-intro" }, ta("terms_intro")),
+      el("p", { class: "edc-apply-intro" }, ta(updated ? "terms_updated" : "terms_intro")),
       el("div", { class: "edc-terms-box", tabindex: "0", html: artistTermsHtml(getLang()) }),
       row,
       err,
