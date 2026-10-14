@@ -86,7 +86,6 @@ async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> 
 
 type AuthUser = {
   id: string;
-  user_metadata?: Record<string, unknown>;
   identities?: { provider: string; id?: string; identity_data?: Record<string, unknown> }[];
 };
 type DiscordIdentity = { userId: string; discordId: string; discordName: string | null };
@@ -113,19 +112,15 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null
 function discordIdentity(u: AuthUser): DiscordIdentity | null {
   const idents = u.identities ?? [];
   const dc = idents.find((i) => i.provider === "discord");
-  const hasX = idents.some((i) => i.provider === "x" || i.provider === "twitter");
-  const meta = u.user_metadata ?? {};
   const nameOf = (d: Record<string, unknown>) =>
     str((d.custom_claims as Record<string, unknown> | undefined)?.global_name) ?? str(d.full_name) ?? str(d.name) ?? str(d.user_name);
   let discordId: string | null = null;
   let discordName: string | null = null;
+  // Sin identidad de Discord no hay ID: user_metadata lo puede editar el propio usuario
   if (dc) {
     const d = dc.identity_data ?? {};
     discordId = str(d.provider_id) ?? str(d.sub) ?? str(dc.id);
     discordName = nameOf(d);
-  } else if (!hasX) {
-    discordId = str(meta.provider_id);
-    discordName = nameOf(meta);
   }
   if (!discordId || !/^\d{5,25}$/.test(discordId)) return null;
   return { userId: u.id, discordId, discordName };

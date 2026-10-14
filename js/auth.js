@@ -80,7 +80,7 @@ export function identityProfile(user) {
   const dcd = dc?.identity_data || {};
   const xd = x?.identity_data || {};
   const nameOf = (d) => d.custom_claims?.global_name || firstOf(d, ["full_name", "name", "user_name"]);
-  const discord_id = (dc ? firstOf(dcd, ["provider_id", "sub"]) || dc.id : null) || (!x ? meta.provider_id : null) || null;
+  const discord_id = (dc ? firstOf(dcd, ["provider_id", "sub"]) || dc.id : null) || null;
   const discord_name = (dc ? nameOf(dcd) : null) || (!x ? nameOf(meta) : null) || null;
   const discord_avatar = (dc ? firstOf(dcd, ["avatar_url", "picture"]) : null) || (!x ? firstOf(meta, ["avatar_url", "picture"]) : null) || null;
   const x_id = x ? firstOf(xd, ["provider_id", "sub"]) || x.id || null : null;
