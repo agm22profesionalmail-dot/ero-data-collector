@@ -251,6 +251,7 @@ function discordHint(svg) {
 }
 let draft = { name: "", email: "", portfolio: "", reason: "", terms: false };
 let sent = false;
+const emailTaken = (e) => e?.code === "23505" && /artists_email_lower_key/.test(e.message || "");
 async function submitRequest({ discord_id, name, email, portfolio, reason }) {
   const preferred_lang = getLang() === "es" ? "es" : "en";
   const { error } = await supabase.from("artists").insert({
@@ -263,6 +264,8 @@ async function submitRequest({ discord_id, name, email, portfolio, reason }) {
     status: "pending",
     terms_version: ARTIST_TERMS_VERSION
   });
+  if (emailTaken(error))
+    throw { code: "email_in_use" };
   if (error?.code === "23505")
     return reapply({ discord_id, name, email, portfolio, reason, preferred_lang });
   if (error)
@@ -282,6 +285,8 @@ async function reapply({ discord_id, name, email, portfolio, reason, preferred_l
     return;
   if (!error && data === "approved")
     throw { code: "approved" };
+  if (emailTaken(error))
+    throw { code: "email_in_use" };
   if (error && error.code !== "PGRST202")
     throw error;
   throw { code: "23505" };
@@ -487,8 +492,8 @@ export function renderArtistApply(container, { session, profile, actions }) {
       toast(t("apply_done_title"), "ok");
       renderArtistApply(container, { session, profile, actions });
     } catch (e) {
-      const dup = e?.code === "23505" || e?.code === "approved";
-      const msg = e?.code === "approved" ? t("apply_already_approved") : dup ? t("apply_dup") : t("apply_err") + (e?.message || t("link_err_generic"));
+      const dup = e?.code === "23505" || e?.code === "approved" || e?.code === "email_in_use";
+      const msg = e?.code === "approved" ? t("apply_already_approved") : e?.code === "email_in_use" ? t("apply_email_in_use") : dup ? t("apply_dup") : t("apply_err") + (e?.message || t("link_err_generic"));
       status.className = "edc-save-status err";
       status.textContent = msg;
       toast(msg, "err");
