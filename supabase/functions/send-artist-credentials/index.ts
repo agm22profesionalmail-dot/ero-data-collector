@@ -13,7 +13,7 @@ const BOUNCE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Outbox = {
-  id: string; email: string; name: string | null; slug: string | null; key: string | null;
+  id: string; artist_id: string | null; email: string; name: string | null; slug: string | null; key: string | null;
   lang: string; reset: boolean; created_at: string; sent_at: string | null;
   kind?: "credentials" | "rejected" | "custom";
   subject?: string | null;
@@ -436,8 +436,12 @@ async function domainAccepts(email: string): Promise<"ok" | "dead" | "unknown"> 
 
 type ArtistInfo = { id: string; discord_id: string | null; status: string; must_change_password: boolean | null };
 
-async function artistByEmail(email: string): Promise<ArtistInfo | null> {
-  const r = await rest(`artists?email=eq.${encodeURIComponent(email)}&select=id,discord_id,status,must_change_password&order=created_at.desc&limit=1`);
+// Las filas anteriores a artist_id solo traen el correo
+async function artistFor(row: Outbox): Promise<ArtistInfo | null> {
+  const where = row.artist_id && UUID_RE.test(row.artist_id)
+    ? `id=eq.${row.artist_id}`
+    : `email=eq.${encodeURIComponent(row.email)}`;
+  const r = await rest(`artists?${where}&select=id,discord_id,status,must_change_password&order=created_at.desc&limit=1`);
   const rows = r.ok ? await r.json() : [];
   return rows[0] ?? null;
 }
@@ -697,7 +701,7 @@ function customHtml(row: Outbox): string {
 
 async function sendCustom(row: Outbox) {
   const text = parseCustom(row).text;
-  const artist = await artistByEmail(row.email);
+  const artist = await artistFor(row);
   try {
     await sendSmtp(row.email, row.subject ?? "OC Data Collector", text, customHtml(row));
     await mark(row.id, { sent_at: new Date().toISOString(), error: null, channel: "email" });
@@ -728,7 +732,7 @@ async function sendRow(row: Outbox) {
     ? renderRejectHtml(language, name, siteLink)
     : renderHtml({ name, refLink, panelLink, key: row.key as string, lang: language, reset, hero: row.hero });
 
-  const artist = await artistByEmail(row.email);
+  const artist = await artistFor(row);
 
   let target = row.email;
   let channel = "email";
@@ -859,7 +863,7 @@ async function checkBounces() {
     const diag = hit.text.match(/diagnostic-code:[^\r\n]*/)?.[0]
       ?? hit.text.match(/\b5\d\d[ -][^\r\n]{0,160}/)?.[0] ?? "bounced";
     const reason = `bounced: ${diag.trim()}`.slice(0, 300);
-    const artist = await artistByEmail(row.email);
+    const artist = await artistFor(row);
     const key = row.kind === "credentials" && artist?.status === "approved" && artist.must_change_password
       ? await tempKeyFor(artist.id) : null;
     const patch = await discordFallback(row, artist, key, reason);
