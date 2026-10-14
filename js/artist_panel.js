@@ -683,6 +683,7 @@ function renderSlot(player, onLoaded) {
   });
 }
 const relRow = (e) => e ? e.__RowId : null;
+const safeInk = (hex) => /^#[0-9a-f]{6}$/i.test(hex || "") ? hex : "#ffffff";
 export function sheetFromRaw(p) {
   const d = data();
   const sp = SPECIES[p.player_type] || SPECIES[0];
@@ -699,7 +700,7 @@ export function sheetFromRaw(p) {
     species_key: sp.key,
     skin_img: `player/skin_color/${Math.max(0, Number(p.skin_tone) || 0)}.png`,
     eye_img: `player/eye_color/${Math.max(0, Number(p.eye_color) || 0)}.png`,
-    ink_hex: colorToHex(p.color || { r: 1, g: 1, b: 1 }),
+    ink_hex: safeInk(colorToHex(p.color || { r: 1, g: 1, b: 1 })),
     hair_img: hair ? `player/hair/${relRow(hair)}.png` : null,
     brows_img: brows ? `player/eyebrow/${relRow(brows)}_${sp.male ? "M" : "F"}.png` : null,
     legs: bot ? {
@@ -715,7 +716,7 @@ export function sheetFromRaw(p) {
 }
 function sheetView(p) {
   if (p && p.sheet && typeof p.sheet === "object")
-    return p.sheet;
+    return { ...p.sheet, ink_hex: safeInk(p.sheet.ink_hex) };
   return sheetFromRaw(p || {});
 }
 const speciesOf = (key) => SPECIES.find((s) => s.key === key) || SPECIES[0];
@@ -768,7 +769,7 @@ function gearRow(g) {
   );
 }
 function inkFormats(hex) {
-  const c = /^#[0-9a-f]{6}$/i.test(hex || "") ? hexToColor(hex) : { r: 1, g: 1, b: 1 };
+  const c = hexToColor(safeInk(hex));
   const [r, g, b] = [c.r, c.g, c.b].map((v) => Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 255));
   const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255, l = (max + min) / 2, d = max - min;
   let h = 0, s = 0;
