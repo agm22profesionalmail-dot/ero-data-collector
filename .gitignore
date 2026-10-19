@@ -21,7 +21,9 @@ test_type.html
 test_gallery.html
 
 # Locales / temporales
-supabase/.temp/
+.temp/
+__pycache__/
+*.py[cod]
 *.bak
 *.bak*
 *.log
