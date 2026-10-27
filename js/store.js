@@ -65,6 +65,9 @@ export function getRenderUrl(path) {
     return null;
   return `${R2_PUBLIC_URL}/renders/${path}`;
 }
+export const viaProxy = (url) => url.startsWith(`${R2_PUBLIC_URL}/`)
+  ? `/api/img?p=${encodeURIComponent(url.slice(R2_PUBLIC_URL.length + 1).split("?")[0])}`
+  : url;
 export function getRenderUrlFirst(paths) {
   for (const path of paths || []) {
     const url = getRenderUrl(path);

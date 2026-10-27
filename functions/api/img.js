@@ -1,7 +1,7 @@
 const R2_PUBLIC = "https://pub-5e28d3ea68944786851f5d81e47de75c.r2.dev";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const ALLOWED = new RegExp(
-  `^(renders/${UUID}/(c[12]/)?render\.(webp|png)|banners/${UUID}/banner(_c[12])?\.png)$`);
+  `^(renders/${UUID}/(c[12]/)?(render\.(webp|png)|spin\.webp)|banners/${UUID}/banner(_c[12])?\.png)$`);
 
 export async function onRequestGet({ request }) {
   const p = new URL(request.url).searchParams.get("p") || "";

@@ -29,7 +29,8 @@ import {
   getBannerUrl,
   getRenderUrl,
   renderPaths,
-  syncIdentityFields
+  syncIdentityFields,
+  viaProxy
 } from "./store.js";
 import { createRenderSpin } from "./render_spin.js";
 import { el, clear, toast } from "./ui.js";
@@ -646,6 +647,11 @@ async function firstLoadable(bases) {
   }
   return null;
 }
+  for (const base of bases) {
+    const url = base && viaProxy(base);
+    if (url && url !== base && await canLoad(url))
+      return url;
+  }
 function probeRender(ch) {
   if (!ch?.userId)
     return Promise.resolve(null);
@@ -812,7 +818,11 @@ function renderCharacterCard(ch) {
     img.addEventListener("load", () => {
       banner.hidden = false;
     });
-    img.src = getBannerUrl(d.banner_path, d.banner_sha256);
+    const bannerUrl = getBannerUrl(d.banner_path, d.banner_sha256);
+    img.addEventListener("error", () => {
+      img.src = viaProxy(bannerUrl);
+    }, { once: true });
+    img.src = bannerUrl;
     banner.append(img);
   }
   return el(
