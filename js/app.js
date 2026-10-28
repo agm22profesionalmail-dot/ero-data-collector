@@ -645,13 +645,13 @@ async function firstLoadable(bases) {
         return url;
     }
   }
-  return null;
-}
   for (const base of bases) {
     const url = base && viaProxy(base);
     if (url && url !== base && await canLoad(url))
       return url;
   }
+  return null;
+}
 function probeRender(ch) {
   if (!ch?.userId)
     return Promise.resolve(null);
